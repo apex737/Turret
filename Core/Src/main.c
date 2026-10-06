@@ -59,6 +59,50 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+/* 구현 전략
+ * 1) 마이크 모듈 파형 테스트
+ * 2) ADC-DMA 핑퐁 버퍼링 -> 지연 측정 & 지터 ??
+ * 3) DMA 버퍼의 값을 안전하게 복사하고 uint16_t 로 형변환
+ * 4) GCC-PHAT
+ * 	 - 1) 3-MIC FFT (Generalized Cross-Correlation)
+ * 	 - 2) BPF
+ * 	 - 3) PHAT (Phase Transform)
+ * 	 - 4) IFFT
+ * 	 - 5) Find Max (피크)
+ * 5) 후처리
+ * 	 - 1) 2차 보간 (Fs를 높여주는 효과.. 원리?)
+ * 	 - 2) LSE 오차보정
+ * 	 - 3) 시간차 -> 각도 변환
+ * */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* USER CODE END 0 */
 
