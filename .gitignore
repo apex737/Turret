@@ -1,0 +1,32 @@
+# ---- Build output (STM32CubeIDE) ----
+/Debug/
+/Release/
+*.o
+*.d
+*.su
+*.cyclo
+*.elf
+*.map
+*.list
+*.hex
+*.bin
+
+# ---- IDE / per-machine ----
+*.launch
+.settings/language.settings.xml
+.metadata/
+RemoteSystemsTempFiles/
+
+# ---- CubeMX backup ----
+Backup/
+*.ioc.bak
+
+# ---- Logs / editor / OS ----
+*.log
+st-link_gdbserver_log.txt
+.vscode/
+*.swp
+*~
+Thumbs.db
+Desktop.ini
+.DS_Store
