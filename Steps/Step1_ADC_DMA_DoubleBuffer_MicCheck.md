@@ -1,0 +1,136 @@
+# Step 1 — 3채널 ADC-DMA 이중 버퍼링 & 마이크 신호 검증
+
+> 프로젝트: 3-MIC TDOA(GCC-PHAT) 기반 음원 방향 추정 터렛 / STM32F446 (Nucleo)
+> 기간: 2026-10-07 ~ 2026-10-08
+
+## 1. 이 단계의 목표
+- 3개 마이크를 **동시 샘플링**해서 DMA 버퍼로 끊김 없이 받기
+- 핑퐁(이중) 버퍼로 한 절반을 처리하는 동안 다른 절반을 채우는 구조 만들기
+- STM32CubeMonitor로 각 마이크가 정상 출력하는지 확인
+
+---
+
+## 2. 하드웨어 / 클럭 / 주변장치 설정
+
+| 항목 | 설정 | 비고 |
+|---|---|---|
+| SYSCLK | HSI 16MHz → PLL (M=8, N=180, P=2) = **180MHz** | Over-drive ON, Flash latency 5 |
+| APB1 / APB2 | 45MHz / 90MHz | TIM2 클럭 = 45×2 = **90MHz** |
+| 샘플링 트리거 | TIM2, PSC=0, ARR=1799 → **50kHz** TRGO(Update) | ADC1 외부 트리거, Rising |
+| ADC 모드 | **3개 ADC 동시 변환(Triple regular simultaneous)** | ADC1=마스터, ADC2/3=슬레이브 |
+| 채널 | ADC1=PA0(IN0), ADC2=PA1(IN1), ADC3=PC0(IN10) | |
+| ADC 클럭 | PCLK2/4 = 22.5MHz | 28+12 = 40 cycles ≈ **1.78µs/변환** |
+| DMA | DMA2 Stream0 Ch0, P→M, half-word ↔ half-word, **Circular** | 다중모드 **DMA mode 1** (요청당 16bit, ADC1→2→3 순) |
+| DDS | `DMAContinuousRequests = ENABLE` → 공통 CCR.DDS=1 | 순환 DMA가 계속 요청받기 위해 필요 |
+| 시작 순서 | 슬레이브 `HAL_ADC_Start` ×2 → 마스터 `HAL_ADCEx_MultiModeStart_DMA` → `HAL_TIM_Base_Start` | 타이머를 마지막에 켜서 **buffer[0]=ADC1 보장** |
+
+> 다중모드에서 HAL은 슬레이브에 SWSTART를 걸지 않음 (HAL 소스 확인).
+
+---
+
+## 3. 버퍼 구조와 타이밍
+
+```
+adc_buffer[6144] (uint16_t)
+[ A 절반: 3072 = 1024샘플 × 3ch ][ B 절반: 3072 ]
+ 인터리브: [0]=ADC1 [1]=ADC2 [2]=ADC3 [3]=ADC1 ...
+          ↑ Half-Transfer IRQ        ↑ Transfer-Complete IRQ
+```
+
+| 값 | 계산 | 결과 |
+|---|---|---|
+| 프레임(절반) 길이 | 1024 / 50kHz | **20.48ms** |
+| 프레임 속도 | 50000 / 1024 | **48.8 frame/s** |
+| 프레임당 CPU 사이클 | 180MHz × 20.48ms | **3,686,400 cycles** |
+| 1샘플 시간 / 음속 이동거리 | 1/50kHz, 343m/s | 20µs / **6.86mm** |
+| 마이크 10cm 간격 최대 지연 | 0.1 / 343 | ≈291µs ≈ **15샘플** |
+
+---
+
+## 4. 이중 버퍼 구현 (`Core/Src/adc.c`, `Core/Src/app.c`)
+
+### 구조
+- **ISR(콜백)**: `HAL_ADC_ConvHalfCpltCallback` / `HAL_ADC_ConvCpltCallback` 에서 "어느 절반이 준비됐는지"만 표시 (`readyHalf`, `frameSeq++`).
+  - 다중모드 DMA도 HAL이 weak 콜백을 호출함 (`stm32f4xx_hal_adc_ex.c` 의 `ADC_MultiModeDMAConvCplt` / `HalfConvCplt`).
+- **메인 루프**: `adc_get_frame(frame)` 로 준비된 절반을 **채널별로 분리(디인터리브) 복사** → `frame[3][1024]`.
+
+### 설계 포인트
+1. `readyHalf` 는 `const uint16_t * volatile` — *포인터 변수 자체*가 volatile (ISR이 바꿈).
+2. `readyHalf`/`frameSeq` 를 읽고 지우는 구간은 `__disable_irq()` 로 짧게 보호 (ISR과 경쟁 방지).
+3. **복사 후 검증**: 복사 중 `frameSeq` 가 바뀌었으면 DMA가 src 절반을 다시 덮어쓰기 시작한 것 → 프레임 폐기 + `dropCnt++`.
+4. 콜백 시점에 이전 프레임이 아직 소비되지 않았으면 `dropCnt++` (처리 속도 부족).
+5. **처리 시간 한도 = 20.48ms/프레임**. 넘으면 drop 발생.
+6. F446(Cortex-M4)은 D-Cache가 없어서 DMA 캐시 일관성 문제 없음.
+7. 콜백 지터는 TDOA 정확도와 무관 — 샘플링 시점은 TIM2(하드웨어)가 결정하므로 샘플 간격 자체엔 지터가 없음. 콜백 지터는 처리 마감 시간에만 영향.
+
+
+
+---
+
+## 5. STM32CubeMonitor로 확인하기
+
+### 왜 통계값을 보는가
+CubeMonitor는 ST-LINK로 메모리를 읽는 방식이라 갱신 속도가 수십~수백 Hz → **50kHz 파형은 직접 못 봄**.
+→ 펌웨어에서 프레임마다 채널별 통계를 계산해 **전역 volatile 변수**에 넣고 그 값을 그래프로 봄.
+(`static` 없이 전역이어야 ELF 심볼로 보이고, `volatile` 이어야 최적화로 사라지지 않음)
+
+### 모니터링 변수 (`app.c`)
+| 변수 | 의미 | 정상 기대값 | 근거 |
+|---|---|---|---|
+| `mon_frame_cnt` | 데이터 경로 생존 확인 | 초당 ≈49 증가 | 50000/1024. 멈추면 DMA 정지(OVR)/에러 핸들러/HardFault |
+| `mon_mean[ch]` | DC 바이어스 | ≈2048 (VCC/2 바이어스 모듈 기준) | 단일 전원 앰프는 중간 전압 위에서 소리를 흔듦. 20ms 평균 시 AC≈0 → DC만 남음. 1.65/3.3×4095≈2048 |
+| `mon_p2p[ch]` | 프레임 내 max−min | 조용할 때 수십 LSB | 앰프/전원/ADC 잡음 바닥. 순간 스파이크에 민감 |
+| `mon_rms[ch]` | DC 제거 후 RMS (소리 에너지) | 조용할 때 작음 | 스파이크에 둔감. p2p와의 비율로 신호 성격 판단 (사인≈0.354, 가우시안 잡음≈0.17) |
+| `mon_drop_cnt` | 놓친 프레임 수 | 0 | 처리 시간 > 20.48ms 이면 증가 |
+
+### CubeMonitor 설정 / 트러블슈팅
+- `myVariables` 노드: Executable = `Debug/Turret.elf` (빌드·플래시한 것과 같은 ELF여야 주소가 맞음), Direct 모드, 20~50Hz.
+- **"Device not found (6)"** 오류 원인: Probe 미선택 + 미배포.
+  - `acq_out` / `acq_in` 노드 모두 같은 probe config에서 ST-LINK 시리얼 선택, SWD, AP 0, Normal/Hotplug (Under reset 아님).
+  - 노드 우상단 **파란 점 = 미배포** → DEPLOY.
+  - CubeIDE 디버그 세션이 ST-LINK를 점유하면 같은 오류 (동시 사용 시 "Shared ST-LINK" 활성화).
+  - 그래도 안 되면 ST-LINK 펌웨어 업그레이드.
+
+---
+
+## 6. 측정 결과 (채널 0 = PA0)
+
+| 관찰 | 해석 |
+|---|---|
+| mean ≈ 2048, 평평함 | 바이어스 정상 (VCC/2 타입 모듈) |
+| 조용할 때 p2p ≈ 50~100 | 잡음 바닥 정상 (≈40~80mV) |
+| 소리 시 **p2p ≈ 4000~4095** | ⚠️ **포화(클리핑)** — 0과 4095에 닿음 |
+| 소리 시 rms ≈ 300~900, rms/p2p ≈ 0.2 | 박수/두드림 같은 **충격성 신호** (사인보다 크레스트 팩터 큼) |
+| 계단 모양 | 한 계단 = 1프레임(20.48ms) 갱신, 정상 |
+| p2p가 −100 근처로 찍힘 | 차트 보간 그림. `uint16_t`라 음수 불가 |
+| drop_cnt = 0 | 현재 처리량(통계 계산)은 여유 있음 |
+
+**결론**: 채널 0 경로(TIM2→ADC→DMA→이중버퍼→처리)는 정상. 단 **클리핑은 GCC-PHAT 위상 정보를 왜곡**하므로 해결 필요.
+
+---
+
+## 7. 남은 이슈 / 다음 할 일
+
+### 즉시
+- [ ] **클리핑 해결**: 모듈 게인 낮추기 → 실제 사용 거리에서 큰 소리 시 p2p ≲ 3000 목표
+- [ ] 채널 1, 2도 차트에 추가 → **마이크 하나씩 두드려** 해당 채널만 반응하는지(채널 매핑) 확인
+  - 박수는 세 채널 모두 오르는 게 정상. 세 채널 값이 *숫자까지 동일*하면 배선/설정 의심
+- [ ] 같은 거리 박수로 3채널 rms 비교 → 감도/게인 편차 확인
+- [ ] (안전장치) ADC OVR 인터럽트가 NVIC에 등록되어 있지 않음 → overrun 시 DMA가 조용히 멈추고 복구 불가
+
+### 이 단계에서 추가로 측정할 플랏 (우선순위 순)
+1. **클리핑 카운터** `mon_clip[ch]` (샘플 ≤8 또는 ≥4087 개수) — 게인 튜닝용, 목표 0
+2. **UART 덤프 + Python** (트리거 프레임 1개, 3ch×1024)
+   - 3채널 시간 파형 겹쳐 보기 → 클리핑 형태, 마이크 간 도달 시간차 육안 확인
+   - **스펙트럼(FFT)**: 조용한 프레임 vs 박수 프레임 → 잡음 대역(60Hz 험 등)·신호 대역 파악 → **BPF 대역 결정 근거**
+   - 덤프 데이터로 Python에서 GCC-PHAT 프로토타입 → MCU 구현의 정답 데이터
+3. **타이밍 (DWT CYCCNT)**: 콜백 주기 min/max (기대 3,686,400 ± 수십), 처리 시간 `mon_proc_cyc` → CPU 점유율 = proc/3,686,400
+4. **동시 샘플링 검증**: 같은 신호를 PA0/PA1/PC0에 동시 입력 → 상호상관 지연 = 0 이어야 함, 채널 간 오프셋/게인 차이 측정
+5. 장시간 잡음 바닥 (조용한 상태 수 분) → 검출 임계값(rms의 5~10배) 기준, mean 드리프트 확인
+
+### 전체 로드맵 (app.c 주석 기준)
+1. 마이크 모듈 파형 테스트 ← **진행 중**
+2. ADC-DMA 핑퐁 버퍼링, 지연/지터 측정 ← **구조 완료, 타이밍 측정 남음**
+3. DMA 버퍼 안전 복사 ← **완료** (`adc_get_frame`) — FFT 단계에서 `float` + DC 제거로 바꾸는 것 고려
+4. GCC-PHAT: FFT → BPF → PHAT → IFFT → 피크 탐색 (CMSIS-DSP `arm_rfft_fast_f32` 예정)
+5. 후처리: 2차 보간(서브샘플 정밀도), LSE 오차 보정, 시간차 → 각도 변환
