@@ -1,7 +1,12 @@
+// 공통 Include
 #include "def.h"
 #include "app.h"
 #include "adc.h"
 #include <math.h>
+// UART 파형 디버깅
+#include "dump.h"
+#include "capture.h"
+
 
 static uint16_t frame[ADC_CH_CNT][ADC_SAMPLES_PER_HALF];
 
@@ -40,20 +45,20 @@ static void mic_stats(void)
 		mon_rms[ch]  = sqrtf(acc / ADC_SAMPLES_PER_HALF);
 	}
 }
+/* ------------------------------------------------------------------- */
 
 
 void app_init(AppHandle_t* app)
 {
+	 // UART 핸들 등록
+	dump_init(app->huart);
+	capture_init(NULL);         // 기본값: k_on 4, 잡음 학습 0.5초, holdoff 1초
+
 	adc_init(app->hadcMstr, app->hadcSlv1, app->hadcSlv2);
 	// timer init : TRGO, AWD
 	HAL_TIM_Base_Start(app->htimSmp);
-
-
-	// uart init
-
-
-
 }
+
 
 void app_main(void)
 /* 구현 전략
@@ -78,9 +83,32 @@ void app_main(void)
 		{
 			mic_stats();
 			mon_frame_cnt++;
+			capture_on_frame((const dump_frame_t *)&frame, mon_frame_cnt);   // ← 추가
 		}
 		mon_drop_cnt = adc_get_drop_cnt();
 	}
 }
+
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+	dump_on_tx_cplt(huart);
+}
+
+
+/* 선택: B1 버튼으로 수동 캡처 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if (GPIO_Pin == B1_Pin)
+		capture_request_manual();
+}
+
+
+
+
+
+
+
+
 
 

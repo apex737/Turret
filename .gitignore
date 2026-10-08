@@ -30,3 +30,9 @@ st-link_gdbserver_log.txt
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Tools
+Tools/.venv/
+Tools/dumps/
+__pycache__/
+*.npz

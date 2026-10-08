@@ -52,7 +52,11 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 	}
 }
 
-// app.c 에서 참조를 전달하면 데이터를 채널별로 담아서 돌려준다.
+/**
+ * @brief  ADC 프레임을 가져온다.
+ * @param  out: ADC_CH_CNT x ADC_SAMPLES_PER_HALF 크기의 배열
+ * @retval true: 프레임 가져오기 성공, false: 실패
+ */
 bool adc_get_frame(uint16_t out[ADC_CH_CNT][ADC_SAMPLES_PER_HALF])
 {
 	// 왜 irq를 disable 하는가?
