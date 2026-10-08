@@ -1,11 +1,11 @@
-# Step 1 — 3채널 ADC-DMA 이중 버퍼링 & 마이크 신호 검증
+# Step 1 — 3채널 ADC-DMA 더블 버퍼링 & 마이크 신호 검증
 
 > 프로젝트: 3-MIC TDOA(GCC-PHAT) 기반 음원 방향 추정 터렛 / STM32F446 (Nucleo)
 > 기간: 2026-10-07 ~ 2026-10-08
 
 ## 1. 이 단계의 목표
 - 3개 마이크를 **동시 샘플링**해서 DMA 버퍼로 끊김 없이 받기
-- 핑퐁(이중) 버퍼로 한 절반을 처리하는 동안 다른 절반을 채우는 구조 만들기
+- 핑퐁(더블) 버퍼로 한 절반을 처리하는 동안 다른 절반을 채우는 구조 만들기
 - STM32CubeMonitor로 각 마이크가 정상 출력하는지 확인
 
 ---
@@ -22,10 +22,7 @@
 | ADC 클럭 | PCLK2/4 = 22.5MHz | 28+12 = 40 cycles ≈ **1.78µs/변환** |
 | DMA | DMA2 Stream0 Ch0, P→M, half-word ↔ half-word, **Circular** | 다중모드 **DMA mode 1** (요청당 16bit, ADC1→2→3 순) |
 | DDS | `DMAContinuousRequests = ENABLE` → 공통 CCR.DDS=1 | 순환 DMA가 계속 요청받기 위해 필요 |
-| 시작 순서 | 슬레이브 `HAL_ADC_Start` ×2 → 마스터 `HAL_ADCEx_MultiModeStart_DMA` → `HAL_TIM_Base_Start` | 타이머를 마지막에 켜서 **buffer[0]=ADC1 보장** |
-
-> 다중모드에서 HAL은 슬레이브에 SWSTART를 걸지 않음 (HAL 소스 확인).
-
+| 시작 순서 | 슬레이브 `HAL_ADC_Start` ×2 → 마스터 `HAL_ADCEx_MultiModeStart_DMA` → `HAL_TIM_Base_Start` | 타이머를 마지막에 켜서 **buffer[0]=ADC1 보장**
 ---
 
 ## 3. 버퍼 구조와 타이밍
@@ -34,7 +31,6 @@
 adc_buffer[6144] (uint16_t)
 [ A 절반: 3072 = 1024샘플 × 3ch ][ B 절반: 3072 ]
  인터리브: [0]=ADC1 [1]=ADC2 [2]=ADC3 [3]=ADC1 ...
-          ↑ Half-Transfer IRQ        ↑ Transfer-Complete IRQ
 ```
 
 | 값 | 계산 | 결과 |
@@ -83,13 +79,6 @@ CubeMonitor는 ST-LINK로 메모리를 읽는 방식이라 갱신 속도가 수�
 | `mon_rms[ch]` | DC 제거 후 RMS (소리 에너지) | 조용할 때 작음 | 스파이크에 둔감. p2p와의 비율로 신호 성격 판단 (사인≈0.354, 가우시안 잡음≈0.17) |
 | `mon_drop_cnt` | 놓친 프레임 수 | 0 | 처리 시간 > 20.48ms 이면 증가 |
 
-### CubeMonitor 설정 / 트러블슈팅
-- `myVariables` 노드: Executable = `Debug/Turret.elf` (빌드·플래시한 것과 같은 ELF여야 주소가 맞음), Direct 모드, 20~50Hz.
-- **"Device not found (6)"** 오류 원인: Probe 미선택 + 미배포.
-  - `acq_out` / `acq_in` 노드 모두 같은 probe config에서 ST-LINK 시리얼 선택, SWD, AP 0, Normal/Hotplug (Under reset 아님).
-  - 노드 우상단 **파란 점 = 미배포** → DEPLOY.
-  - CubeIDE 디버그 세션이 ST-LINK를 점유하면 같은 오류 (동시 사용 시 "Shared ST-LINK" 활성화).
-  - 그래도 안 되면 ST-LINK 펌웨어 업그레이드.
 
 ---
 
@@ -113,9 +102,8 @@ CubeMonitor는 ST-LINK로 메모리를 읽는 방식이라 갱신 속도가 수�
 
 ### 즉시
 - [ ] **클리핑 해결**: 모듈 게인 낮추기 → 실제 사용 거리에서 큰 소리 시 p2p ≲ 3000 목표
-- [ ] 채널 1, 2도 차트에 추가 → **마이크 하나씩 두드려** 해당 채널만 반응하는지(채널 매핑) 확인
+- [x] 채널 1, 2도 차트에 추가 → **마이크 하나씩 두드려** 해당 채널만 반응하는지(채널 매핑) 확인
   - 박수는 세 채널 모두 오르는 게 정상. 세 채널 값이 *숫자까지 동일*하면 배선/설정 의심
-- [ ] 같은 거리 박수로 3채널 rms 비교 → 감도/게인 편차 확인
 - [ ] (안전장치) ADC OVR 인터럽트가 NVIC에 등록되어 있지 않음 → overrun 시 DMA가 조용히 멈추고 복구 불가
 
 ### 이 단계에서 추가로 측정할 플랏 (우선순위 순)
