@@ -25,14 +25,18 @@ Backup/
 *.log
 st-link_gdbserver_log.txt
 .vscode/
+.claude/
 *.swp
 *~
 Thumbs.db
 Desktop.ini
 .DS_Store
 
-# Tools
+# ---- Tools (Python) ----
 Tools/.venv/
-Tools/dumps/
 __pycache__/
+*.pyc
+
+# ---- 측정 데이터 (doa_live.py / dump_viewer.py 가 만드는 것) ----
+Tools/dumps/
 *.npz
