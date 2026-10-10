@@ -23,6 +23,9 @@ HDR_FMT = "<4sBBBBIIHH"           # sync ver type ch flags seq frame_seq n len
 HDR_LEN = struct.calcsize(HDR_FMT)  # 20
 VER = 2
 TYPE_RAW = 0x01
+TYPE_RESULT = 0x02                # MCU가 계산한 TDOA 결과 (dump.h 의 dump_result_t)
+RESULT_FMT = "<3f3fffHHI"         # tau[3] peak[3] angle_deg norm onset win_start proc_us
+RESULT_LEN = struct.calcsize(RESULT_FMT)  # 40
 MAX_PAYLOAD = 64 * 1024
 
 FLAG_CLIP = 0x01
@@ -57,7 +60,11 @@ class PacketParser:
                 break
 
             _, ver, typ, ch, flags, seq, fseq, n, length = struct.unpack_from(HDR_FMT, self.buf, 0)
-            if ver != VER or ch == 0 or length != ch * n * 2 or length > MAX_PAYLOAD:
+            if typ == TYPE_RAW:
+                len_ok = ch != 0 and length == ch * n * 2 and length <= MAX_PAYLOAD
+            else:
+                len_ok = typ == TYPE_RESULT and length == RESULT_LEN
+            if ver != VER or not len_ok:
                 self.stats["bad_hdr"] += 1
                 del self.buf[:1]
                 continue
@@ -80,6 +87,12 @@ class PacketParser:
             self.last_seq = seq
             self.stats["ok"] += 1
 
+            if typ == TYPE_RESULT:
+                v = struct.unpack_from(RESULT_FMT, pkt, HDR_LEN)
+                out.append(dict(seq=seq, frame_seq=fseq, type=typ, flags=flags,
+                                result=dict(tau=v[0:3], peak=v[3:6], angle=v[6], norm=v[7],
+                                            onset=v[8], win_start=v[9], proc_us=v[10])))
+                continue
             data_arr = np.frombuffer(pkt, dtype="<u2", count=ch * n, offset=HDR_LEN)
             out.append(dict(seq=seq, frame_seq=fseq, type=typ, flags=flags,
                             data=data_arr.reshape(ch, n).copy()))
@@ -196,6 +209,8 @@ def run_serial(args):
             while True:
                 data = ser.read(ser.in_waiting or 1)
                 for pkt in parser.feed(data):
+                    if pkt["type"] != TYPE_RAW:
+                        continue                # 결과 패킷은 doa_live.py 에서 본다
                     path = os.path.join(args.out, f"f_{pkt['seq']:06d}.npz")
                     np.savez(path, data=pkt["data"], seq=pkt["seq"], frame_seq=pkt["frame_seq"],
                              flags=pkt["flags"], fs=args.fs)
