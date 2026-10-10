@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Step 2 도우미 — 소리가 났을 때만 PC로 보내기</title>
+<style>
+:root{
+  --bg:#fcfcfb; --panel:#ffffff; --ink:#0b0b0b; --ink2:#52514e; --muted:#8a8984; --line:#e4e3de;
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --warn:#e34948; --accent:#4a3aa7; --hl:#eda100; --soft:#f1f0ec;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#1a1a19; --panel:#232322; --ink:#ffffff; --ink2:#c3c2b7; --muted:#8f8e86; --line:#3a3a37;
+    --c1:#3987e5; --c2:#d95926; --c3:#199e70; --warn:#e66767; --accent:#9085e9; --hl:#c98500; --soft:#2c2c2a;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.7 system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+header.hero{max-width:980px;margin:0 auto;padding:30px 16px 6px}
+header.hero h1{font-size:26px;line-height:1.3;margin:0 0 6px}
+header.hero p{margin:0;color:var(--ink2)}
+nav.toc{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+nav.toc div{max-width:980px;margin:0 auto;padding:8px 16px;display:flex;gap:8px;overflow-x:auto}
+nav.toc a{white-space:nowrap;font-size:13px;color:var(--ink2);text-decoration:none;padding:3px 11px;border:1px solid var(--line);border-radius:999px}
+nav.toc a:hover{color:var(--ink);border-color:var(--muted)}
+main{max-width:980px;margin:0 auto;padding:0 16px 60px}
+section.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:22px 0;scroll-margin-top:56px}
+section.card h2{font-size:20px;margin:0 0 4px}
+section.card .lead{color:var(--ink2);margin:0 0 12px}
+canvas{width:100%;display:block;border-radius:10px;background:var(--bg);border:1px solid var(--line)}
+.controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:12px 0}
+button{font:inherit;font-size:14px;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:6px 13px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.on{background:var(--c1);border-color:var(--c1);color:#fff}
+label.sl{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink2)}
+label.sl output{min-width:52px;color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=range]{width:150px;accent-color:var(--c1)}
+.note{font-size:14px;color:var(--ink2);margin:10px 0 0}
+.status{font-size:14.5px;margin:10px 0 0;padding:9px 12px;border-radius:9px;background:var(--soft);min-height:42px}
+.key{margin:14px 0 0;padding:10px 14px;border-left:4px solid var(--c1);background:var(--soft);border-radius:0 9px 9px 0;font-size:15px}
+.key b{color:var(--ink)}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px}
+.flow .node{flex:1 1 104px;text-align:center;font-size:14px;line-height:1.35;padding:10px 6px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer;transition:border-color .25s, box-shadow .25s}
+.flow .node small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.flow .node.on{border-color:var(--c1);box-shadow:0 0 0 3px color-mix(in srgb,var(--c1) 22%,transparent)}
+.flow .arr{align-self:center;color:var(--muted);font-size:15px}
+.fields{display:flex;gap:3px;margin:10px 0}
+.fields .f{flex:1 1 0;min-width:0;text-align:center;font-size:12.5px;line-height:1.3;padding:8px 2px;border:1.5px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer;overflow:hidden}
+.fields .f b{display:block;font-size:13px}
+.fields .f small{color:var(--muted)}
+.fields .f.on{border-color:var(--c1);box-shadow:0 0 0 3px color-mix(in srgb,var(--c1) 22%,transparent)}
+.fields .f.big{flex:4.5 1 0}
+.tape{display:flex;flex-wrap:wrap;gap:3px;margin:10px 0;font:13px/1 ui-monospace,Consolas,monospace}
+.tape span{padding:7px 5px;border:1.5px solid var(--line);border-radius:6px;background:var(--bg);transition:all .25s}
+.tape span.wide{padding:7px 12px;color:var(--ink2)}
+.tape span.hit{border-color:var(--c1);background:color-mix(in srgb,var(--c1) 16%,var(--bg))}
+.tape span.drop{border-color:var(--warn);color:var(--muted);text-decoration:line-through}
+.tape span.ok{border-color:var(--c3);background:color-mix(in srgb,var(--c3) 16%,var(--bg))}
+.tape span.bad{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 16%,var(--bg))}
+table{border-collapse:collapse;font-size:14.5px;margin:8px 0}
+td,th{border-bottom:1px solid var(--line);padding:6px 12px 6px 0;text-align:left;vertical-align:top}
+th{color:var(--ink2);font-weight:600}
+code{font:13.5px ui-monospace,Consolas,monospace;background:var(--soft);padding:1px 5px;border-radius:5px}
+ul.sum{margin:6px 0 0;padding-left:20px}
+footer{max-width:980px;margin:0 auto;padding:0 16px 40px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>Step 2 도우미 — 소리가 났을 때만 PC로 보내기</h1>
+  <p>마이크 3개의 원래 파형을 PC에서 보고 싶은데, 통신이 느려서 전부 보낼 수는 없습니다. 그래서 "소리가 난 순간"만 골라 보내는 장치를 만들었습니다. 코드를 몰라도 따라올 수 있게 움직이는 그림으로 설명합니다.</p>
+</header>
+<nav class="toc"><div>
+  <a href="#s-flow">1 전체 흐름</a><a href="#s-rate">2 왜 다 못 보내나</a><a href="#s-rms">3 소리 크기 재기</a>
+  <a href="#s-pre">4 직전 프레임</a><a href="#s-trig">5 "소리 났다" 판정</a><a href="#s-pkt">6 패킷 포장</a>
+  <a href="#s-time">7 시간표</a><a href="#s-sum">정리</a>
+  <button id="pauseBtn" style="margin-left:auto;font-size:13px;padding:2px 11px">애니메이션 멈춤</button>
+</div></nav>
+
+<main>
+
+<section class="card" id="s-flow">
+  <h2>1. 전체 흐름</h2>
+  <p class="lead">소리가 PC 화면의 그래프가 되기까지 7단계를 거칩니다. 상자를 누르면 설명이 바뀝니다.</p>
+  <div class="flow" id="flow"></div>
+  <div class="status" id="flowDesc"></div>
+  <div class="key"><b>역할 분담:</b> capture는 "언제 보낼지"만 정하고, dump는 "어떻게 보낼지"만 압니다. 서로의 일을 모릅니다.</div>
+</section>
+
+<section class="card" id="s-rate">
+  <h2>2. 왜 전부 보내지 못하나</h2>
+  <p class="lead">마이크 데이터는 1초에 300KB씩 생기는데, UART는 1초에 92KB밖에 못 보냅니다. 물이 들어오는 속도가 빠져나가는 속도의 3배인 물통과 같습니다.</p>
+  <canvas id="cvRate"></canvas>
+  <div class="controls">
+    <button id="rateAll" class="on">전부 보내기</button>
+    <button id="rateEvt">소리 날 때만 보내기</button>
+  </div>
+  <p class="note">계산: 50,000번/초 × 마이크 3개 × 2바이트 = 300KB/초. UART 921,600bps는 1바이트에 10비트를 쓰므로 약 92KB/초.</p>
+  <div class="key"><b>해결:</b> 소리가 난 순간의 40.96ms 분량(12.3KB)만 보냅니다. 보내는 데 0.134초가 걸리지만, 1초에 한 번 이하라서 물통이 넘치지 않습니다.</div>
+</section>
+
+<section class="card" id="s-rms">
+  <h2>3. "소리 크기"를 숫자 하나로 — AC RMS</h2>
+  <p class="lead">마이크 값은 조용할 때도 0이 아니라 2048 근처에 있습니다. 소리는 그 기준선 위아래로 <b>흔들리는 폭</b>입니다. 그래서 기준선(평균)을 빼고 흔들림의 크기만 잽니다.</p>
+  <canvas id="cvRms"></canvas>
+  <div class="controls">
+    <label class="sl">소리 크기 <input type="range" id="rmsAmp" min="0" max="2600" value="600" step="10"><output id="rmsAmpO"></output></label>
+  </div>
+  <div class="status" id="rmsOut"></div>
+  <p class="note"><b>LSB</b>는 ADC 숫자 한 칸입니다. 12비트 ADC는 0~4095를 내고, 3.3V 기준으로 한 칸이 약 0.8mV입니다. "RMS 20 LSB"는 "흔들림 크기가 20칸"이라는 뜻입니다.</p>
+  <div class="key"><b>AC RMS = 표준편차.</b> 통계에서는 표준편차, 신호 쪽에서는 AC RMS라고 부를 뿐 같은 계산입니다. 코드는 프레임마다 채널별로 이 값을 구하고, 세 채널 중 가장 큰 값을 그 프레임의 "크기"로 씁니다.</div>
+</section>
+
+<section class="card" id="s-pre">
+  <h2>4. 블랙박스처럼 — 직전 프레임까지 같이 보내기</h2>
+  <p class="lead">데이터는 1024개(20.48ms)씩 묶인 "프레임"으로 들어옵니다. 프레임이 <b>끝난 뒤에야</b> 그 프레임이 컸는지 알 수 있습니다. 그래서 항상 직전 프레임을 하나 보관해 둡니다. 아래는 느린 화면입니다.</p>
+  <canvas id="cvPre"></canvas>
+  <div class="controls">
+    <button id="preMid">프레임 한가운데서 스냅</button>
+    <button id="preEdge">프레임 끝자락에서 스냅</button>
+    <label class="sl"><input type="checkbox" id="preOn" checked> 직전 프레임도 같이 보내기</label>
+  </div>
+  <div class="status" id="preMsg">버튼을 눌러 소리를 내 보세요.</div>
+  <div class="key"><b>왜 필요한가:</b> 소리가 프레임 끝자락에서 시작하면 그 프레임은 "작다"로 판정되고, 다음 프레임에서 트리거됩니다. 직전 프레임이 없으면 소리의 <b>시작 부분</b>이 빠집니다. 방향 계산에는 시작 부분이 가장 중요합니다.</div>
+</section>
+
+<section class="card" id="s-trig">
+  <h2>5. "소리가 났다"를 어떻게 정하나 — 스스로 맞춰지는 문턱</h2>
+  <p class="lead">고정된 기준 대신, <b>평소 조용할 때의 크기(잡음 바닥)</b>를 계속 배워 두고 "평소의 몇 배"를 넘으면 소리로 봅니다. 세로축은 배수가 잘 보이도록 로그 눈금입니다.</p>
+  <canvas id="cvTrig"></canvas>
+  <div class="controls">
+    <button id="tSnap">스냅 (갑자기 큰 소리)</button>
+    <button id="tRamp">서서히 커지는 소리 (3초)</button>
+    <button id="tAmb">주변 소음 켜기</button>
+    <button id="tReset">처음부터</button>
+  </div>
+  <div class="controls">
+    <label class="sl">몇 배를 넘어야 하나 (k_on) <input type="range" id="tK" min="2" max="8" step="0.5" value="4"><output id="tKO"></output></label>
+    <label class="sl">바닥이 따라가는 속도 (alpha) <input type="range" id="tA" min="-2.3" max="-0.7" step="0.05" value="-1.3"><output id="tAO"></output></label>
+    <label class="sl">다시 걸리지 않는 시간 (holdoff) <input type="range" id="tH" min="0" max="60" step="5" value="50"><output id="tHO"></output></label>
+  </div>
+  <div class="status" id="tMsg"></div>
+  <table>
+    <tr><th>선</th><th>뜻</th></tr>
+    <tr><td style="color:var(--ink)">● 크기</td><td>이번 프레임의 AC RMS (세 마이크 중 최대)</td></tr>
+    <tr><td style="color:var(--accent)">━ 잡음 바닥</td><td>조용한 프레임에서만 조금씩 갱신하는 평균. <code>바닥 += alpha × (크기 − 바닥)</code></td></tr>
+    <tr><td style="color:var(--warn)">┅ 문턱</td><td><code>max(k_on × 바닥, 20)</code>. 크기가 이 선을 넘으면 캡처</td></tr>
+  </table>
+  <div class="key"><b>해볼 것:</b> ① 스냅은 바로 잡힙니다. ② 서서히 커지는 소리는 바닥이 따라 올라가서 <b>잡히지 않습니다</b>. alpha를 아주 작게 하면 잡힙니다. ③ 주변 소음을 켜면 처음 한 번 걸린 뒤 문턱이 스스로 올라가 적응합니다. ④ holdoff를 0으로 하면 스냅 한 번에 여러 번 걸립니다.</div>
+</section>
+
+<section class="card" id="s-pkt">
+  <h2>6. 포장해서 보내기 — 패킷</h2>
+  <p class="lead">UART는 바이트가 줄줄이 흘러갈 뿐, 어디가 시작인지 표시가 없습니다. 그래서 데이터 앞뒤에 약속된 표시를 붙입니다. 칸을 누르면 설명이 나옵니다.</p>
+  <div class="fields" id="fields"></div>
+  <div class="status" id="fieldDesc"></div>
+  <p class="note">데이터 부분은 마이크별로 모아서 넣습니다: <code>MIC1 직전·현재 | MIC2 직전·현재 | MIC3 직전·현재</code>. PC가 마이크 하나의 파형을 한 덩어리로 바로 읽을 수 있습니다.</p>
+  <h3 style="font-size:16px;margin:18px 0 0">PC가 패킷을 찾는 과정</h3>
+  <div class="tape" id="tape"></div>
+  <div class="controls">
+    <button id="pNext">다음 단계</button><button id="pReset">처음부터</button>
+    <label class="sl"><input type="checkbox" id="pBad"> 전송 중 1비트가 깨졌다면</label>
+  </div>
+  <div class="status" id="pMsg"></div>
+  <div class="key"><b>CRC</b>는 데이터 전체를 16비트 "지문"으로 요약한 값입니다. 보내는 쪽과 받는 쪽이 같은 공식으로 각자 계산해서, 값이 다르면 중간에 깨진 것으로 보고 버립니다.</div>
+</section>
+
+<section class="card" id="s-time">
+  <h2>7. 한 번 캡처할 때의 시간표</h2>
+  <p class="lead">전송은 DMA라는 하드웨어가 맡기 때문에, CPU는 "보내기 시작"만 하고 바로 다음 프레임 처리로 돌아갑니다.</p>
+  <canvas id="cvTime"></canvas>
+  <table>
+    <tr><th>줄</th><th>내용</th></tr>
+    <tr><td>CPU</td><td>프레임마다 크기 계산(짧은 눈금). 트리거되면 포장과 CRC 계산을 한 번 더 함</td></tr>
+    <tr><td>UART 전송</td><td>12,310바이트를 0.134초 동안 내보냄. 이동안 "송신 중(busy)" 깃발이 서 있고, 새 패킷은 시작할 수 없음</td></tr>
+    <tr><td>재트리거 금지</td><td>1초(50프레임). 울림에 다시 걸리는 것을 막고 전송 시간을 확보함</td></tr>
+  </table>
+  <div class="key"><b>"실시간"의 뜻:</b> 연속 재생이 아닙니다. 소리가 난 뒤 약 0.15초가 지나면 그 순간의 파형이 PC에 그려진다는 뜻입니다. 파형의 시간축은 도착 시각이 아니라 샘플 번호로 만들기 때문에, 전송이 느려도 20µs 간격은 그대로 유지됩니다.</div>
+</section>
+
+<section class="card" id="s-sum">
+  <h2>정리</h2>
+  <ul class="sum">
+    <li>데이터가 통신보다 3배 빨리 생기므로, 소리가 난 순간만 골라 보낸다.</li>
+    <li>소리 크기는 기준선을 뺀 흔들림의 크기(AC RMS)로 잰다.</li>
+    <li>판정은 프레임이 끝난 뒤에 나오므로, 직전 프레임을 항상 보관했다가 같이 보낸다.</li>
+    <li>문턱은 "평소의 4배"처럼 잡음 바닥에 맞춰 스스로 움직인다. 대신 서서히 커지는 소리는 못 잡는다.</li>
+    <li>패킷은 시작 표시 + 머리표 + 데이터 + CRC. PC는 시작 표시를 찾고 CRC로 검사한다.</li>
+    <li>한 번 보내면 1초 동안 다시 보내지 않는다.</li>
+  </ul>
+  <p class="note">자세한 내용과 코드 설명은 <a href="Step2_UART_Dump_Capture_SignalCheck.md">Step2 문서</a>에 있습니다.</p>
+</section>
+
+</main>
+<footer>3-MIC TDOA 터렛 프로젝트 · Step 2 시각 자료. 숫자는 Step2 문서와 같은 값을 썼고, 그림 속 파형은 설명용으로 만든 것입니다.</footer>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const C = {};
+function readColors(){
+  const g = getComputedStyle(document.documentElement);
+  for (const k of ['bg','panel','ink','ink2','muted','line','c1','c2','c3','warn','accent','hl','soft']) C[k] = g.getPropertyValue('--' + k).trim();
+}
+readColors();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+
+function canvas(id, h){
+  const c = document.getElementById(id), ctx = c.getContext('2d'), o = {c, ctx, W: 0, H: h};
+  function fit(){
+    const w = c.clientWidth || c.parentElement.clientWidth || 900, d = window.devicePixelRatio || 1;
+    c.width = Math.round(w * d); c.height = Math.round(h * d);
+    ctx.setTransform(d, 0, 0, d, 0, 0); o.W = w;
+  }
+  c.style.height = h + 'px'; fit(); addEventListener('resize', fit);
+  return o;
+}
+function txt(ctx, s, x, y, color, size, align){
+  ctx.fillStyle = color || C.ink2; ctx.font = (size || 12) + 'px system-ui, "Malgun Gothic", sans-serif';
+  ctx.textAlign = align || 'left'; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y);
+}
+function line(ctx, x1, y1, x2, y2, color, w, dash){
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w || 1; if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
+}
+function alpha(hex, a){ const n = parseInt(hex.slice(1), 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
+function hash(i){ const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+
+// 화면에 보이는 장면만 움직인다
+const scenes = [];
+const io = new IntersectionObserver(es => es.forEach(e => { const s = scenes.find(s => s.el === e.target); if (s) s.vis = e.isIntersecting; }), {rootMargin: '120px'});
+function scene(el, step){ const s = {el, step, vis: true}; scenes.push(s); io.observe(el); return s; }
+let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const pauseBtn = $('#pauseBtn');
+function showPause(){ pauseBtn.textContent = paused ? '애니메이션 재생' : '애니메이션 멈춤'; }
+pauseBtn.onclick = () => { paused = !paused; showPause(); };
+showPause();
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  for (const s of scenes) if (s.vis) s.step(paused ? 0 : dt);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- 1. 전체 흐름 ---------- */
+(function(){
+  const nodes = [
+    ['마이크 3개', '소리 → 전압', '공기의 떨림을 전압으로 바꿉니다. 조용할 때는 약 1.65V(ADC 숫자로 2048) 근처에 있고, 소리가 나면 그 위아래로 흔들립니다.'],
+    ['ADC + DMA', '1초에 5만 번', '전압을 숫자(0~4095)로 바꿉니다. 마이크 3개를 같은 순간에 1초에 50,000번씩 재고, DMA라는 하드웨어가 CPU 도움 없이 메모리에 차곡차곡 쌓습니다.'],
+    ['프레임', '1024개 묶음', '숫자가 1024개(20.48ms 분량) 찰 때마다 한 묶음으로 꺼냅니다. 이후의 모든 처리는 이 묶음 단위로 합니다.'],
+    ['capture', '보낼지 판정', '이 프레임에 소리가 있었는지 판정합니다. 크기를 재서 "평소의 4배"를 넘으면 캡처합니다. 직전 프레임도 여기서 보관합니다. (capture.c)'],
+    ['dump', '포장', '보낼 프레임 앞에 머리표(헤더)를, 뒤에 검사값(CRC)을 붙여 패킷 하나로 만듭니다. 언제 보낼지는 모르고, 시키면 포장해서 보내기만 합니다. (dump.c)'],
+    ['UART', '921,600bps', '선 하나로 바이트를 차례로 내보냅니다. 여기도 DMA가 맡아서, CPU는 "시작"만 시키고 다른 일을 합니다.'],
+    ['PC 뷰어', '검사 · 저장 · 그래프', '바이트 흐름에서 패킷을 찾아 CRC로 검사하고, 파일(npz)로 저장한 뒤 파형과 스펙트럼을 그립니다. (dump_viewer.py)'],
+  ];
+  const box = $('#flow'), desc = $('#flowDesc');
+  let cur = 0, hold = 0, acc = 0;
+  nodes.forEach((n, i) => {
+    if (i) { const a = document.createElement('div'); a.className = 'arr'; a.textContent = '→'; box.appendChild(a); }
+    const d = document.createElement('div'); d.className = 'node'; d.innerHTML = n[0] + '<small>' + n[1] + '</small>';
+    d.onclick = () => { cur = i; hold = 12; show(); };
+    box.appendChild(d);
+  });
+  const els = box.querySelectorAll('.node');
+  function show(){ els.forEach((e, i) => e.classList.toggle('on', i === cur)); desc.innerHTML = '<b>' + nodes[cur][0] + '</b> — ' + nodes[cur][2]; }
+  show();
+  scene(box, dt => {
+    if (hold > 0) { hold -= dt; return; }
+    acc += dt; if (acc > 3.2) { acc = 0; cur = (cur + 1) % nodes.length; show(); }
+  });
+})();
+
+/* ---------- 2. 왜 다 못 보내나 ---------- */
+(function(){
+  const cv = canvas('cvRate', 230);
+  let mode = 'all', level = 0, lost = 0, ph = 0, evT = 1.2, flash = 0;
+  function set(m){ mode = m; level = 0; lost = 0; evT = 1.2; $('#rateAll').classList.toggle('on', m === 'all'); $('#rateEvt').classList.toggle('on', m === 'evt'); }
+  $('#rateAll').onclick = () => set('all'); $('#rateEvt').onclick = () => set('evt');
+  const CAP = 400;
+  scene(cv.c, dt => {
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H);
+    let inRate = 300;
+    if (mode === 'evt') {
+      inRate = 0; evT += dt; flash = Math.max(0, flash - dt);
+      if (evT > 1.6) { evT = 0; level += 12.3; flash = 0.5; }
+    }
+    level += (inRate - 92) * dt; if (level < 0) level = 0;
+    if (level > CAP) { lost += level - CAP; level = CAP; }
+    ph += dt;
+    const tx = W * 0.36, tw = W * 0.28, ty = 34, th = H - 78, midY = ty + th * 0.35;
+    // 물통
+    ctx.fillStyle = alpha(C.c1, 0.28); const fh = th * level / CAP; ctx.fillRect(tx, ty + th - fh, tw, fh);
+    ctx.strokeStyle = C.ink2; ctx.lineWidth = 1.5; ctx.strokeRect(tx, ty, tw, th);
+    txt(ctx, '보내려고 기다리는 데이터', tx + tw / 2, ty - 14, C.ink2, 12.5, 'center');
+    txt(ctx, level.toFixed(0) + ' KB', tx + tw / 2, ty + th / 2, C.ink, 20, 'center');
+    // 들어오는 흐름
+    const nIn = mode === 'all' ? 12 : 0, spIn = 150;
+    line(ctx, 14, midY, tx, midY, C.line, 10);
+    for (let i = 0; i < nIn; i++) { const x = 14 + ((ph * spIn + i * (tx - 14) / nIn) % (tx - 14)); ctx.fillStyle = C.c1; ctx.fillRect(x - 5, midY - 3, 10, 6); }
+    if (mode === 'evt' && flash > 0) { const x = 14 + (tx - 14) * (1 - flash / 0.5); ctx.fillStyle = C.c1; ctx.fillRect(x - 18, midY - 4, 36, 8); }
+    txt(ctx, mode === 'all' ? '마이크 데이터  300 KB/초' : '소리 난 순간만  12.3 KB', 14, midY - 20, C.ink, 13);
+    // 나가는 흐름
+    const ox = tx + tw, oy = ty + th - 10, spOut = 46, nOut = 4;
+    line(ctx, ox, oy, W - 14, oy, C.line, 5);
+    if (level > 0.5) for (let i = 0; i < nOut; i++) { const x = ox + ((ph * spOut + i * (W - 14 - ox) / nOut) % (W - 14 - ox)); ctx.fillStyle = C.c3; ctx.fillRect(x - 5, oy - 2, 10, 4); }
+    txt(ctx, 'UART  92 KB/초', W - 14, oy - 16, C.ink, 13, 'right');
+    // 결과
+    if (mode === 'all') txt(ctx, '넘쳐서 버려진 데이터  ' + lost.toFixed(0) + ' KB', W / 2, H - 16, lost > 0 ? C.warn : C.ink2, 14, 'center');
+    else txt(ctx, '넘치지 않음 — 물통이 거의 항상 비어 있습니다', W / 2, H - 16, C.c3, 14, 'center');
+  });
+})();
+
+/* ---------- 3. AC RMS ---------- */
+(function(){
+  const cv = canvas('cvRms', 220), sl = $('#rmsAmp'), out = $('#rmsOut');
+  let ph = 0;
+  function info(){
+    const A = +sl.value; $('#rmsAmpO').textContent = A;
+    const clip = A > 2047;
+    out.innerHTML = '평균(기준선) <b>2048</b> · 흔들림 폭 <b>' + Math.min(4095, 2 * A) + '</b> LSB · AC RMS <b>약 ' + (Math.min(A, 2047) / Math.SQRT2).toFixed(0) + '</b> LSB' +
+      (clip ? ' · <span style="color:var(--warn)"><b>클리핑</b>: 0과 4095에서 잘렸습니다. 마이크 감도를 낮춰야 합니다.</span>' : '');
+  }
+  sl.oninput = info; info();
+  scene(cv.c, dt => {
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H); ph += dt * 2.2;
+    const A = +sl.value, x0 = 54, x1 = W - 12, y = v => 14 + (H - 28) * (1 - v / 4095);
+    for (const v of [0, 2048, 4095]) { line(ctx, x0, y(v), x1, y(v), v === 2048 ? C.accent : C.line, 1, v === 2048 ? [5, 4] : null); txt(ctx, String(v), x0 - 6, y(v), C.muted, 11.5, 'right'); }
+    txt(ctx, '평균 = 기준선', x1 - 4, y(2048) - 10, C.accent, 12, 'right');
+    ctx.beginPath(); ctx.moveTo(x0, y(2048));
+    const pts = [];
+    for (let x = x0; x <= x1; x += 2) {
+      const t = (x - x0) / (x1 - x0), env = 0.75 + 0.25 * Math.sin(t * 5 + ph * 0.4);
+      let v = 2048 + A * env * Math.sin(t * 46 - ph * 3); v = Math.max(0, Math.min(4095, v)); pts.push([x, y(v)]); ctx.lineTo(x, y(v));
+    }
+    ctx.lineTo(x1, y(2048)); ctx.closePath(); ctx.fillStyle = alpha(C.c1, 0.16); ctx.fill();
+    ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.strokeStyle = C.c1; ctx.lineWidth = 1.8; ctx.stroke();
+    txt(ctx, 'ADC 값', 8, 10, C.muted, 11.5);
+  });
+})();
+
+/* ---------- 4. 직전 프레임 ---------- */
+(function(){
+  const cv = canvas('cvPre', 300), msg = $('#preMsg');
+  const FR = 20.48, SPAN = 5.2 * FR, RATE = 17, THR = 0.08, HOLD = 4;
+  let T = FR * 2.3, events = [], lvl = {}, caps = [], hold = 0, lastK = Math.floor(T / FR), blockUntil = 0;
+  const sig = t => {
+    let v = (hash(Math.floor(t * 50)) - 0.5) * 0.06;
+    for (const e of events) if (t >= e) { const d = t - e; if (d < 60) v += Math.exp(-d / 5) * Math.sin(2 * Math.PI * 2.1 * d); }
+    return v;
+  };
+  function rms(k){ let s = 0; const n = 400; for (let i = 0; i < n; i++) { const v = sig((k + (i + 0.5) / n) * FR); s += v * v; } return Math.sqrt(s / n); }
+  function snap(frac){
+    const k = Math.max(Math.floor(T / FR) + 1, blockUntil);
+    events.push((k + frac) * FR); blockUntil = k + HOLD + 3;
+    msg.textContent = frac < 0.9 ? '프레임 ' + k + '의 한가운데에서 소리가 시작됩니다…' : '프레임 ' + k + '의 끝자락(마지막 0.2ms)에서 소리가 시작됩니다…';
+  }
+  $('#preMid').onclick = () => snap(0.45); $('#preEdge').onclick = () => snap(0.992);
+  scene(cv.c, dt => {
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H);
+    T += dt * RATE;
+    const k = Math.floor(T / FR);
+    while (lastK < k) {                     // 프레임이 끝날 때마다 판정
+      const f = lastK; lvl[f] = rms(f);
+      if (hold > 0) hold--;
+      else if (lvl[f] > THR) {
+        const ev = events.filter(e => e > (f - 1.5) * FR && e < (f + 1) * FR)[0];
+        const inPrev = ev !== undefined && ev < f * FR;
+        caps.push({f, pre: $('#preOn').checked, ev, inPrev}); hold = HOLD;
+        msg.innerHTML = '프레임 ' + f + '이 끝난 뒤 "컸다"고 판정 → ' + ($('#preOn').checked
+          ? '<b>[프레임 ' + (f - 1) + ' | 프레임 ' + f + ']</b> 두 개를 보냅니다.' + (inPrev ? ' 소리의 시작은 직전 프레임 끝에 있었고, 같이 보내서 살아남았습니다.' : '')
+          : '<b>프레임 ' + f + '</b>만 보냅니다.' + (inPrev ? ' <span style="color:var(--warn)">소리의 시작 부분이 직전 프레임에 있어서 빠졌습니다.</span>' : ''));
+      }
+      lastK++;
+    }
+    const X = t => W - 46 - (T - t) * (W - 46) / SPAN, top = 18, mid = 104, amp = 70, lb = 196, lh = 74;
+    // 캡처 표시
+    for (const c of caps) {
+      const a = X(c.f * FR), b = X((c.f + 1) * FR);
+      if (b > 0) { ctx.fillStyle = alpha(C.c1, 0.16); ctx.fillRect(a, top, b - a, 172); txt(ctx, '트리거 프레임', (a + b) / 2, top + 9, C.c1, 12, 'center'); }
+      if (c.pre) { const p = X((c.f - 1) * FR); if (a > 0) { ctx.fillStyle = alpha(C.c3, 0.18); ctx.fillRect(p, top, a - p, 172); txt(ctx, '직전 프레임', (p + a) / 2, top + 9, C.c3, 12, 'center'); } }
+      else if (c.inPrev) { const ex = X(c.ev); line(ctx, ex, top + 20, ex, top + 172, C.warn, 1.5, [4, 3]); txt(ctx, '시작 부분 빠짐', ex - 5, top + 30, C.warn, 12, 'right'); }
+    }
+    // 프레임 경계
+    for (let f = Math.floor((T - SPAN) / FR); f <= k + 1; f++) {
+      const x = X(f * FR); if (x < -60 || x > W) continue;
+      line(ctx, x, top, x, H - 22, C.line, 1);
+      txt(ctx, '프레임 ' + f, x + 5, H - 10, C.muted, 11.5);
+    }
+    // 파형
+    ctx.beginPath();
+    for (let x = 0; x <= W - 46; x += 1) { const t = T - (W - 46 - x) * SPAN / (W - 46), y = mid - Math.max(-1.05, Math.min(1.05, sig(t))) * amp; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 1.2; ctx.stroke();
+    line(ctx, W - 46, top, W - 46, H - 22, C.ink2, 1.5); txt(ctx, '지금', W - 42, top + 8, C.ink2, 12);
+    // 프레임별 크기 막대와 문턱
+    const yL = v => lb + lh - Math.min(1, v / 0.3) * lh;
+    for (const f in lvl) {
+      const a = X(f * FR), b = X((+f + 1) * FR); if (b < 0) { if (+f < k - 12) delete lvl[f]; continue; }
+      ctx.fillStyle = lvl[f] > THR ? C.c2 : C.muted; ctx.fillRect(a + 6, yL(lvl[f]), b - a - 12, lb + lh - yL(lvl[f]));
+    }
+    line(ctx, 0, yL(THR), W - 46, yL(THR), C.warn, 1.2, [5, 4]); txt(ctx, '문턱', 6, yL(THR) - 9, C.warn, 12);
+    txt(ctx, '프레임이 끝난 뒤 계산한 크기', 6, lb - 4, C.ink2, 12);
+    while (caps.length && X((caps[0].f + 1) * FR) < -200) caps.shift();
+    while (events.length && events[0] < T - SPAN - 80) events.shift();
+  });
+})();
+
+/* ---------- 5. 적응형 문턱 ---------- */
+(function(){
+  const cv = canvas('cvTrig', 330), msg = $('#tMsg');
+  const N = 300, FPS = 25;
+  let hist, frames, floor, hold, tail, ramp, ambient, acc, rampFired;
+  function reset(){ hist = []; frames = 0; floor = 0; hold = 0; tail = []; ramp = null; ambient = 5; acc = 0; $('#tAmb').textContent = '주변 소음 켜기'; msg.textContent = '처음 25프레임(약 0.5초)은 잡음 바닥을 배우는 구간이라 캡처하지 않습니다.'; }
+  const kOn = () => +$('#tK').value, al = () => Math.pow(10, +$('#tA').value), hd = () => +$('#tH').value;
+  function labels(){ $('#tKO').textContent = kOn().toFixed(1) + '배'; $('#tAO').textContent = al().toFixed(3); $('#tHO').textContent = hd() + '프레임'; }
+  ['tK', 'tA', 'tH'].forEach(id => $('#' + id).oninput = labels); labels();
+  $('#tSnap').onclick = () => { tail = [300, 70, 18]; };
+  $('#tRamp').onclick = () => { ramp = {t: 0, len: 146, holdLen: 40}; rampFired = false; msg.textContent = '소리가 3초에 걸쳐 서서히 커집니다…'; };
+  $('#tAmb').onclick = () => { ambient = ambient < 10 ? 30 : 5; $('#tAmb').textContent = ambient > 10 ? '주변 소음 끄기' : '주변 소음 켜기'; };
+  $('#tReset').onclick = reset; reset();
+  function step(){
+    let level = ambient * (0.88 + 0.24 * Math.random());
+    if (tail.length) level += tail.shift();
+    if (ramp) {
+      ramp.t++;
+      const v = ramp.t <= ramp.len ? ambient * Math.pow(400 / ambient, ramp.t / ramp.len) : 400;
+      level = Math.max(level, v * (0.95 + 0.1 * Math.random()));
+      if (ramp.t > ramp.len + ramp.holdLen) {
+        if (!rampFired) msg.innerHTML = '<span style="color:var(--warn)"><b>잡지 못했습니다.</b></span> 소리가 서서히 커지는 동안 매 프레임이 "조용한 프레임"으로 분류되어 잡음 바닥을 끌어올렸고, 문턱도 같이 올라갔습니다.';
+        ramp = null;
+      }
+    }
+    frames++; if (hold) hold--;
+    const learning = frames <= 25, thr = Math.max(kOn() * floor, 20), trig = level > thr;
+    let fired = false;
+    if (!learning && hold === 0 && trig) {
+      fired = true; hold = hd();
+      if (ramp) { rampFired = true; msg.innerHTML = '<b>캡처!</b> 서서히 커지는 소리였지만 잡음 바닥이 따라가는 속도보다 빨리 커졌습니다.'; }
+      else msg.innerHTML = '<b>캡처!</b> 크기 ' + level.toFixed(0) + ' > 문턱 ' + thr.toFixed(0) + '. 이후 ' + hd() + '프레임 동안은 다시 걸리지 않습니다.';
+    }
+    if (learning || !trig) { floor = frames === 1 ? level : floor + al() * (level - floor); if (floor < 1) floor = 1; }
+    hist.push({level, floor, thr, fired, hold: hold > 0 && !fired, learning}); if (hist.length > N) hist.shift();
+  }
+  scene(cv.c, dt => {
+    acc += dt * FPS; while (acc >= 1) { acc -= 1; step(); }
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H);
+    const x0 = 46, x1 = W - 10, y0 = 14, y1 = H - 40, X = i => x0 + (x1 - x0) * (i + N - hist.length) / (N - 1), Y = v => y1 - (y1 - y0) * Math.log10(Math.max(1, Math.min(1000, v))) / 3;
+    for (const v of [1, 10, 100, 1000]) { line(ctx, x0, Y(v), x1, Y(v), C.line, 1); txt(ctx, String(v), x0 - 6, Y(v), C.muted, 11.5, 'right'); }
+    txt(ctx, '단위: LSB', 8, y1 + 28, C.muted, 11);
+    // 아래 띠: 학습 / 재트리거 금지
+    hist.forEach((h, i) => { if (h.learning || h.hold) { ctx.fillStyle = alpha(h.learning ? C.accent : C.hl, 0.4); ctx.fillRect(X(i) - 1.6, y1 + 8, 3.4, 9); } });
+    txt(ctx, '보라: 배우는 중   노랑: 다시 걸리지 않는 시간', x0 + 40, y1 + 28, C.muted, 11.5);
+    const path = (key, color, w, dash) => { ctx.save(); ctx.beginPath(); hist.forEach((h, i) => i ? ctx.lineTo(X(i), Y(h[key])) : ctx.moveTo(X(i), Y(h[key]))); ctx.strokeStyle = color; ctx.lineWidth = w; if (dash) ctx.setLineDash(dash); ctx.stroke(); ctx.restore(); };
+    path('thr', C.warn, 1.5, [5, 4]); path('floor', C.accent, 2); path('level', alpha(C.ink, 0.45), 1);
+    hist.forEach((h, i) => { ctx.fillStyle = C.ink; ctx.fillRect(X(i) - 1, Y(h.level) - 1, 2.2, 2.2); });
+    hist.forEach((h, i) => { if (h.fired) { line(ctx, X(i), y0, X(i), y1, C.c2, 1.5); txt(ctx, '캡처', X(i) + 4, y0 + 8, C.c2, 12.5); } });
+    const hl = hist[hist.length - 1];
+    if (hl) txt(ctx, '크기 ' + hl.level.toFixed(0) + ' · 바닥 ' + hl.floor.toFixed(1) + ' · 문턱 ' + hl.thr.toFixed(0), x1, y1 + 28, C.ink2, 12, 'right');
+  });
+})();
+
+/* ---------- 6. 패킷 ---------- */
+(function(){
+  const F = [
+    ['sync', '4', 'FF FF FF FF', '패킷의 시작 표시입니다. ADC 값은 최대 0x0FFF라서 데이터 안에는 FF가 네 번 연속으로 나올 수 없습니다. 그래서 PC는 이 무늬를 보면 "여기가 시작"이라고 믿을 수 있습니다.'],
+    ['ver', '1', '02', '패킷 형식의 버전입니다. 형식을 바꾸면 이 숫자를 올려서 PC가 구분하게 합니다.'],
+    ['type', '1', '01', '패킷 종류입니다. 01은 가공하지 않은 ADC 원파형입니다. (Step 3에서 02 = 계산 결과가 추가됩니다)'],
+    ['ch', '1', '03', '마이크(채널) 수입니다.'],
+    ['flags', '1', '04', '상태 표시 비트입니다. 01 = 신호가 너무 커서 잘림, 02 = 버튼으로 수동 캡처, 04 = 직전 프레임 포함.'],
+    ['seq', '4', '패킷 번호', '보낼 때마다 1씩 늘어납니다. PC는 번호가 건너뛰면 패킷을 놓쳤다는 것을 압니다.'],
+    ['frame_seq', '4', '프레임 번호', '이 데이터가 몇 번째 ADC 프레임인지입니다. 나중에 MCU의 계산 결과와 짝을 맞추는 데 씁니다.'],
+    ['n', '2', '2048', '마이크 하나당 샘플 수입니다. 프레임 2개면 2048입니다.'],
+    ['len', '2', '12288', '뒤따르는 데이터의 바이트 수입니다. 3채널 × 2048샘플 × 2바이트 = 12,288. PC는 이 숫자만큼 기다립니다.'],
+    ['payload', '12,288', '마이크 데이터', '실제 파형입니다. MIC1 전체, MIC2 전체, MIC3 전체 순서로 들어갑니다. 샘플 하나는 2바이트(낮은 바이트 먼저)입니다.'],
+    ['crc16', '2', '검사값', 'ver부터 데이터 끝까지를 요약한 16비트 값입니다. 받는 쪽에서 다시 계산해 비교합니다. 한 비트라도 다르면 이 패킷은 버립니다.'],
+  ];
+  const box = $('#fields'), desc = $('#fieldDesc');
+  F.forEach((f, i) => {
+    const d = document.createElement('div'); d.className = 'f' + (f[0] === 'payload' ? ' big' : '');
+    d.innerHTML = '<b>' + f[0] + '</b><small>' + f[1] + 'B</small>';
+    d.onclick = () => pick(i); box.appendChild(d);
+  });
+  function pick(i){ box.querySelectorAll('.f').forEach((e, j) => e.classList.toggle('on', i === j)); desc.innerHTML = '<b>' + F[i][0] + '</b> (' + F[i][1] + '바이트, 예: ' + F[i][2] + ') — ' + F[i][3]; }
+  pick(0);
+
+  const bytes = ['3A', '07', 'FF', 'FF', 'FF', 'FF', '02', '01', '03', '04', '16', '00', '00', '00', '1E', '6A', '00', '00', '00', '08', '00', '30', '… 데이터 12,288바이트 …', 'C4', '91'];
+  const tape = $('#tape'), pm = $('#pMsg'); let st = 0;
+  bytes.forEach((b, i) => { const s = document.createElement('span'); s.textContent = b; if (i === 22) s.className = 'wide'; tape.appendChild(s); });
+  const cells = tape.querySelectorAll('span');
+  function mark(from, to, cls){ for (let i = from; i <= to; i++) cells[i].classList.add(cls); }
+  function render(){
+    const bad = $('#pBad').checked;
+    cells.forEach(c => c.classList.remove('hit', 'drop', 'ok', 'bad'));
+    cells[22].textContent = bad ? '… 데이터 12,288바이트 (1비트 깨짐) …' : bytes[22];
+    if (st === 0) pm.textContent = '바이트가 줄줄이 들어옵니다. 어디가 패킷의 시작인지 표시는 없습니다. [다음 단계]를 눌러 보세요.';
+    if (st >= 1) { mark(0, 1, 'drop'); mark(2, 5, 'hit'); pm.innerHTML = '<b>① 시작 표시 찾기</b> — FF FF FF FF가 나올 때까지 앞의 바이트는 버립니다.'; }
+    if (st >= 2) { mark(6, 21, 'hit'); pm.innerHTML = '<b>② 머리표 읽기</b> — 버전, 종류, 채널 수를 확인하고 len = 12,288을 읽습니다. 값이 말이 안 되면 가짜 시작 표시로 보고 한 바이트 뒤부터 다시 찾습니다.'; }
+    if (st >= 3) { mark(22, 22, 'hit'); pm.innerHTML = '<b>③ 기다리기</b> — len만큼의 데이터와 CRC 2바이트가 모두 도착할 때까지 기다립니다. (0.134초)'; }
+    if (st >= 4) {
+      mark(23, 24, bad ? 'bad' : 'ok');
+      pm.innerHTML = bad ? '<b>④ CRC 검사</b> — 직접 계산한 값이 받은 값(C4 91)과 <span style="color:var(--warn)"><b>다릅니다.</b></span> 이 패킷은 버리고, 한 바이트 뒤부터 다시 시작 표시를 찾습니다.'
+                         : '<b>④ CRC 검사</b> — 직접 계산한 값이 받은 값(C4 91)과 같습니다. 데이터가 깨지지 않았습니다.';
+    }
+    if (st >= 5) { if (!bad) { cells.forEach((c, i) => { if (i >= 2) { c.classList.remove('hit'); c.classList.add('ok'); } }); pm.innerHTML = '<b>⑤ 저장하고 그리기</b> — 데이터를 (마이크 3 × 샘플 2048) 표로 바꿔 파일로 저장하고 그래프를 그립니다.'; } else { st = 4; } }
+  }
+  $('#pNext').onclick = () => { st = Math.min(5, st + 1); render(); };
+  $('#pReset').onclick = () => { st = 0; render(); };
+  $('#pBad').onchange = render; render();
+})();
+
+/* ---------- 7. 시간표 ---------- */
+(function(){
+  const cv = canvas('cvTime', 250);
+  const SPAN = 1.42, FR = 0.02048; let t = 0;
+  const snaps = [[0.02, '스냅', true], [0.5, '스냅', false], [1.16, '스냅', true]];
+  scene(cv.c, dt => {
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H);
+    t = (t + dt * 0.42) % SPAN;
+    const x0 = 118, x1 = W - 12, X = s => x0 + (x1 - x0) * s / SPAN, rows = {snd: 34, cpu: 84, tx: 128, hold: 172};
+    txt(ctx, '소리', 10, rows.snd, C.ink2, 13); txt(ctx, 'CPU', 10, rows.cpu, C.ink2, 13); txt(ctx, 'UART 전송', 10, rows.tx, C.ink2, 13); txt(ctx, '재트리거 금지', 10, rows.hold, C.ink2, 13);
+    for (const y of Object.values(rows)) line(ctx, x0, y + 13, x1, y + 13, C.line, 1);
+    for (let s = 0; s <= 1.4; s += 0.2) { line(ctx, X(s), 200, X(s), 205, C.muted, 1); txt(ctx, s.toFixed(1) + '초', X(s), 216, C.muted, 11.5, 'center'); }
+    for (let f = 0; f * FR < SPAN; f++) { ctx.fillStyle = alpha(C.muted, 0.55); ctx.fillRect(X(f * FR), rows.cpu + 4, 1.5, 9); }   // 프레임마다 크기 계산
+    const bar = (a, b, y, color) => { ctx.fillStyle = color; ctx.fillRect(X(a), y - 9, Math.max(3, X(b) - X(a)), 22); };
+    bar(0.02, 0.023, rows.cpu, C.c2); txt(ctx, '포장 + CRC', X(0.03) + 2, rows.cpu - 12, C.c2, 12);
+    bar(0.023, 0.157, rows.tx, C.c1); txt(ctx, '0.134초 동안 busy', X(0.157) + 8, rows.tx + 2, C.c1, 12.5);
+    bar(0.02, 1.044, rows.hold, alpha(C.hl, 0.75)); txt(ctx, '1초 (50프레임)', X(0.2), rows.hold + 2, '#1a1a19', 12.5);
+    bar(1.16, 1.163, rows.cpu, C.c2); bar(1.163, 1.297, rows.tx, C.c1); bar(1.16, SPAN, rows.hold, alpha(C.hl, 0.75));
+    for (const [s, label, okk] of snaps) {
+      ctx.fillStyle = okk ? C.ink : C.muted; ctx.beginPath(); ctx.arc(X(s), rows.snd, 6, 0, 7); ctx.fill();
+      txt(ctx, okk ? label + ' → 캡처' : label + ' → 금지 구간이라 무시', X(s) + 11, rows.snd, okk ? C.ink : C.warn, 12.5);
+    }
+    line(ctx, X(t), 14, X(t), 200, C.ink, 1.5);
+    const busy = (t > 0.023 && t < 0.157) || (t > 1.163 && t < 1.297);
+    ctx.fillStyle = busy ? C.c1 : C.line; ctx.beginPath(); ctx.arc(x0 + 8, 238, 6, 0, 7); ctx.fill();
+    txt(ctx, busy ? 'busy 깃발: 켜짐 — 새 패킷을 시작할 수 없음' : 'busy 깃발: 꺼짐', x0 + 22, 238, busy ? C.c1 : C.ink2, 13);
+  });
+})();
+</script>
+</body>
+</html>
