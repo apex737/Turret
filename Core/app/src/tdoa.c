@@ -3,9 +3,9 @@
 #include <string.h>
 
 // 대역 [LO, HI] Hz 에 들어가는 FFT 빈 번호 (빈 k의 주파수 = k x fs / NFFT)
-#define K_LO     ((TDOA_BAND_LO_HZ * TDOA_NFFT + TDOA_FS - 1u) / TDOA_FS)  // 올림 → 6
-#define K_HI     (TDOA_BAND_HI_HZ * TDOA_NFFT / TDOA_FS)                   // 내림 → 30
-#define NBAND    (K_HI - K_LO + 1u)                                        // 25
+#define K_LO     ((TDOA_BAND_LO_HZ * TDOA_NFFT + TDOA_FS - 1u) / TDOA_FS)  // 올림 → 2
+#define K_HI     (TDOA_BAND_HI_HZ * TDOA_NFFT / TDOA_FS)                   // 내림 → 20
+#define NBAND    (K_HI - K_LO + 1u)                                        // 19
 #define NLAG     (2u * TDOA_MAX_LAG + 1u)                                  // 지연 -13 ~ +13 → 27
 #define TAPER    (TDOA_WIN / 5u)                                           // 창 양 끝에서 줄이는 길이
 
