@@ -144,7 +144,7 @@ def gcc_phat(a, b, fs, band, max_lag, up=16, eps=0.01):
     return tau, peak, second, lags, cc
 
 
-def analyze(x, fs=FS, band=(500, 3000), win_ms=5.0, pre_ms=1.0, max_lag=None, up=16, eps=0.01, pos=None):
+def analyze(x, fs=FS, band=(150, 2000), win_ms=5.0, pre_ms=1.0, max_lag=None, up=16, eps=0.01, pos=None):
     """한 캡처(ch x n)에서 세 쌍의 지연과 방향을 구한다."""
     pos = mic_positions() if pos is None else pos
     max_lag = default_max_lag(fs=fs) if max_lag is None else max_lag
@@ -182,7 +182,7 @@ def list_files(path):
 
 def add_analysis_args(ap):
     """분석 파라미터 옵션 (doa_live.py와 공유)."""
-    ap.add_argument("--band", type=float, nargs=2, default=(500, 3000), help="사용할 주파수 대역 [Hz]")
+    ap.add_argument("--band", type=float, nargs=2, default=(150, 2000), help="사용할 주파수 대역 [Hz]")
     ap.add_argument("--win", type=float, default=5.0, help="분석 구간 길이 [ms]")
     ap.add_argument("--pre", type=float, default=1.0, help="onset보다 앞에서 시작하는 시간 [ms]")
     ap.add_argument("--spacing", type=float, default=SPACING, help="마이크 간격 [m] (정삼각형 한 변)")
@@ -292,30 +292,33 @@ def synth_capture(rng, delays, fs=FS, n=2048, onset=1100):
 
 
 def run_selftest(args):
-    """지연과 각도를 아는 합성 신호로 부호·크기·보간·각도 변환을 검증한다."""
-    rng = np.random.default_rng(0)
+    """지연과 각도를 아는 합성 신호로 부호·크기·보간·각도 변환을 검증한다.
+
+    합성 신호 하나의 오차는 대역에 따라 크게 흔들리므로(대역 상한이 낮을수록 큼),
+    여러 번 반복한 평균 오차(치우침)로 판정한다. 구현이 틀리면 치우침이 생긴다.
+    """
     kw = kwargs_from(args)
-    worst_tau = worst_ang = 0.0
+    reps, worst_tau, worst_ang = 30, 0.0, 0.0
 
-    print("[지연] true (tau12, tau13)   est (tau12, tau13, tau23)   closure   max err")
-    for true12, true13 in ((1.0, 3.0), (-4.3, 2.6), (7.75, -2.2), (0.0, 0.0), (9.4, 6.1)):
-        r = analyze(synth_capture(rng, (0.0, true12, true13)), FS, **kw)
-        true = (true12, true13, true13 - true12)
-        err = max(abs(e - t_) for e, t_ in zip(r["tau"], true))
-        worst_tau = max(worst_tau, err)
-        print(f"       ({true12:+6.2f}, {true13:+6.2f})    ({r['tau'][0]:+6.2f}, {r['tau'][1]:+6.2f}, {r['tau'][2]:+6.2f})"
-              f"   {r['closure']:+6.2f}   {err:6.3f}")
+    print(f"[지연] true (tau12, tau13)   평균 오차 (tau12, tau13, tau23)   흩어짐(std)   {reps}회 반복")
+    for c, (true12, true13) in enumerate(((1.0, 3.0), (-4.3, 2.6), (7.75, -2.2), (0.0, 0.0), (9.4, 6.1))):
+        true = np.array((true12, true13, true13 - true12))
+        err = np.array([np.array(analyze(synth_capture(np.random.default_rng(100 * c + k), (0.0, true12, true13)), FS, **kw)["tau"]) - true
+                        for k in range(reps)])
+        mean, std = err.mean(axis=0), err.std(axis=0, ddof=1)
+        worst_tau = max(worst_tau, np.abs(mean).max())
+        print(f"       ({true12:+6.2f}, {true13:+6.2f})    ({mean[0]:+6.3f}, {mean[1]:+6.3f}, {mean[2]:+6.3f})          {std.max():5.3f}")
 
-    print("[각도] true     est     norm    err")
-    for true in (0.0, 45.0, 100.0, 120.0, -120.0, -150.0, 180.0):
+    print("[각도] true     평균 오차   흩어짐(std)")
+    for c, true in enumerate((0.0, 45.0, 100.0, 120.0, -120.0, -150.0, 180.0)):
         t12, t13, _ = angle_to_tdoa(true, FS, kw["pos"])
-        r = analyze(synth_capture(rng, (0.0, t12, t13)), FS, **kw)
-        err = abs((r["angle"] - true + 180.0) % 360.0 - 180.0)
-        worst_ang = max(worst_ang, err)
-        print(f"       {true:+6.1f}  {r['angle']:+6.1f}   {r['norm']:.2f}   {err:5.2f}")
+        err = np.array([(analyze(synth_capture(np.random.default_rng(5000 + 100 * c + k), (0.0, t12, t13)), FS, **kw)["angle"] - true + 180.0) % 360.0 - 180.0
+                        for k in range(reps)])
+        worst_ang = max(worst_ang, abs(err.mean()))
+        print(f"       {true:+6.1f}    {err.mean():+5.2f}      {err.std(ddof=1):5.2f}")
 
-    ok = worst_tau < 0.1 and worst_ang < 1.0
-    print(f"최대 오차: 지연 {worst_tau:.3f} 샘플 (기준 0.1), 각도 {worst_ang:.2f}° (기준 1.0) → {'PASS' if ok else 'FAIL'}")
+    ok = worst_tau < 0.1 and worst_ang < 0.5
+    print(f"최대 치우침: 지연 {worst_tau:.3f} 샘플 (기준 0.1), 각도 {worst_ang:.2f}° (기준 0.5) → {'PASS' if ok else 'FAIL'}")
     return ok
 
 

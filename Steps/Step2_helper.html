@@ -23,6 +23,7 @@ header.hero p{margin:0;color:var(--ink2)}
 nav.toc{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
 nav.toc div{max-width:980px;margin:0 auto;padding:8px 16px;display:flex;gap:8px;overflow-x:auto}
 nav.toc a{white-space:nowrap;font-size:13px;color:var(--ink2);text-decoration:none;padding:3px 11px;border:1px solid var(--line);border-radius:999px}
+nav.toc a,nav.toc button{flex:none;white-space:nowrap}
 nav.toc a:hover{color:var(--ink);border-color:var(--muted)}
 main{max-width:980px;margin:0 auto;padding:0 16px 60px}
 section.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:22px 0;scroll-margin-top:56px}
@@ -189,7 +190,7 @@ footer{max-width:980px;margin:0 auto;padding:0 16px 40px;color:var(--muted);font
     <li>패킷은 시작 표시 + 머리표 + 데이터 + CRC. PC는 시작 표시를 찾고 CRC로 검사한다.</li>
     <li>한 번 보내면 1초 동안 다시 보내지 않는다.</li>
   </ul>
-  <p class="note">자세한 내용과 코드 설명은 <a href="Step2_UART_Dump_Capture_SignalCheck.md">Step2 문서</a>에 있습니다.</p>
+  <p class="note">자세한 내용과 코드 설명은 <a href="Step2_UART_Dump_Capture_SignalCheck.md">Step2 문서</a>에, 앞 단계(마이크 값을 재는 방법)는 <a href="Step1_helper.html">Step 1 도우미</a>에 있습니다.</p>
 </section>
 
 </main>
@@ -210,7 +211,8 @@ function canvas(id, h){
   const c = document.getElementById(id), ctx = c.getContext('2d'), o = {c, ctx, W: 0, H: h};
   function fit(){
     const w = c.clientWidth || c.parentElement.clientWidth || 900, d = window.devicePixelRatio || 1;
-    c.width = Math.round(w * d); c.height = Math.round(h * d);
+    const nw = Math.round(w * d), nh = Math.round(h * d);
+    if (c.width !== nw || c.height !== nh) { c.width = nw; c.height = nh; }   // 크기가 바뀔 때만 (같은 크기면 그림이 지워지지 않게)
     ctx.setTransform(d, 0, 0, d, 0, 0); o.W = w;
   }
   c.style.height = h + 'px'; fit(); addEventListener('resize', fit);
@@ -537,6 +539,7 @@ requestAnimationFrame(loop);
     txt(ctx, busy ? 'busy 깃발: 켜짐 — 새 패킷을 시작할 수 없음' : 'busy 깃발: 꺼짐', x0 + 22, 238, busy ? C.c1 : C.ink2, 13);
   });
 })();
+
 </script>
 </body>
 </html>
