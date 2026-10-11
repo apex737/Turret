@@ -14,6 +14,7 @@
 # ---- IDE / per-machine ----
 *.launch
 .settings/language.settings.xml
+.settings/com.st.stm32cube.ide.mcu.sfrview.prefs
 .metadata/
 RemoteSystemsTempFiles/
 
