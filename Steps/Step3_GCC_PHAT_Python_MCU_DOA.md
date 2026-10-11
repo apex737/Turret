@@ -5,6 +5,61 @@
 > 갱신: 2026-10-11 — 결과 전용 모드(7.6), MCU 신뢰 판정(7.7), 해당 측정 결과(8.1, 8.2) 추가
 > 이전 단계: [Step2_UART_Dump_Capture_SignalCheck.md](Step2_UART_Dump_Capture_SignalCheck.md)
 
+## 0. 기준선 `baseline-v1`
+
+> 이후 모든 실험은 **이 설정에서 출발해 한 번에 한 가지만 바꾼다.** 결과는 기준선 대비로 적는다.
+> git 태그 `baseline-v1`을 체크아웃하면 아래 조합 그대로 재현된다.
+
+### 0.1 고정한 설정
+
+| 구분 | 항목 | 값 | 정의 위치 |
+|---|---|---|---|
+| 하드웨어 | 마이크 배치 | 정삼각형, 한 변 7cm, MIC1 = 0°, 반시계 방향이 + (MIC2 +120°, MIC3 −120°) | `TDOA_SPACING_M`, `TDOA_MIC_CW 0` |
+| | ADC | 12bit, 3채널 동시 샘플링(ADC1~3), 50kHz, DMA 원형 | `adc.h`, `main.c` |
+| | UART | 921600bps, TX DMA | `main.c` |
+| 프레임 | 프레임 크기 | 1024샘플 (20.48ms) | `ADC_SAMPLES_PER_HALF`, `TDOA_FRAME` |
+| 캡처 트리거 | 문턱 | `k_on` 4.0 (≈ +12dB), `min_rms` 20 | `capture.c` 기본 설정 |
+| | 잡음 바닥 | EMA `floor_alpha` 0.05, 학습 25프레임 | `capture.c` |
+| | holdoff | 원파형 모드 50프레임 / 결과 전용 모드 10프레임 | `CAPTURE_HOLDOFF_DEFAULT` |
+| | 대상 소리 | 스냅, 박수 같은 짧은 파찰음 (서서히 커지는 소리는 대상 아님. 9절) | 설계 결정 |
+| 동작 모드 | 송신 방식 | 원파형 + 결과 (`CAPTURE_SEND_RAW 1`) | `capture.h` |
+| GCC-PHAT | 분석 구간 | 250샘플(5ms), onset 앞 50샘플(1ms), Tukey 창, 평균 제거 | `TDOA_WIN`, `TDOA_PRE` |
+| | FFT | 512점 | `TDOA_NFFT` |
+| | 사용 대역 | 500~3000Hz | `TDOA_BAND_LO_HZ`, `TDOA_BAND_HI_HZ` |
+| | PHAT ε | 0.01 (대역 내 최대 크기 대비) | `TDOA_PHAT_EPS` |
+| | 지연 탐색 | ±13샘플, 포물선 보간 | `TDOA_MAX_LAG` |
+| | 각도 계산 | 지연 3개 최소제곱 → `atan2`, 음속 343m/s | `TDOA_SOUND_SPEED` |
+| 신뢰 판정 | 기준 | 세 쌍 중 최저 peak ≥ 0.5, 0.3 ≤ norm ≤ 1.2 | `TDOA_MIN_PEAK`, `TDOA_MIN_NORM`, `TDOA_MAX_NORM` |
+| 빌드 | 구성 | **Debug**, `-Ofast`, FPv4-SP-D16 hard float | `.cproject` |
+| | DSP 라이브러리 | CMSIS-DSP 1.10.0 (STM32Cube_FW_F4_V1.28.3에서 복사) | `Drivers/CMSIS/DSP/` |
+| Python | 분석 옵션 | 위 GCC-PHAT 값과 같은 기본값 (`--band 500 3000 --win 5 --pre 1 --eps 0.01 --spacing 0.07`) | `Tools/gcc_phat.py` |
+
+Python과 MCU의 값이 다르면 비교가 맞지 않는다(5절). 기준선에서는 두 쪽이 같다.
+
+### 0.2 기준선의 성능
+
+| 항목 | 값 |
+|---|---|
+| 같은 자리 반복 정밀도 | 표준편차 1.3° (스냅) |
+| MCU 계산 시간 | 3.3ms (프레임 주기의 16%) |
+| MCU와 PC 결과 차이 | 지연, 피크, 각도 모두 0 |
+| 신뢰 판정 통과 비율 | 235개 캡처 중 220개(94%) |
+| 플래시 / RAM | `-Ofast` 값은 미측정. `-O2`에서 143.8KB / 50.7KB였다(2절) |
+
+### 0.3 기준선에 넣지 않은 것 (아직 설계 결정이 안 된 것)
+
+- norm 하한 0.3의 근거는 약하다(10절).
+- 정확도(실제 방향 대비 치우침)를 수치로 기록한 측정이 없다. → **기준선 정확도 측정이 첫 번째 할 일**
+- 터렛 제어와의 연결, 센서 퓨전
+
+### 0.4 실험 규칙
+
+1. 한 번에 한 항목만 바꾼다.
+2. 세션 이름(`dumps/<날짜>_truth±NNN`)에 무엇을 바꿨는지 남긴다.
+3. 기준선으로 채택하려면 문서 0.1을 고치고 태그를 새로 단다(`baseline-v2`). 태그는 옮기지 않는다.
+
+---
+
 ## 1. 이 단계의 목표
 - 덤프한 원파형으로 **마이크 쌍별 도달 시간차(TDOA)와 음원 방향**을 구하는 알고리즘을 Python으로 먼저 완성
 - 같은 계산을 **MCU(CMSIS-DSP)로 옮기고**, 같은 캡처에 대한 두 결과를 자동으로 비교
