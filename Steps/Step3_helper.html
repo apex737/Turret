@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Step 3 도우미 — 소리가 어느 쪽에서 났는지 계산하기</title>
+<style>
+:root{
+  --bg:#fcfcfb; --panel:#ffffff; --ink:#0b0b0b; --ink2:#52514e; --muted:#8a8984; --line:#e4e3de;
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --warn:#e34948; --accent:#4a3aa7; --hl:#eda100; --soft:#f1f0ec;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#1a1a19; --panel:#232322; --ink:#ffffff; --ink2:#c3c2b7; --muted:#8f8e86; --line:#3a3a37;
+    --c1:#3987e5; --c2:#d95926; --c3:#199e70; --warn:#e66767; --accent:#9085e9; --hl:#c98500; --soft:#2c2c2a;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.7 system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+header.hero{max-width:980px;margin:0 auto;padding:30px 16px 6px}
+header.hero h1{font-size:26px;line-height:1.3;margin:0 0 6px}
+header.hero p{margin:0;color:var(--ink2)}
+nav.toc{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+nav.toc div{max-width:980px;margin:0 auto;padding:8px 16px;display:flex;gap:8px;overflow-x:auto}
+nav.toc a{white-space:nowrap;font-size:13px;color:var(--ink2);text-decoration:none;padding:3px 11px;border:1px solid var(--line);border-radius:999px}
+nav.toc a:hover{color:var(--ink);border-color:var(--muted)}
+main{max-width:980px;margin:0 auto;padding:0 16px 60px}
+section.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:22px 0;scroll-margin-top:56px}
+section.card h2{font-size:20px;margin:0 0 4px}
+section.card .lead{color:var(--ink2);margin:0 0 12px}
+canvas{width:100%;display:block;border-radius:10px;background:var(--bg);border:1px solid var(--line)}
+.controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:12px 0}
+button{font:inherit;font-size:14px;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:6px 13px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.on{background:var(--c1);border-color:var(--c1);color:#fff}
+label.sl{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink2)}
+label.sl output{min-width:58px;color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=range]{width:170px;accent-color:var(--c1)}
+.note{font-size:14px;color:var(--ink2);margin:10px 0 0}
+.status{font-size:14.5px;margin:10px 0 0;padding:9px 12px;border-radius:9px;background:var(--soft);min-height:42px;font-variant-numeric:tabular-nums}
+.key{margin:14px 0 0;padding:10px 14px;border-left:4px solid var(--c1);background:var(--soft);border-radius:0 9px 9px 0;font-size:15px}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.steps button{font-size:13px;padding:4px 10px}
+table{border-collapse:collapse;font-size:14.5px;margin:8px 0}
+td,th{border-bottom:1px solid var(--line);padding:6px 14px 6px 0;text-align:left;vertical-align:top}
+th{color:var(--ink2);font-weight:600}
+code{font:13.5px ui-monospace,Consolas,monospace;background:var(--soft);padding:1px 5px;border-radius:5px}
+ul.sum{margin:6px 0 0;padding-left:20px}
+.m1{color:var(--c1)} .m2{color:var(--c2)} .m3{color:var(--c3)}
+footer{max-width:980px;margin:0 auto;padding:0 16px 40px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>Step 3 도우미 — 소리가 어느 쪽에서 났는지 계산하기</h1>
+  <p>마이크 3개에 소리가 도착하는 시각은 아주 조금씩 다릅니다. 그 차이(1만 분의 1초 단위)를 재면 소리가 온 방향을 알 수 있습니다. 이 페이지의 그림들은 실제 펌웨어와 같은 계산을 브라우저에서 직접 돌려서 그립니다.</p>
+</header>
+<nav class="toc"><div>
+  <a href="#t-arrive">1 도착 시각 차이</a><a href="#t-corr">2 밀어서 맞추기</a><a href="#t-phat">3 PHAT</a>
+  <a href="#t-para">4 샘플 사이 읽기</a><a href="#t-angle">5 지연 → 각도</a><a href="#t-pipe">6 전체 과정</a>
+  <a href="#t-mcu">7 MCU로 옮기기</a><a href="#t-sum">정리</a>
+  <button id="pauseBtn" style="margin-left:auto;font-size:13px;padding:2px 11px">애니메이션 멈춤</button>
+</div></nav>
+
+<main>
+
+<section class="card" id="t-arrive">
+  <h2>1. 소리는 마이크마다 다른 시각에 도착한다</h2>
+  <p class="lead">위에서 내려다본 그림입니다. 마이크 3개가 한 변 7cm인 정삼각형으로 놓여 있고, 소리의 파면(선)이 지나가면서 가까운 마이크부터 차례로 닿습니다. 화면은 실제보다 수천 배 느립니다.</p>
+  <canvas id="cvArr"></canvas>
+  <div class="controls">
+    <label class="sl">소리가 오는 방향 <input type="range" id="arrAz" min="-180" max="180" value="40" step="1"><output id="arrAzO"></output></label>
+  </div>
+  <div class="status" id="arrOut"></div>
+  <p class="note">MCU는 1초에 50,000번 잽니다. 그래서 시간의 한 눈금(1샘플)은 20µs이고, 그동안 소리는 6.86mm를 갑니다. 마이크 사이 7cm를 지나는 데는 최대 10.2샘플이 걸립니다.</p>
+  <div class="key"><b>핵심:</b> 세 마이크 사이의 도착 시각 차이 3개(<code>tau12</code>, <code>tau13</code>, <code>tau23</code>)를 알면 방향을 거꾸로 계산할 수 있습니다. 방향을 바꿔 가며 세 값이 어떻게 변하는지 보세요.</div>
+</section>
+
+<section class="card" id="t-corr">
+  <h2>2. 시간 차이를 어떻게 재나 — 밀어서 맞춰 보기</h2>
+  <p class="lead">두 마이크의 파형은 모양이 같고 시간만 밀려 있습니다. 한쪽을 조금씩 밀어 보면서 두 파형이 가장 잘 겹치는 위치를 찾으면, 그 민 양이 곧 시간 차이입니다. 이것이 "상관"입니다.</p>
+  <canvas id="cvCorr"></canvas>
+  <div class="controls">
+    <label class="sl">MIC2 파형을 당기는 양 <input type="range" id="corrLag" min="-13" max="13" value="0" step="1"><output id="corrLagO"></output></label>
+    <button id="corrAuto" class="on">자동으로 밀어 보기</button>
+  </div>
+  <div class="status" id="corrOut"></div>
+  <div class="key"><b>겹침 점수</b>는 두 파형을 같은 위치끼리 곱해서 모두 더한 값입니다. 모양이 맞으면 양수끼리, 음수끼리 곱해져서 커지고, 어긋나면 서로 지워집니다. 점수가 가장 높은 자리가 답입니다.</div>
+</section>
+
+<section class="card" id="t-phat">
+  <h2>3. PHAT — 목소리 큰 주파수가 결과를 좌우하지 못하게</h2>
+  <p class="lead">실제 소리에는 유난히 큰 주파수(울림)가 섞여 있습니다. 그대로 겹쳐 보면 그 주파수 하나가 곡선의 모양을 좌우해서 봉우리가 뭉툭해집니다. PHAT는 모든 주파수의 크기를 1로 맞춰서 <b>한 표씩만</b> 주는 방법입니다. 봉우리가 좁아지고, 마이크마다 감도가 달라도 영향을 받지 않습니다.</p>
+  <canvas id="cvPhat"></canvas>
+  <div class="controls">
+    <button id="phOff">그대로 (PHAT 끔)</button><button id="phOn" class="on">PHAT 켬</button>
+    <span style="color:var(--muted)">|</span>
+    <span style="font-size:14px;color:var(--ink2)">쓸 주파수 대역:</span>
+    <button class="band" data-lo="150" data-hi="2000">150~2000Hz</button>
+    <button class="band on" data-lo="500" data-hi="3000">500~3000Hz</button>
+    <button class="band" data-lo="2000" data-hi="5000">2000~5000Hz</button>
+    <button class="band" data-lo="1000" data-hi="8000">1000~8000Hz</button>
+  </div>
+  <div class="status" id="phOut"></div>
+  <p class="note">이 예제 신호는 넓은 대역의 "딱" 소리에 700Hz의 큰 울림, 1.2ms 늦은 반사음, 약간의 잡음을 섞은 것입니다. 실제 지연은 +4.30샘플입니다. 실선이 지금 고른 방식이고, 점선은 비교용으로 그린 다른 방식입니다.</p>
+  <div class="key"><b>공짜는 아닙니다.</b> PHAT는 신호가 약한 주파수의 잡음도 같이 키웁니다. 이 예제에 잡음을 몇 배 더 섞어 시험하면 PHAT 쪽 오차가 오히려 커졌습니다. 그래서 신호가 있는 대역만 쓰고, 아주 약한 주파수는 덜 키우는 바닥값(ε)을 둡니다. 위 막대가 완전히 고르지 않은 것이 그 때문입니다.<br><b>대역 선택도 중요합니다.</b> 높은 주파수까지 쓰면 봉우리는 좁아지지만 옆에 다른 봉우리가 생깁니다. 이 예제에서는 넓은 대역이 좋아 보이지만, 실제 캡처에서는 높은 주파수까지 쓰면 신뢰 가능으로 판정되는 비율이 크게 떨어졌습니다(1000~8000Hz에서 124개 중 13개). 그래서 500~3000Hz로 정했습니다.</div>
+</section>
+
+<section class="card" id="t-para">
+  <h2>4. 샘플과 샘플 사이를 읽기 — 2차 보간</h2>
+  <p class="lead">겹침 점수는 정수 샘플 위치에서만 계산됩니다. 그런데 진짜 답은 보통 그 사이에 있습니다. 가장 높은 점과 양옆 두 점을 지나는 포물선을 그리면 꼭대기의 위치를 소수점까지 알 수 있습니다.</p>
+  <canvas id="cvPara"></canvas>
+  <div class="controls">
+    <label class="sl">실제 지연 <input type="range" id="paraD" min="2" max="6" value="4.3" step="0.01"><output id="paraDO"></output></label>
+  </div>
+  <div class="status" id="paraOut"></div>
+  <div class="key"><b>왜 필요한가:</b> 마이크 간격이 7cm라 지연이 최대 10.2샘플밖에 안 됩니다. 정수만 쓰면 각도가 약 5.6° 단위로 끊깁니다. 보간을 쓰면 오차가 0.01샘플 수준으로 줄어듭니다.</div>
+</section>
+
+<section class="card" id="t-angle">
+  <h2>5. 시간 차이 3개 → 방향 하나</h2>
+  <p class="lead">방향이 정해지면 세 시간 차이가 정해집니다. 거꾸로, 세 시간 차이에 가장 잘 맞는 방향을 찾습니다(최소제곱). 미지수는 방향 벡터의 x, y 두 개인데 식이 세 개라서, 남는 하나는 검산에 쓰입니다.</p>
+  <canvas id="cvAng"></canvas>
+  <div class="controls">
+    <label class="sl">방향 <input type="range" id="angAz" min="-180" max="180" value="-60" step="1"><output id="angAzO"></output></label>
+    <label class="sl">소리의 높이(위쪽 각도) <input type="range" id="angEl" min="0" max="85" value="0" step="1"><output id="angElO"></output></label>
+    <label class="sl"><input type="checkbox" id="angBad"> 한 쌍이 엉뚱한 봉우리를 골랐다면</label>
+  </div>
+  <div class="status" id="angOut"></div>
+  <table>
+    <tr><th>지표</th><th>뜻</th><th>기준</th></tr>
+    <tr><td>norm (화살표 길이)</td><td>소리가 멀리서, 마이크와 같은 높이에서 오면 1. 위에서 오면 시간 차이가 줄어들어 짧아짐</td><td>0.3 이상 1.2 이하</td></tr>
+    <tr><td>peak</td><td>겹침 점수의 최고값. 세 쌍 모두 높아야 함</td><td>0.5 이상</td></tr>
+    <tr><td>closure</td><td><code>tau12 + tau23 − tau13</code>. 세 값이 서로 모순 없으면 0</td><td>참고용</td></tr>
+  </table>
+  <div class="key"><b>해볼 것:</b> 높이를 올리면 화살표가 짧아지다가 회색 원 안으로 들어가 "신뢰 낮음"이 됩니다. 바로 위에서 난 소리는 수평 방향이 의미가 없기 때문입니다. MCU는 이 판정을 스스로 해서, 믿을 수 있는 결과만 쓰게 합니다.</div>
+</section>
+
+<section class="card" id="t-pipe">
+  <h2>6. 전체 과정을 한 번에</h2>
+  <p class="lead">임의의 방향에서 난 "딱" 소리를 만들어, MCU가 하는 순서 그대로 계산합니다. 단계를 눌러 가며 보세요.</p>
+  <div class="steps" id="pipeSteps"></div>
+  <canvas id="cvPipe"></canvas>
+  <div class="status" id="pipeOut"></div>
+  <div class="controls">
+    <button id="pipePrev">← 이전</button><button id="pipeNext">다음 →</button>
+    <button id="pipeAuto">자동 재생</button><button id="pipeNew">다른 방향에서 다시</button>
+  </div>
+</section>
+
+<section class="card" id="t-mcu">
+  <h2>7. PC에서 MCU로 — 같은 답이 나오는지 확인</h2>
+  <p class="lead">먼저 PC(Python)에서 알고리즘을 완성하고, 같은 계산을 MCU(C, CMSIS-DSP)로 옮겼습니다. MCU는 같은 캡처에 대해 원파형과 자기 계산 결과를 함께 보내고, PC가 둘을 비교합니다.</p>
+  <table>
+    <tr><th>확인한 것</th><th>결과</th></tr>
+    <tr><td>MCU와 PC의 차이 (캡처 63개)</td><td>시간 차이·각도 모두 소수 넷째 자리까지 같음</td></tr>
+    <tr><td>같은 자리에서 반복했을 때 흩어짐</td><td>표준편차 1.3°</td></tr>
+    <tr><td>MCU의 신뢰 판정</td><td>PC 판정과 15개 중 15개 일치</td></tr>
+  </table>
+  <h3 style="font-size:16px;margin:16px 0 4px">계산 시간 — 컴파일 최적화의 효과</h3>
+  <canvas id="cvTime"></canvas>
+  <p class="note">프레임 하나(20.48ms) 안에 계산이 끝나야 다음 프레임을 놓치지 않습니다. 최적화 옵션(<code>-Ofast</code>)을 켜자 18.6ms가 3.3ms로 줄었습니다.</p>
+  <h3 style="font-size:16px;margin:16px 0 4px">두 가지 동작 모드</h3>
+  <canvas id="cvMode"></canvas>
+  <table>
+    <tr><th></th><th>검증용 (원파형 + 결과)</th><th>운용용 (결과만)</th></tr>
+    <tr><td>보내는 양</td><td>12.3KB + 62바이트</td><td>62바이트</td></tr>
+    <tr><td>전송 시간</td><td>0.134초</td><td>0.001초 미만</td></tr>
+    <tr><td>다시 걸리지 않는 시간</td><td>1초</td><td>0.2초</td></tr>
+    <tr><td>쓰임</td><td>MCU 계산이 맞는지 PC와 비교</td><td>실제 운용. 0.27초 간격의 스냅도 따라감</td></tr>
+  </table>
+  <div class="key"><b>선택 방법:</b> <code>capture.h</code>의 <code>CAPTURE_SEND_RAW</code>를 1 또는 0으로 바꿉니다. 알고리즘을 고친 뒤에는 검증용으로 한 번 확인하고 운용용으로 돌아가는 것이 안전합니다.</div>
+</section>
+
+<section class="card" id="t-sum">
+  <h2>정리</h2>
+  <ul class="sum">
+    <li>소리는 마이크마다 다른 시각에 도착한다. 그 차이는 최대 10.2샘플(0.2ms)이다.</li>
+    <li>두 파형을 밀어 보며 가장 잘 겹치는 위치를 찾으면 시간 차이가 나온다.</li>
+    <li>PHAT로 모든 주파수에 한 표씩만 주면 봉우리가 뾰족해진다. 대역은 500~3000Hz를 쓴다.</li>
+    <li>포물선 보간으로 샘플 사이의 위치까지 읽는다.</li>
+    <li>시간 차이 3개에 가장 잘 맞는 방향을 최소제곱으로 구한다.</li>
+    <li>peak와 norm으로 믿을 수 있는 결과인지 판정한다.</li>
+    <li>MCU는 이 전체를 3.3ms에 끝내고, PC와 같은 답을 낸다.</li>
+  </ul>
+  <p class="note">자세한 내용은 <a href="Step3_GCC_PHAT_Python_MCU_DOA.md">Step3 문서</a>에, 앞 단계의 설명은 <a href="Step2_helper.html">Step 2 도우미</a>에 있습니다.</p>
+</section>
+
+</main>
+<footer>3-MIC TDOA 터렛 프로젝트 · Step 3 시각 자료. 그림 속 소리는 설명용으로 만든 합성 신호이고, 7절의 숫자는 실제 측정값입니다.</footer>
+
+<script>
+'use strict';
+/* DSP-BEGIN : 펌웨어(tdoa.c)와 같은 순서의 계산. 화면과 무관한 순수 함수들 */
+const FS = 50000, C_SOUND = 343, SPACING = 0.07, NFFT = 512, WIN = 250, PRE = 50, MAXLAG = 13, UP = 8;
+const PAIRS = [[0, 1], [0, 2], [1, 2]];
+
+function fft(re, im, inv){
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = 2 * Math.PI / len * (inv ? 1 : -1), wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < len / 2; k++) {
+        const a = i + k, b = a + len / 2, xr = re[b] * cr - im[b] * ci, xi = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - xr; im[b] = im[a] - xi; re[a] += xr; im[a] += xi;
+        const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+      }
+    }
+  }
+  if (inv) for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+}
+function mulberry(seed){ return function(){ seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(r){ return Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * Math.PI * r()); }
+
+function micPos(){ const r = SPACING / Math.sqrt(3); return [0, 120, -120].map(d => [r * Math.cos(d * Math.PI / 180), r * Math.sin(d * Math.PI / 180)]); }
+// 각 마이크의 도착 시각 [샘플] (중심 기준). 가까운 마이크일수록 값이 작다
+function arrivalSamples(az, el){
+  const a = az * Math.PI / 180, e = (el || 0) * Math.PI / 180, ux = Math.cos(a) * Math.cos(e), uy = Math.sin(a) * Math.cos(e);
+  return micPos().map(p => -(p[0] * ux + p[1] * uy) / C_SOUND * FS);
+}
+function tausFor(az, el){ const t = arrivalSamples(az, el); return PAIRS.map(([i, j]) => t[j] - t[i]); }
+
+// 갑자기 시작해 줄어드는 "딱" 소리 (대역 제한 잡음 x 감쇠)
+function baseBurst(seed, lowHz, highHz, decay){
+  const M = 4096, start = 1500, r = mulberry(seed), re = new Float64Array(M), im = new Float64Array(M);
+  for (let i = 0; i < M; i++) re[i] = gauss(r);
+  fft(re, im, false);
+  for (let k = 0; k < M; k++) { const f = (k <= M / 2 ? k : M - k) * FS / M; if (f < lowHz || f > highHz) { re[k] = 0; im[k] = 0; } }
+  fft(re, im, true);
+  for (let i = 0; i < M; i++) re[i] = i >= start ? re[i] * Math.exp(-(i - start) / decay) : 0;
+  return re;
+}
+// 소수점 샘플만큼 늦추기 (주파수 영역에서 위상을 돌림)
+function delaySignal(x, d){
+  const M = x.length, re = Float64Array.from(x), im = new Float64Array(M);
+  fft(re, im, false);
+  for (let k = 0; k < M; k++) {
+    const kk = k <= M / 2 ? k : k - M, ph = -2 * Math.PI * kk * d / M, c = Math.cos(ph), s = Math.sin(ph), a = re[k], b = im[k];
+    re[k] = a * c - b * s; im[k] = a * s + b * c;
+  }
+  fft(re, im, true);
+  return re;
+}
+// 방향을 정해 3채널 캡처(2048샘플, ADC 눈금)를 만든다. 소리 시작은 약 1100번째 샘플
+function synthCapture(az, el, seed){
+  const d = arrivalSamples(az, el), base = baseBurst(seed, 300, 6000, 150), r = mulberry(seed + 99);
+  const sig = d.map(di => delaySignal(base, di));
+  let mx = 0;
+  for (const s of sig) for (let i = 400; i < 2448; i++) mx = Math.max(mx, Math.abs(s[i]));
+  return sig.map(s => { const x = new Float64Array(2048); for (let i = 0; i < 2048; i++) x[i] = Math.max(0, Math.min(4095, Math.round(2048 + 300 * s[i + 400] / mx + 3 * gauss(r)))); return x; });
+}
+
+function taper(n){ const w = new Float64Array(n).fill(1), m = Math.floor(n / 5); for (let i = 0; i < m; i++) { const r = 0.5 - 0.5 * Math.cos(Math.PI * (i + 0.5) / m); w[i] = r; w[n - 1 - i] = r; } return w; }
+
+// 소리 시작 위치 (정수 연산. tdoa.c 의 find_onset 과 같은 규칙)
+function findOnset(x){
+  const n = x[0].length, sum = x.map(ch => ch.reduce((a, b) => a + b, 0)), q = Math.max(n >> 2, 16);
+  const dev = new Float64Array(n);
+  let noise = 0, peak = 0, peakIdx = 0;
+  for (let i = 0; i < n; i++) {
+    let w = 0;
+    for (let c = 0; c < x.length; c++) w = Math.max(w, Math.abs(n * x[c][i] - sum[c]));
+    dev[i] = w; if (i < q) noise += w; if (w > peak) { peak = w; peakIdx = i; }
+  }
+  const thr = Math.max(160 * noise, peak * q);
+  for (let i = 0; i < n; i++) if (dev[i] * 20 * q > thr) return i;
+  return peakIdx;
+}
+
+// 두 스펙트럼으로 상관 곡선을 구한다. phat=false 면 크기를 그대로 둔 보통의 상관
+function gcc(A, B, kLo, kHi, phat){
+  const nb = kHi - kLo + 1, rr = new Float64Array(nb), ri = new Float64Array(nb), mag = new Float64Array(nb);
+  let mmax = 0, msum = 0;
+  for (let k = 0; k < nb; k++) {
+    const a = k + kLo;
+    rr[k] = B.re[a] * A.re[a] + B.im[a] * A.im[a];          // B · conj(A)
+    ri[k] = B.im[a] * A.re[a] - B.re[a] * A.im[a];
+    mag[k] = Math.hypot(rr[k], ri[k]); mmax = Math.max(mmax, mag[k]); msum += mag[k];
+  }
+  const N = NFFT * UP, re = new Float64Array(N), im = new Float64Array(N), weight = new Float64Array(nb);
+  for (let k = 0; k < nb; k++) {
+    const g = phat ? 1 / (mag[k] + 0.01 * mmax + 1e-30) : nb / (msum + 1e-30);
+    weight[k] = mag[k] * g;                                   // 이 주파수가 결과에 미치는 무게
+    re[k + kLo] = rr[k] * g; im[k + kLo] = ri[k] * g; re[N - k - kLo] = rr[k] * g; im[N - k - kLo] = -ri[k] * g;
+  }
+  fft(re, im, true);
+  const scale = N / (2 * nb), fine = new Float64Array(2 * MAXLAG * UP + 1), cc = new Float64Array(2 * MAXLAG + 1);
+  for (let m = -MAXLAG * UP; m <= MAXLAG * UP; m++) fine[m + MAXLAG * UP] = re[(m + N) % N] * scale;
+  for (let l = -MAXLAG; l <= MAXLAG; l++) cc[l + MAXLAG] = fine[(l + MAXLAG) * UP];
+  let idx = 0; for (let i = 1; i < cc.length; i++) if (cc[i] > cc[idx]) idx = i;
+  let tau = idx - MAXLAG, peak = cc[idx], para = null;
+  if (idx > 0 && idx < cc.length - 1) {                       // 2차(포물선) 보간
+    const y0 = cc[idx - 1], y1 = cc[idx], y2 = cc[idx + 1], d = y0 - 2 * y1 + y2;
+    if (d < 0) { const p = 0.5 * (y0 - y2) / d; para = {y0, y1, y2, p, at: idx - MAXLAG}; tau += p; peak = y1 - 0.25 * (y0 - y2) * p; }
+  }
+  return {tau, peak, cc, fine, mag, weight, rr, ri, intLag: idx - MAXLAG, para};
+}
+
+// 시간 차이 3개 → 방향 (최소제곱)
+function solveAngle(tau){
+  const P = micPos(), A = PAIRS.map(([i, j]) => [P[j][0] - P[i][0], P[j][1] - P[i][1]]), b = tau.map(t => -C_SOUND * t / FS);
+  let gxx = 0, gxy = 0, gyy = 0;
+  for (const a of A) { gxx += a[0] * a[0]; gxy += a[0] * a[1]; gyy += a[1] * a[1]; }
+  const det = gxx * gyy - gxy * gxy;
+  let ux = 0, uy = 0;
+  A.forEach((a, p) => { ux += (gyy * a[0] - gxy * a[1]) / det * b[p]; uy += (-gxy * a[0] + gxx * a[1]) / det * b[p]; });
+  return {angle: Math.atan2(uy, ux) * 180 / Math.PI, norm: Math.hypot(ux, uy)};
+}
+function isValid(peakMin, norm){ return peakMin >= 0.5 && norm >= 0.3 && norm <= 1.2; }
+
+function spectrumOf(seg){ const re = new Float64Array(NFFT), im = new Float64Array(NFFT); re.set(seg); fft(re, im, false); return {re, im}; }
+
+// 캡처 하나의 전체 처리
+function analyze(x, kLo, kHi, phat){
+  kLo = kLo || 6; kHi = kHi || 30; if (phat === undefined) phat = true;
+  const n = x[0].length, onset = findOnset(x), lo = Math.max(0, Math.min(onset - PRE, n - WIN)), w = taper(WIN);
+  const seg = x.map(ch => { let m = 0; for (let i = 0; i < WIN; i++) m += ch[lo + i]; m /= WIN; const s = new Float64Array(WIN); for (let i = 0; i < WIN; i++) s[i] = (ch[lo + i] - m) * w[i]; return s; });
+  const spec = seg.map(spectrumOf), pairs = PAIRS.map(([i, j]) => gcc(spec[i], spec[j], kLo, kHi, phat));
+  const tau = pairs.map(p => p.tau), sol = solveAngle(tau), peakMin = Math.min(...pairs.map(p => p.peak));
+  return {onset, lo, seg, spec, pairs, tau, angle: sol.angle, norm: sol.norm, peakMin, valid: isValid(peakMin, sol.norm), closure: tau[0] + tau[2] - tau[1], w};
+}
+
+// PHAT 설명용 신호: 넓은 대역의 "딱" + 700 Hz 큰 울림 + 1.2 ms 늦은 반사음 + 마이크마다 다른 잡음
+function phatDemo(seed){
+  const D = 4.3, M = 4096, start = 1500, s = baseBurst(11, 300, 8000, 60), a = new Float64Array(M), r = mulberry(seed || 2);
+  let rms = 0; for (let i = start; i < start + 200; i++) rms += s[i] * s[i]; rms = Math.sqrt(rms / 200);
+  for (let i = 0; i < M; i++) a[i] = s[i] + (i >= start ? 2 * rms * Math.exp(-(i - start) / 400) * Math.sin(2 * Math.PI * 700 * (i - start) / FS) : 0);
+  const bDirect = delaySignal(a, D), refl = delaySignal(s, D + 60), b = new Float64Array(M);
+  for (let i = 0; i < M; i++) { b[i] = bDirect[i] + 0.4 * refl[i] + 0.1 * rms * gauss(r); a[i] += 0.1 * rms * gauss(r); }
+  const w = taper(WIN), cut = sig => { const o = new Float64Array(WIN); let m = 0; for (let i = 0; i < WIN; i++) m += sig[start - PRE + i]; m /= WIN; for (let i = 0; i < WIN; i++) o[i] = (sig[start - PRE + i] - m) * w[i]; return o; };
+  const sa = cut(a), sb = cut(b);
+  return {D, sa, sb, A: spectrumOf(sa), B: spectrumOf(sb)};
+}
+// 봉우리의 폭 [샘플]: 최고 높이의 절반이 되는 두 지점 사이
+function halfWidth(res){
+  const i0 = Math.round((res.tau + MAXLAG) * UP); let l = i0, h = i0;
+  while (l > 0 && res.fine[l] > res.peak / 2) l--;
+  while (h < res.fine.length - 1 && res.fine[h] > res.peak / 2) h++;
+  return (h - l) / UP;
+}
+function secondPeak(res){
+  let second = 0;
+  for (let i = 1; i < res.fine.length - 1; i++) if (res.fine[i] > res.fine[i - 1] && res.fine[i] >= res.fine[i + 1] && Math.abs(i / UP - MAXLAG - res.tau) > 1.5) second = Math.max(second, res.fine[i]);
+  return second / res.peak;
+}
+function hzToBin(hz, up){ return up ? Math.ceil(hz * NFFT / FS) : Math.floor(hz * NFFT / FS); }
+/* DSP-END */
+
+/* ---------- 화면 공통 ---------- */
+const $ = s => document.querySelector(s);
+const C = {};
+function readColors(){
+  const g = getComputedStyle(document.documentElement);
+  for (const k of ['bg','panel','ink','ink2','muted','line','c1','c2','c3','warn','accent','hl','soft']) C[k] = g.getPropertyValue('--' + k).trim();
+  C.mic = [C.c1, C.c2, C.c3];
+}
+readColors();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); dirtyAll(); });
+function canvas(id, h){
+  const c = document.getElementById(id), ctx = c.getContext('2d'), o = {c, ctx, W: 0, H: h};
+  function fit(){ const w = c.clientWidth || c.parentElement.clientWidth || 900, d = window.devicePixelRatio || 1; c.width = Math.round(w * d); c.height = Math.round(h * d); ctx.setTransform(d, 0, 0, d, 0, 0); o.W = w; }
+  c.style.height = h + 'px'; fit(); addEventListener('resize', () => { fit(); dirtyAll(); });
+  return o;
+}
+function txt(ctx, s, x, y, color, size, align){ ctx.fillStyle = color || C.ink2; ctx.font = (size || 12) + 'px system-ui, "Malgun Gothic", sans-serif'; ctx.textAlign = align || 'left'; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y); }
+function line(ctx, x1, y1, x2, y2, color, w, dash){ ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w || 1; if (dash) ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore(); }
+function alpha(hex, a){ const n = parseInt(hex.slice(1), 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
+function dot(ctx, x, y, r, color){ ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+function curve(ctx, n, fx, fy, color, w, dash){ ctx.save(); ctx.beginPath(); for (let i = 0; i < n; i++) i ? ctx.lineTo(fx(i), fy(i)) : ctx.moveTo(fx(i), fy(i)); ctx.strokeStyle = color; ctx.lineWidth = w || 1.4; if (dash) ctx.setLineDash(dash); ctx.stroke(); ctx.restore(); }
+const sgn = (v, d) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d === undefined ? 2 : d);
+
+const scenes = [];
+const io = new IntersectionObserver(es => es.forEach(e => { const s = scenes.find(s => s.el === e.target); if (s) s.vis = e.isIntersecting; }), {rootMargin: '120px'});
+function scene(el, step){ const s = {el, step, vis: true, dirty: true}; scenes.push(s); io.observe(el); return s; }
+function dirtyAll(){ scenes.forEach(s => s.dirty = true); }
+let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const pauseBtn = $('#pauseBtn');
+function showPause(){ pauseBtn.textContent = paused ? '애니메이션 재생' : '애니메이션 멈춤'; }
+pauseBtn.onclick = () => { paused = !paused; showPause(); };
+showPause();
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  for (const s of scenes) if (s.vis) s.step(paused ? 0 : dt);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// 위에서 본 그림의 좌표: 0° = 위쪽, 반시계가 + (doa_live.py 의 나침반과 같음)
+function polar(cx, cy, deg, rho){ const a = deg * Math.PI / 180; return [cx - rho * Math.sin(a), cy - rho * Math.cos(a)]; }
+function arrow(ctx, x1, y1, x2, y2, color, w, dash){
+  line(ctx, x1, y1, x2, y2, color, w, dash);
+  const a = Math.atan2(y2 - y1, x2 - x1), h = 11;
+  ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - h * Math.cos(a - 0.4), y2 - h * Math.sin(a - 0.4)); ctx.lineTo(x2 - h * Math.cos(a + 0.4), y2 - h * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill();
+}
+function compass(ctx, cx, cy, R, o){
+  ctx.fillStyle = alpha(C.muted, 0.22); ctx.beginPath(); ctx.arc(cx, cy, R * 0.3, 0, 7); ctx.fill();
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R * 0.5, 0, 7); ctx.stroke();
+  ctx.strokeStyle = C.ink2; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+  for (let d = -150; d <= 180; d += 30) { const [a, b] = polar(cx, cy, d, R), [c, e] = polar(cx, cy, d, R + 5); line(ctx, a, b, c, e, C.muted, 1); }
+  [[0, '0°'], [90, '+90°'], [-90, '−90°'], [180, '±180°']].forEach(([d, s]) => { const [x, y] = polar(cx, cy, d, R + 20); txt(ctx, s, x, y, C.muted, 11.5, 'center'); });
+  [0, 120, -120].forEach((d, i) => { const [x, y] = polar(cx, cy, d, R * 0.16); dot(ctx, x, y, 5, C.mic[i]); });
+  txt(ctx, 'norm 1', cx + 4, cy - R - 9, C.muted, 11); txt(ctx, '0.3', cx + R * 0.3 + 4, cy + 10, C.muted, 11);
+  if (o.truth !== undefined) { const [x, y] = polar(cx, cy, o.truth, R + 4); const [x2, y2] = polar(cx, cy, o.truth, R - 10); line(ctx, x2, y2, x, y, C.c3, 3); }
+  if (o.angle !== undefined) { const [x, y] = polar(cx, cy, o.angle, R * Math.min(1.25, o.norm)); arrow(ctx, cx, cy, x, y, o.valid ? C.ink : C.muted, o.valid ? 2.6 : 1.8, o.valid ? null : [5, 4]); }
+}
+
+/* ---------- 1. 도착 시각 차이 ---------- */
+(function(){
+  const cv = canvas('cvArr', 360), sl = $('#arrAz'), out = $('#arrOut'); let ph = 0;
+  function info(){
+    const az = +sl.value, t = tausFor(az, 0); $('#arrAzO').textContent = sgn(az, 0) + '°';
+    const us = v => (v * 20).toFixed(0);
+    out.innerHTML = 'tau12 = <b>' + sgn(t[0]) + '</b>샘플 (' + us(t[0]) + 'µs) · tau13 = <b>' + sgn(t[1]) + '</b>샘플 (' + us(t[1]) + 'µs) · tau23 = <b>' + sgn(t[2]) + '</b>샘플 (' + us(t[2]) + 'µs)' +
+      '<br><span style="color:var(--ink2)">양수는 뒤쪽 번호의 마이크가 더 늦게 듣는다는 뜻입니다. 예: tau12가 +면 MIC2가 MIC1보다 늦습니다.</span>';
+  }
+  sl.oninput = info; info();
+  scene(cv.c, dt => {
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H);
+    ph = (ph + dt) % 5;
+    const az = +sl.value, a = az * Math.PI / 180, ux = Math.cos(a), uy = Math.sin(a), P = micPos();
+    const left = Math.min(W * 0.5, 400), cx = left / 2, cy = H / 2, S = Math.min(1500, (left / 2 - 16) / 0.115);
+    const prog = Math.min(1, ph / 3.6), d = 0.11 - 0.22 * prog;                 // 파면의 위치 [m]: 중심에서 음원 쪽으로 d
+    const scr = (x, y) => [cx - y * S, cy - x * S];
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, left, H); ctx.clip();
+    for (let kf = 0; kf < 4; kf++) {                                            // 파면 (앞의 것이 진함)
+      const dd = d + kf * 0.028, [x0, y0] = scr(ux * dd, uy * dd), vx = -uy, vy = ux, L = 0.3;
+      const [xa, ya] = scr(ux * dd + vx * L, uy * dd + vy * L), [xb, yb] = scr(ux * dd - vx * L, uy * dd - vy * L);
+      line(ctx, xa, ya, xb, yb, alpha(C.accent, kf ? 0.22 : 0.9), kf ? 1.2 : 2.4);
+    }
+    ctx.restore();
+    const [sx, sy] = polar(cx, cy, az, Math.min(left, H) / 2 - 16); dot(ctx, sx, sy, 7, C.accent); txt(ctx, '소리', sx, sy - 14, C.accent, 12, 'center');
+    const tri = P.map(p => scr(p[0], p[1])); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath(); tri.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.stroke();
+    const proj = P.map(p => p[0] * ux + p[1] * uy), hit = proj.map(q => q >= d);
+    tri.forEach((p, i) => { if (hit[i]) dot(ctx, p[0], p[1], 15, alpha(C.mic[i], 0.25)); dot(ctx, p[0], p[1], 7, C.mic[i]); txt(ctx, 'MIC' + (i + 1), p[0], p[1] + (i === 0 ? -18 : 20), C.ink, 12, 'center'); });
+    // 오른쪽: 도착 시각 눈금
+    const t = arrivalSamples(az, 0), t0 = Math.min(...t), x0 = left + 70, x1 = W - 20, X = v => x0 + (x1 - x0) * v / 11;
+    txt(ctx, '도착 시각 (가장 먼저 닿은 마이크 기준, 샘플)', x0, 30, C.ink2, 12.5);
+    for (let v = 0; v <= 11; v++) { line(ctx, X(v), 286, X(v), v % 5 ? 290 : 294, C.muted, 1); if (v % 5 === 0) txt(ctx, String(v), X(v), 306, C.muted, 11.5, 'center'); }
+    txt(ctx, '1샘플 = 20µs', x1, 326, C.muted, 11.5, 'right');
+    const now = (-d / C_SOUND * FS) - t0;
+    if (now > 0 && now < 11) line(ctx, X(now), 52, X(now), 286, alpha(C.accent, 0.6), 1.5, [4, 3]);
+    t.forEach((ti, i) => {
+      const y = 92 + i * 70, v = ti - t0;
+      txt(ctx, 'MIC' + (i + 1), left + 16, y, C.mic[i], 13); line(ctx, x0, y, x1, y, C.line, 1);
+      if (hit[i]) { line(ctx, X(v), y - 18, X(v), y + 18, C.mic[i], 3); txt(ctx, v < 0.005 ? '가장 먼저' : '+' + v.toFixed(2), X(v) + 7, y - 20, C.mic[i], 12.5); }
+    });
+  });
+})();
+
+/* ---------- 2. 밀어서 맞추기 ---------- */
+(function(){
+  const cv = canvas('cvCorr', 360), sl = $('#corrLag'), out = $('#corrOut'), btn = $('#corrAuto');
+  const N = 170, D = 6, base = baseBurst(5, 900, 3500, 45), a = new Float64Array(N + 40), b = new Float64Array(N + 40), r = mulberry(3);
+  let mx = 0; for (let i = 0; i < N + 40; i++) mx = Math.max(mx, Math.abs(base[1470 + i]));
+  for (let i = 0; i < N + 40; i++) { a[i] = base[1470 + i] / mx; b[i] = (i >= D ? base[1470 + i - D] / mx : 0) + 0.03 * gauss(r); }
+  const en = v => { let s = 0; for (let i = 13; i < N + 13; i++) s += v[i] * v[i]; return Math.sqrt(s); }, ea = en(a), eb = en(b);
+  const score = L => { let s = 0; for (let i = 13; i < N + 13; i++) s += a[i] * b[i + L]; return s / (ea * eb); };
+  const sc = []; for (let L = -13; L <= 13; L++) sc.push(score(L));
+  let auto = true, pos = -13, wait = 0, seen = new Set();
+  function info(){
+    const L = +sl.value; $('#corrLagO').textContent = sgn(L, 0) + '샘플';
+    out.innerHTML = 'MIC2 파형을 <b>' + sgn(L, 0) + '</b>샘플 당겼을 때 겹침 점수 <b>' + sc[L + 13].toFixed(2) + '</b>' + (L === D ? ' — <b>가장 잘 겹칩니다.</b> MIC2가 MIC1보다 6샘플(120µs) 늦게 들었다는 뜻입니다.' : '');
+  }
+  sl.oninput = () => { auto = false; btn.classList.remove('on'); seen.add(+sl.value); info(); };
+  btn.onclick = () => { auto = !auto; btn.classList.toggle('on', auto); if (auto) { pos = -13; seen = new Set(); } };
+  info();
+  scene(cv.c, dt => {
+    if (auto) {
+      if (wait > 0) { wait -= dt; if (wait <= 0) { pos = -13; seen = new Set(); } }
+      else { pos += dt * 3.2; if (pos >= 13) { pos = 13; wait = 0.6; } const L = Math.round(pos); if (+sl.value !== L) { sl.value = L; info(); } seen.add(L); if (L === D && Math.abs(pos - D) < 0.06) { pos = D + 0.07; wait = 0; } }
+    }
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H);
+    const L = +sl.value, x0 = 96, x1 = W - 14, X = i => x0 + (x1 - x0) * i / (N - 1), rowY = [44, 112, 186], amp = 30;
+    const tr = (get, y, color) => curve(ctx, N, X, i => y - amp * get(i + 13), color, 1.5);
+    txt(ctx, 'MIC1', 10, rowY[0], C.c1, 13); tr(i => a[i], rowY[0], C.c1);
+    txt(ctx, 'MIC2', 10, rowY[1], C.c2, 13); txt(ctx, '(6샘플 늦음)', 10, rowY[1] + 16, C.muted, 11); tr(i => b[i], rowY[1], C.c2);
+    txt(ctx, '겹쳐 보기', 10, rowY[2], C.ink2, 13); tr(i => a[i], rowY[2], C.c1); tr(i => b[i + L] || 0, rowY[2], C.c2);
+    line(ctx, x0, 226, x1, 226, C.line, 1);
+    // 점수 막대
+    const bx = l => x0 + (x1 - x0) * (l + 13.5) / 27, base0 = 300, hgt = 58;
+    txt(ctx, '겹침 점수', 10, 270, C.ink2, 13); txt(ctx, '당긴 양 (샘플) →', 10, 346, C.muted, 11); line(ctx, x0, base0, x1, base0, C.muted, 1);
+    for (let l = -13; l <= 13; l++) {
+      if (!seen.has(l) && !(l === L)) continue;
+      const v = sc[l + 13], w = (x1 - x0) / 27 - 5;
+      ctx.fillStyle = l === L ? C.ink : (l === D ? C.c3 : alpha(C.muted, 0.7)); ctx.fillRect(bx(l) - w / 2, v >= 0 ? base0 - v * hgt : base0, w, Math.abs(v) * hgt);
+    }
+    for (let l = -12; l <= 12; l += 3) txt(ctx, sgn(l, 0), bx(l), 346, C.muted, 11, 'center');
+  });
+})();
+
+/* ---------- 3. PHAT ---------- */
+(function(){
+  const cv = canvas('cvPhat', 410), out = $('#phOut'), demo = phatDemo();
+  let phat = true, lo = 500, hi = 3000, both, kLo, kHi;
+  function calc(){
+    kLo = Math.max(1, hzToBin(lo, true)); kHi = hzToBin(hi, false);
+    both = [gcc(demo.A, demo.B, kLo, kHi, false), gcc(demo.A, demo.B, kLo, kHi, true)];
+    const second = secondPeak(both[phat ? 1 : 0]);
+    out.innerHTML = '봉우리의 폭: 그대로 <b>' + halfWidth(both[0]).toFixed(1) + '</b>샘플 → PHAT <b>' + halfWidth(both[1]).toFixed(1) + '</b>샘플 · 찾은 지연: 그대로 ' + sgn(both[0].tau) + ', PHAT ' + sgn(both[1].tau) + ' (실제 +4.30)' +
+      (second > 0.3 ? '<br><span style="color:var(--warn)">지금 고른 설정에서는 옆 봉우리가 최고 봉우리의 ' + (100 * second).toFixed(0) + '%입니다. 잘못 고를 위험이 있습니다.</span>' : '');
+  }
+  $('#phOn').onclick = () => { phat = true; $('#phOn').classList.add('on'); $('#phOff').classList.remove('on'); calc(); };
+  $('#phOff').onclick = () => { phat = false; $('#phOff').classList.add('on'); $('#phOn').classList.remove('on'); calc(); };
+  document.querySelectorAll('button.band').forEach(b => b.onclick = () => { document.querySelectorAll('button.band').forEach(x => x.classList.remove('on')); b.classList.add('on'); lo = +b.dataset.lo; hi = +b.dataset.hi; calc(); });
+  calc();
+  // 대역 밖의 크기도 흐리게 보여 주기 위한 전체 스펙트럼
+  const fullMag = []; for (let k = 0; k <= 92; k++) { const rr = demo.B.re[k] * demo.A.re[k] + demo.B.im[k] * demo.A.im[k], ri = demo.B.im[k] * demo.A.re[k] - demo.B.re[k] * demo.A.im[k]; fullMag.push(Math.hypot(rr, ri)); }
+  const fmax = Math.max(...fullMag);
+  scene(cv.c, () => {
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H);
+    const res = both[phat ? 1 : 0], x0 = 56, x1 = W - 14, top = 30, bh = 110, XB = k => x0 + (x1 - x0) * k / 92;
+    txt(ctx, '각 주파수가 결과에 미치는 무게', x0, 14, C.ink2, 12.5);
+    ctx.fillStyle = alpha(C.c3, 0.12); ctx.fillRect(XB(kLo - 0.5), top, XB(kHi + 0.5) - XB(kLo - 0.5), bh);
+    const wmax = Math.max(...res.weight);
+    for (let k = 1; k <= 92; k++) {
+      const inb = k >= kLo && k <= kHi, v = inb ? res.weight[k - kLo] / wmax : Math.sqrt(fullMag[k] / fmax) * 0.35, w = Math.max(2, (x1 - x0) / 92 - 2);
+      ctx.fillStyle = inb ? C.c1 : alpha(C.muted, 0.35); ctx.fillRect(XB(k) - w / 2, top + bh - v * (bh - 6), w, v * (bh - 6));
+    }
+    for (const hz of [0, 2000, 4000, 6000, 8000]) { const k = hz * NFFT / FS; txt(ctx, hz ? hz / 1000 + 'kHz' : '0', XB(k), top + bh + 12, C.muted, 11, 'center'); }
+    txt(ctx, phat ? 'PHAT: 크기 차이를 없앰 (아주 약한 주파수만 덜 키움)' : '그대로: 큰 주파수 몇 개가 결과를 좌우함', x1, 14, phat ? C.c1 : C.warn, 12.5, 'right');
+    // 상관 곡선: 두 방식을 각자의 최고값이 1이 되게 맞춰 함께 그린다
+    const cy0 = 200, ch = 160, n = res.fine.length, X = i => x0 + (x1 - x0) * i / (n - 1);
+    const norm = both.map(r => Array.from(r.fine, v => v / r.peak)), mn = Math.min(-0.3, ...norm[0], ...norm[1]), Y = v => cy0 + ch * (1 - (v - mn) / (1.08 - mn));
+    txt(ctx, '겹침 점수 (최고값을 1로 맞춤)', x0, cy0 - 14, C.ink2, 12.5);
+    line(ctx, x0, Y(0), x1, Y(0), C.line, 1);
+    const xt = X((demo.D + MAXLAG) * UP); line(ctx, xt, cy0, xt, cy0 + ch, C.c3, 1.5, [5, 4]); txt(ctx, '실제 +4.30', xt + 5, cy0 + ch - 8, C.c3, 12);
+    [0, 1].forEach(m => { const act = (m === 1) === phat; curve(ctx, n, X, i => Y(norm[m][i]), act ? C.ink : alpha(C.muted, 0.9), act ? 2 : 1.3, act ? null : [6, 4]); });
+    const xp = X((res.tau + MAXLAG) * UP); dot(ctx, xp, Y(1), 5.5, C.c2);
+    line(ctx, x1 - 250, cy0 - 14, x1 - 226, cy0 - 14, C.ink, 2); txt(ctx, phat ? 'PHAT' : '그대로', x1 - 220, cy0 - 14, C.ink, 12);
+    line(ctx, x1 - 150, cy0 - 14, x1 - 126, cy0 - 14, alpha(C.muted, 0.9), 1.3, [6, 4]); txt(ctx, (phat ? '그대로' : 'PHAT') + ' (비교용)', x1 - 120, cy0 - 14, C.muted, 12);
+    for (let l = -12; l <= 12; l += 4) txt(ctx, sgn(l, 0), X((l + MAXLAG) * UP), cy0 + ch + 14, C.muted, 11, 'center');
+    txt(ctx, '지연 (샘플)', x1, cy0 + ch + 32, C.muted, 11, 'right');
+  });
+})();
+
+/* ---------- 4. 2차 보간 ---------- */
+(function(){
+  const cv = canvas('cvPara', 300), sl = $('#paraD'), out = $('#paraOut');
+  const kern = x => { let s = 0; for (let k = 6; k <= 30; k++) s += Math.cos(2 * Math.PI * k * x / NFFT); return s / 25; };
+  let st;
+  function calc(){
+    const D = +sl.value; $('#paraDO').textContent = '+' + D.toFixed(2);
+    let best = 0, bv = -9; for (let l = 0; l <= 8; l++) { const v = kern(l - D); if (v > bv) { bv = v; best = l; } }
+    const y0 = kern(best - 1 - D), y1 = kern(best - D), y2 = kern(best + 1 - D), p = 0.5 * (y0 - y2) / (y0 - 2 * y1 + y2);
+    st = {D, best, y0, y1, y2, p, est: best + p};
+    out.innerHTML = '정수 샘플만 쓰면 <b>+' + best + '</b> (오차 ' + Math.abs(best - D).toFixed(2) + '샘플 ≈ ' + (Math.abs(best - D) * 4.6).toFixed(1) + '°) · 포물선 보간을 쓰면 <b>+' + st.est.toFixed(2) + '</b> (오차 ' + Math.abs(st.est - D).toFixed(3) + '샘플 ≈ ' + (Math.abs(st.est - D) * 4.6).toFixed(2) + '°)';
+  }
+  sl.oninput = calc; calc();
+  scene(cv.c, () => {
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H);
+    const x0 = 50, x1 = W - 16, X = l => x0 + (x1 - x0) * l / 8, Y = v => 250 - 215 * (v - 0.2) / 0.85;
+    for (let l = 0; l <= 8; l++) { line(ctx, X(l), 20, X(l), 252, C.line, 1); txt(ctx, '+' + l, X(l), 268, C.muted, 11.5, 'center'); }
+    txt(ctx, '지연 (샘플)', x1, 286, C.muted, 11.5, 'right');
+    curve(ctx, 321, i => X(i / 40), i => Y(Math.max(0.2, kern(i / 40 - st.D))), alpha(C.muted, 0.8), 1.3);
+    ctx.save(); ctx.beginPath(); ctx.rect(x0, 16, x1 - x0, 238); ctx.clip();
+    const a = (st.y0 - 2 * st.y1 + st.y2) / 2, b = (st.y2 - st.y0) / 2;
+    curve(ctx, 121, i => X(st.best - 1.5 + i / 40), i => { const u = -1.5 + i / 40; return Y(a * u * u + b * u + st.y1); }, C.c2, 2);
+    ctx.restore();
+    for (let l = 0; l <= 8; l++) { const v = kern(l - st.D), hot = Math.abs(l - st.best) <= 1; if (v > 0.2) dot(ctx, X(l), Y(v), hot ? 6 : 4, hot ? C.ink : C.muted); }
+    line(ctx, X(st.D), 20, X(st.D), 252, C.c3, 1.5, [5, 4]); txt(ctx, '실제', X(st.D), 10, C.c3, 12, 'center');
+    line(ctx, X(st.est), 36, X(st.est), 252, C.c2, 1.5); txt(ctx, '포물선의 꼭대기', X(st.est) + 8, 150, C.c2, 12);
+    txt(ctx, '회색 선: 진짜 곡선 (실제로는 점만 보임)', x0 + 6, 28, C.muted, 11.5);
+  });
+})();
+
+/* ---------- 5. 지연 → 각도 ---------- */
+(function(){
+  const cv = canvas('cvAng', 340), out = $('#angOut'); let st;
+  function calc(){
+    const az = +$('#angAz').value, el = +$('#angEl').value, bad = $('#angBad').checked;
+    $('#angAzO').textContent = sgn(az, 0) + '°'; $('#angElO').textContent = el + '°';
+    const tau = tausFor(az, el); if (bad) tau[1] += 6;
+    const s = solveAngle(tau), closure = tau[0] + tau[2] - tau[1], valid = isValid(0.9, s.norm) && !bad;
+    st = {az, el, tau, s, closure, valid, bad};
+    let why = valid ? '<b style="color:var(--c3)">신뢰 가능</b>' : '<b style="color:var(--warn)">신뢰 낮음</b>';
+    if (!valid) why += bad ? ' — 세 값이 서로 맞지 않습니다 (closure가 0에서 멀어짐). 실제로는 이런 경우 peak도 낮게 나옵니다.' : s.norm < 0.3 ? ' — norm이 0.3보다 작습니다. 소리가 거의 위에서 왔습니다.' : ' — norm이 1.2보다 큽니다.';
+    out.innerHTML = '계산된 방향 <b>' + sgn(s.angle, 1) + '°</b> · norm <b>' + s.norm.toFixed(2) + '</b> · closure <b>' + sgn(closure) + '</b> · ' + why;
+  }
+  ['angAz', 'angEl', 'angBad'].forEach(id => $('#' + id).oninput = calc); calc();
+  scene(cv.c, () => {
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H);
+    const left = Math.min(W * 0.48, 360), R = Math.min(left / 2 - 44, 120), cx = left / 2, cy = H / 2 + 4;
+    compass(ctx, cx, cy, R, {angle: st.s.angle, norm: st.s.norm, valid: st.valid, truth: st.az});
+    txt(ctx, '초록 눈금: 실제 방향', 12, H - 12, C.c3, 11.5);
+    const x0 = left + 96, x1 = W - 20, mid = (x0 + x1) / 2, sc = (x1 - x0) / 2 / 12, names = ['tau12', 'tau13', 'tau23'];
+    txt(ctx, '시간 차이 (샘플)', x0, 30, C.ink2, 12.5);
+    line(ctx, mid, 50, mid, 250, C.muted, 1);
+    for (const v of [-10.2, 10.2]) { line(ctx, mid + v * sc, 50, mid + v * sc, 250, C.line, 1, [4, 3]); txt(ctx, sgn(v, 1), mid + v * sc, 264, C.muted, 11, 'center'); }
+    txt(ctx, '0', mid, 264, C.muted, 11, 'center'); txt(ctx, '±10.2 = 7cm를 소리가 지나는 시간', x1, 284, C.muted, 11, 'right');
+    st.tau.forEach((t, i) => {
+      const y = 86 + i * 62, over = Math.abs(t) > 10.3;
+      txt(ctx, names[i], left + 20, y, C.ink, 13);
+      ctx.fillStyle = over ? C.warn : C.c1; ctx.fillRect(Math.min(mid, mid + t * sc), y - 11, Math.abs(t * sc), 22);
+      txt(ctx, sgn(t), t >= 0 ? mid + t * sc + 6 : mid + t * sc - 6, y, over ? C.warn : C.ink, 12.5, t >= 0 ? 'left' : 'right');
+    });
+  });
+})();
+
+/* ---------- 6. 전체 과정 ---------- */
+(function(){
+  const cv = canvas('cvPipe', 400), out = $('#pipeOut'), box = $('#pipeSteps');
+  const names = ['① 캡처', '② 구간 자르기', '③ 주파수로 바꾸기', '④ 위상만 남기기', '⑤ 겹침 점수', '⑥ 방향'];
+  let step = 0, auto = false, acc = 0, truth = 100, seed = 7, x, r;
+  names.forEach((n, i) => { const b = document.createElement('button'); b.textContent = n; b.onclick = () => { step = i; auto = false; $('#pipeAuto').classList.remove('on'); show(); }; box.appendChild(b); });
+  function gen(){ x = synthCapture(truth, 0, seed); r = analyze(x); show(); }
+  function show(){
+    box.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', i === step));
+    const t = r.tau, msgs = [
+      '<b>① 캡처</b> — 직전 프레임과 트리거 프레임을 이어 붙인 2048샘플 × 마이크 3개입니다. 세로 점선이 찾아낸 소리 시작 위치(' + r.onset + '번째 샘플)입니다. 실제 방향은 ' + sgn(truth, 0) + '°로 만들었습니다.',
+      '<b>② 구간 자르기</b> — 시작 위치 1ms 전부터 5ms(250샘플)만 잘라 씁니다. 뒤쪽은 반사음이 섞이기 때문입니다. 세 마이크에 같은 구간을 쓰고, 평균을 뺀 뒤 양 끝을 부드럽게 줄입니다(점선). 파형이 서로 조금씩 밀려 있는 것이 보입니다.',
+      '<b>③ 주파수로 바꾸기 (FFT)</b> — 파형을 "어떤 주파수가 얼마나 들어 있나"로 바꿉니다. 초록 띠(500~3000Hz) 안의 25개 주파수만 씁니다. 대역 밖을 0으로 만드는 것이 곧 필터입니다.',
+      '<b>④ 위상만 남기기 (PHAT)</b> — MIC1과 MIC2의 스펙트럼을 곱하면 주파수마다 "두 마이크의 위상 차이"가 나옵니다. 시간이 밀려 있으면 위상 차이가 주파수에 비례해 커지므로 점들이 직선에 놓입니다. 직선의 기울기가 곧 시간 차이입니다. 크기는 버리고(왼쪽 막대가 모두 같아짐) 위상만 씁니다.',
+      '<b>⑤ 겹침 점수 (역변환)</b> — 다시 시간 쪽으로 바꾸면 "얼마나 밀었을 때 가장 잘 겹치나"가 곡선으로 나옵니다. 봉우리 위치를 포물선 보간으로 읽습니다: tau12 = ' + sgn(t[0]) + ', tau13 = ' + sgn(t[1]) + ', tau23 = ' + sgn(t[2]) + ' 샘플.',
+      '<b>⑥ 방향</b> — 세 시간 차이에 가장 잘 맞는 방향: <b>' + sgn(r.angle, 1) + '°</b> (실제 ' + sgn(truth, 0) + '°) · norm ' + r.norm.toFixed(2) + ' · 가장 낮은 peak ' + r.peakMin.toFixed(2) + ' · 판정 <b style="color:var(--' + (r.valid ? 'c3)">신뢰 가능' : 'warn)">신뢰 낮음') + '</b>',
+    ];
+    out.innerHTML = msgs[step]; sc.dirty = true;
+  }
+  $('#pipePrev').onclick = () => { step = (step + 5) % 6; show(); };
+  $('#pipeNext').onclick = () => { step = (step + 1) % 6; show(); };
+  $('#pipeAuto').onclick = () => { auto = !auto; $('#pipeAuto').classList.toggle('on', auto); acc = 0; };
+  $('#pipeNew').onclick = () => { truth = Math.round(Math.random() * 34 - 17) * 10; seed += 13; gen(); };
+  const sc = scene(cv.c, dt => {
+    if (auto) { acc += dt; if (acc > 4.5) { acc = 0; step = (step + 1) % 6; show(); } }
+    if (!sc.dirty) return; sc.dirty = false;
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H);
+    const x0 = 62, x1 = W - 16;
+    if (step === 0) {
+      const X = i => x0 + (x1 - x0) * i / 2047;
+      line(ctx, X(1024), 16, X(1024), H - 30, C.line, 1.5); txt(ctx, '직전 프레임', X(512), H - 14, C.muted, 12, 'center'); txt(ctx, '트리거 프레임', X(1536), H - 14, C.muted, 12, 'center');
+      x.forEach((ch, c) => { const y = 76 + c * 112; txt(ctx, 'MIC' + (c + 1), 10, y, C.mic[c], 13); curve(ctx, 1024, i => X(i * 2), i => y - (ch[i * 2] - 2048) * 0.15, C.mic[c], 1.1); });
+      line(ctx, X(r.onset), 16, X(r.onset), H - 30, C.ink, 1.3, [5, 4]); txt(ctx, '소리 시작', X(r.onset) + 6, 22, C.ink, 12);
+      ctx.fillStyle = alpha(C.hl, 0.18); ctx.fillRect(X(r.lo), 16, X(r.lo + WIN) - X(r.lo), H - 46);
+    } else if (step === 1) {
+      const X = i => x0 + (x1 - x0) * i / (WIN - 1), mid = H / 2 - 6;
+      let mx = 1; r.seg.forEach(s => s.forEach(v => mx = Math.max(mx, Math.abs(v))));
+      curve(ctx, WIN, X, i => mid - r.w[i] * 150, C.muted, 1.2, [5, 4]); curve(ctx, WIN, X, i => mid + r.w[i] * 150, C.muted, 1.2, [5, 4]);
+      r.seg.forEach((s, c) => curve(ctx, WIN, X, i => mid - s[i] / mx * 145, C.mic[c], 1.6));
+      line(ctx, X(PRE), 20, X(PRE), H - 34, C.ink, 1.2, [5, 4]); txt(ctx, '소리 시작', X(PRE) + 6, 26, C.ink, 12);
+      for (const ms of [0, 1, 2, 3, 4, 5]) txt(ctx, ms + 'ms', X(Math.min(WIN - 1, ms * 50)), H - 16, C.muted, 11.5, 'center');
+      ['MIC1', 'MIC2', 'MIC3'].forEach((n, c) => txt(ctx, n, x1 - 150 + c * 52, 24, C.mic[c], 12.5));
+    } else if (step === 2) {
+      const KM = 100, X = k => x0 + (x1 - x0) * k / KM, top = 26, bot = H - 40;
+      ctx.fillStyle = alpha(C.c3, 0.14); ctx.fillRect(X(5.5), top, X(30.5) - X(5.5), bot - top); txt(ctx, '쓰는 대역', (X(5.5) + X(30.5)) / 2, top + 10, C.c3, 12, 'center');
+      const mags = r.spec.map(s => { const m = []; for (let k = 0; k <= KM; k++) m.push(Math.hypot(s.re[k], s.im[k])); return m; }), mx = Math.max(...mags.flat());
+      mags.forEach((m, c) => curve(ctx, KM + 1, X, k => bot - (bot - top - 20) * Math.sqrt(m[k] / mx), C.mic[c], 1.6));
+      for (const hz of [0, 2000, 4000, 6000, 8000]) txt(ctx, hz ? hz / 1000 + 'kHz' : '0', X(hz * NFFT / FS), bot + 16, C.muted, 11.5, 'center');
+      txt(ctx, '각 주파수의 세기', 10, 14, C.ink2, 12.5); ['MIC1', 'MIC2', 'MIC3'].forEach((n, c) => txt(ctx, n, x1 - 150 + c * 52, 14, C.mic[c], 12.5));
+    } else if (step === 3) {
+      const p = r.pairs[0], nb = p.mag.length, half = (x1 - x0) / 2 - 20, XL = k => x0 + half * (k + 0.5) / nb, top = 44, bot = H - 50, mmax = Math.max(...p.mag);
+      txt(ctx, 'MIC1·MIC2: 주파수별 크기', x0, 20, C.ink2, 12.5);
+      for (let k = 0; k < nb; k++) { const w = half / nb - 3, h1 = (bot - top) * p.mag[k] / mmax; ctx.fillStyle = alpha(C.muted, 0.55); ctx.fillRect(XL(k) - w / 2, bot - h1, w, h1); ctx.fillStyle = alpha(C.c1, 0.75); ctx.fillRect(XL(k) - w / 2, bot - (bot - top) * 0.55, w, 3); }
+      txt(ctx, '회색: 원래 크기   파란 선: PHAT 뒤 (모두 같음)', x0, bot + 18, C.muted, 11.5);
+      const xr0 = x0 + half + 60, XR = k => xr0 + (x1 - xr0) * k / (nb - 1), ph = []; let prev = 0, off = 0;
+      for (let k = 0; k < nb; k++) { let a = Math.atan2(p.ri[k], p.rr[k]); if (k && a + off - prev > Math.PI) off -= 2 * Math.PI; if (k && a + off - prev < -Math.PI) off += 2 * Math.PI; prev = a + off; ph.push(prev); }
+      const lo = Math.min(...ph, -0.5), hi = Math.max(...ph, 0.5), Y = v => bot - (bot - top) * (v - lo) / (hi - lo);
+      txt(ctx, 'MIC1·MIC2: 주파수별 위상 차이', xr0, 20, C.ink2, 12.5);
+      line(ctx, xr0, Y(0), x1, Y(0), C.line, 1);
+      const sl = -2 * Math.PI * p.tau / NFFT; line(ctx, XR(0), Y(sl * 6), XR(nb - 1), Y(sl * 30), C.c2, 1.6);
+      ph.forEach((v, k) => dot(ctx, XR(k), Y(v), 3.2, C.ink));
+      txt(ctx, '기울기 = 시간 차이 ' + sgn(p.tau) + '샘플', x1, bot + 18, C.c2, 12, 'right'); txt(ctx, '500Hz', xr0, bot + 18, C.muted, 11.5);
+    } else if (step === 4) {
+      const gap = 26, pw = (x1 - 16 - gap * 2) / 3, top = 50, bot = H - 50, ttl = ['MIC1 → MIC2', 'MIC1 → MIC3', 'MIC2 → MIC3'];
+      r.pairs.forEach((p, c) => {
+        const px = 16 + c * (pw + gap), n = p.fine.length, X = i => px + pw * i / (n - 1), Y = v => bot - (bot - top) * (v + 0.5) / 1.55;
+        line(ctx, px, Y(0), px + pw, Y(0), C.line, 1); line(ctx, X(MAXLAG * UP), top, X(MAXLAG * UP), bot, C.line, 1);
+        curve(ctx, n, X, i => Y(p.fine[i]), C.ink, 1.7);
+        const xp = X((p.tau + MAXLAG) * UP); line(ctx, xp, Y(p.peak), xp, bot, C.c2, 1.2, [4, 3]); dot(ctx, xp, Y(p.peak), 5, C.c2);
+        txt(ctx, ttl[c], px + pw / 2, 18, C.ink, 13, 'center'); txt(ctx, sgn(p.tau) + '샘플  (peak ' + p.peak.toFixed(2) + ')', px + pw / 2, 36, C.c2, 12.5, 'center');
+        txt(ctx, '−13', px, bot + 16, C.muted, 11); txt(ctx, '0', X(MAXLAG * UP), bot + 16, C.muted, 11, 'center'); txt(ctx, '+13', px + pw, bot + 16, C.muted, 11, 'right');
+      });
+    } else {
+      const R = Math.min(130, H / 2 - 50); compass(ctx, W / 2, H / 2 + 4, R, {angle: r.angle, norm: r.norm, valid: r.valid, truth});
+      txt(ctx, '초록 눈금: 실제 방향   화살표: 계산한 방향', W / 2, H - 14, C.ink2, 12, 'center');
+    }
+  });
+  gen();
+})();
+
+/* ---------- 7. MCU ---------- */
+(function(){
+  const cv = canvas('cvTime', 170); let g = 0;
+  scene(cv.c, dt => {
+    g = Math.min(1, g + dt * 0.5);
+    const {ctx, W, H} = cv; ctx.clearRect(0, 0, W, H);
+    const x0 = 150, x1 = W - 70, X = ms => x0 + (x1 - x0) * ms / 22, rows = [['최적화 없음 (-O0)', 18.6, C.c2], ['최적화 켬 (-Ofast)', 3.3, C.c3]];
+    ctx.fillStyle = alpha(C.muted, 0.15); ctx.fillRect(x0, 22, X(20.48) - x0, 104); line(ctx, X(20.48), 14, X(20.48), 134, C.ink2, 1.3, [5, 4]); txt(ctx, '프레임 주기 20.48ms', X(20.48) - 6, 14, C.ink2, 12, 'right');
+    rows.forEach(([n, ms, col], i) => { const y = 54 + i * 44; txt(ctx, n, 10, y, C.ink, 13); ctx.fillStyle = col; ctx.fillRect(x0, y - 12, (X(ms) - x0) * g, 24); txt(ctx, (ms * g).toFixed(1) + 'ms', x0 + (X(ms) - x0) * g + 8, y, C.ink, 13); });
+    for (const ms of [0, 5, 10, 15, 20]) txt(ctx, ms + '', X(ms), 150, C.muted, 11.5, 'center');
+    if (g >= 1 && paused === false) { /* 한 번 자란 뒤에는 그대로 둔다 */ }
+  });
+
+  const cm = canvas('cvMode', 230); let t = 0;
+  const SPAN = 4.2, snaps = [0.25, 0.55, 0.85, 1.15, 2.0, 2.3, 2.6, 3.4, 3.7];
+  function caught(hold){ const out = []; let free = -1; for (const s of snaps) { const ok = s >= free; out.push(ok); if (ok) free = s + hold; } return out; }
+  const rawOk = caught(1.024), resOk = caught(0.205);
+  scene(cm.c, dt => {
+    t = (t + dt * 0.7) % (SPAN + 0.8);
+    const {ctx, W, H} = cm; ctx.clearRect(0, 0, W, H);
+    const x0 = 150, x1 = W - 16, X = s => x0 + (x1 - x0) * s / SPAN, ys = [44, 108, 172];
+    txt(ctx, '스냅 소리', 10, ys[0], C.ink2, 13); txt(ctx, '검증용', 10, ys[1] - 8, C.ink, 13); txt(ctx, '원파형 + 결과', 10, ys[1] + 10, C.muted, 11.5); txt(ctx, '운용용', 10, ys[2] - 8, C.ink, 13); txt(ctx, '결과만', 10, ys[2] + 10, C.muted, 11.5);
+    ys.forEach(y => line(ctx, x0, y, x1, y, C.line, 1));
+    snaps.forEach((s, i) => {
+      if (s > t) return;
+      dot(ctx, X(s), ys[0], 5.5, C.ink);
+      [[rawOk, 1.024, 0.134, ys[1]], [resOk, 0.205, 0.004, ys[2]]].forEach(([ok, hold, tx, y]) => {
+        if (ok[i]) {
+          ctx.fillStyle = alpha(C.hl, 0.4); ctx.fillRect(X(s), y - 9, X(Math.min(t, s + hold)) - X(s), 18);
+          ctx.fillStyle = C.c1; ctx.fillRect(X(s), y - 9, Math.max(2.5, X(Math.min(t, s + tx)) - X(s)), 18);
+          txt(ctx, '✓', X(s), y - 20, C.c3, 14, 'center');
+        } else txt(ctx, '✗', X(s), y - 20, C.warn, 14, 'center');
+      });
+    });
+    if (t < SPAN) line(ctx, X(t), 22, X(t), 196, C.ink, 1.3);
+    for (let s = 0; s <= 4; s++) txt(ctx, s + '초', X(s), 212, C.muted, 11.5, 'center');
+    txt(ctx, '파랑: 전송 중   노랑: 다시 걸리지 않는 시간   ✓ 잡음  ✗ 놓침', x1, 14, C.muted, 11.5, 'right');
+  });
+})();
+</script>
+</body>
+</html>
