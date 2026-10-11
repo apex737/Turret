@@ -2,57 +2,62 @@
 #include "def.h"
 #include "app.h"
 #include "adc.h"
-#include <math.h>
+#include "tdoa.h"
 // UART 파형 디버깅
 #include "dump.h"
 #include "capture.h"
 
+_Static_assert(TDOA_CH == DUMP_CH && TDOA_FRAME == DUMP_N, "tdoa and dump frame shapes must match");
 
 static uint16_t frame[ADC_CH_CNT][ADC_SAMPLES_PER_HALF];
 
-/* CubeMonitor 관찰용: static 없이 전역 + volatile → ELF 심볼로 보이고, 최적화로 사라지지 않음 */
-volatile uint16_t mon_mean[ADC_CH_CNT];   // DC 바이어스 (평균)
-volatile uint16_t mon_p2p[ADC_CH_CNT];    // 피크-피크 (max - min)
-volatile float    mon_rms[ADC_CH_CNT];    // DC 제거 후 RMS (소리 크기)
-volatile uint32_t mon_frame_cnt;          // 계속 증가하면 DMA/콜백이 살아있음
-volatile uint32_t mon_drop_cnt;
+static uint32_t frame_cnt;   // capture에 넘기는 프레임 번호 (받은 프레임마다 +1)
 
-static void mic_stats(void)
+
+// 캡처 직후 호출됨: 같은 캡처로 MCU에서 방향을 계산해 결과 패킷으로 보낸다.
+// CAPTURE_SEND_RAW 1 : 원파형도 같이 나가므로 PC(doa_live.py)가 같은 frame_seq로 계산해 비교한다.
+// CAPTURE_SEND_RAW 0 : 이 결과 패킷만 나간다. (capture.h 에서 선택)
+static void on_capture(const dump_frame_t *prev, const dump_frame_t *cur,
+                       uint32_t frame_seq, uint8_t flags)
 {
-	for (uint32_t ch = 0; ch < ADC_CH_CNT; ch++)
-	{
-		uint32_t sum = 0;
-		uint16_t mn = 0xFFFF, mx = 0;
+	const tdoa_frame_t frames[2] = { prev ? *prev : *cur, *cur };   // 직전 프레임이 없으면 cur만 사용
+	tdoa_result_t r;
 
-		for (uint32_t i = 0; i < ADC_SAMPLES_PER_HALF; i++)
-		{
-			uint16_t x = frame[ch][i];
-			sum += x;
-			if (x < mn) mn = x;
-			if (x > mx) mx = x;
-		}
+	const uint32_t t0 = DWT->CYCCNT;
+	if (prev)
+		tdoa_process(frames, 2u, &r);
+	else
+		tdoa_process(&frames[1], 1u, &r);
+	const uint32_t cycles = DWT->CYCCNT - t0;
 
-		float mean = (float)sum / ADC_SAMPLES_PER_HALF;
-		float acc = 0.0f;
-		for (uint32_t i = 0; i < ADC_SAMPLES_PER_HALF; i++)
-		{
-			float d = (float)frame[ch][i] - mean;
-			acc += d * d;
-		}
-
-		mon_mean[ch] = (uint16_t)mean;
-		mon_p2p[ch]  = mx - mn;
-		mon_rms[ch]  = sqrtf(acc / ADC_SAMPLES_PER_HALF);
-	}
+	dump_result_t out = {
+		.tau       = { r.tau[0], r.tau[1], r.tau[2] },
+		.peak      = { r.peak[0], r.peak[1], r.peak[2] },
+		.angle_deg = r.angle_deg,
+		.norm      = r.norm,
+		.onset     = r.onset,
+		.win_start = r.win_start,
+		.proc_us   = cycles / (SystemCoreClock / 1000000u),
+	};
+	if (r.valid)
+		flags |= DUMP_FLAG_VALID;   // MCU의 신뢰 판정을 PC에 알림. 터렛 제어도 r.valid일 때만 r.angle_deg를 써야 한다
+	dump_queue_result(&out, frame_seq, flags);
 }
-/* ------------------------------------------------------------------- */
 
 
 void app_init(AppHandle_t* app)
 {
+	// 처리 시간 측정용 사이클 카운터(DWT) 켜기
+	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+	DWT->CYCCNT = 0;
+	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+
+	tdoa_init();
+
 	 // UART 핸들 등록
 	dump_init(app->huart);
-	capture_init(NULL);         // 기본값: k_on 4, 잡음 학습 0.5초, holdoff 1초
+	capture_init(NULL);         // 기본값: k_on 4, 잡음 학습 0.5초, holdoff는 모드에 따라 1초 / 0.2초
+	capture_set_trigger_cb(on_capture);
 
 	adc_init(app->hadcMstr, app->hadcSlv1, app->hadcSlv2);
 	// timer init : TRGO, AWD
@@ -81,11 +86,10 @@ void app_main(void)
 	{
 		if (adc_get_frame(frame))
 		{
-			mic_stats();
-			mon_frame_cnt++;
-			capture_on_frame((const dump_frame_t *)&frame, mon_frame_cnt);   // ← 추가
+			frame_cnt++;
+			capture_on_frame((const dump_frame_t *)&frame, frame_cnt);
 		}
-		mon_drop_cnt = adc_get_drop_cnt();
+		dump_poll();   // 대기 중인 결과 패킷 송신 (원파형을 보내는 중이면 끝난 뒤에)
 	}
 }
 
