@@ -22,8 +22,8 @@
 #define TDOA_WIN          250u      // 분석 구간 길이 [샘플] = 5 ms
 #define TDOA_PRE          50u       // onset보다 이만큼 앞에서 구간 시작 [샘플] = 1 ms
 #define TDOA_NFFT         512u      // FFT 크기 (구간 뒤를 0으로 채움)
-#define TDOA_BAND_LO_HZ   150u      // 사용할 대역 [Hz]
-#define TDOA_BAND_HI_HZ   2000u
+#define TDOA_BAND_LO_HZ   500u      // 사용할 대역 [Hz]
+#define TDOA_BAND_HI_HZ   3000u
 #define TDOA_MAX_LAG      13        // 탐색할 최대 지연 [샘플] = ceil(간격 / 음속 x fs) + 2
 #define TDOA_PHAT_EPS     0.01f     // PHAT 정규화 바닥값 (대역 내 최대 크기 대비)
 
