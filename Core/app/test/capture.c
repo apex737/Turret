@@ -2,10 +2,6 @@
 #include <math.h>
 #include <string.h>
 
-/* 클리핑 판정 경계. 12비트 ADC는 0~4095인데, 양 끝 근처에 붙은 샘플은 신호가 잘렸다고 본다 */
-#define CLIP_LO 8u
-#define CLIP_HI 4087u
-
 // 현재 설정 (k_on, min_rms, learn/holdoff 프레임 수, floor_alpha)
 static capture_cfg_t conf;
 static capture_state_t stat;

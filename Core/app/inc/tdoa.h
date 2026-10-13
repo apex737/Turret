@@ -19,7 +19,7 @@
 #define TDOA_FRAME        1024u     // 프레임당 샘플 수 (ADC_SAMPLES_PER_HALF 와 같아야 함)
 #define TDOA_FS           50000u    // 샘플링 주파수 [Hz]
 
-#define TDOA_WIN          250u      // 분석 구간 길이 [샘플] = 5 ms
+#define TDOA_WIN          250u      // 분석 구간 길이 (5ms; 파찰음 감지는 초반부가 중요)
 #define TDOA_PRE          50u       // onset보다 이만큼 앞에서 구간 시작 [샘플] = 1 ms
 #define TDOA_NFFT         512u      // FFT 크기 (구간 뒤를 0으로 채움)
 #define TDOA_BAND_LO_HZ   500u      // 사용할 대역 [Hz]

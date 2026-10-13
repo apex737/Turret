@@ -37,6 +37,10 @@
 #define CAPTURE_HOLDOFF_DEFAULT   (CAPTURE_SEND_RAW ? 50u : 10u)
 #endif
 
+/* 클리핑 판정 경계. 12비트 ADC는 0~4095인데, 양 끝 근처에 붙은 샘플은 신호가 잘렸다고 본다 */
+#define CLIP_LO 8u
+#define CLIP_HI 4087u
+
 /* 트리거 동작을 정하는 설정값 */
 typedef struct {
     float    k_on;            /* 잡음 바닥 대비 배수. 4.0 ≈ +12 dB */

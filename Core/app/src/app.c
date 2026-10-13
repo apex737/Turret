@@ -3,6 +3,7 @@
 #include "app.h"
 #include "adc.h"
 #include "tdoa.h"
+
 // UART 파형 디버깅
 #include "dump.h"
 #include "capture.h"
@@ -13,12 +14,15 @@ static uint16_t frame[ADC_CH_CNT][ADC_SAMPLES_PER_HALF];
 
 static uint32_t frame_cnt;   // capture에 넘기는 프레임 번호 (받은 프레임마다 +1)
 
-
 // 캡처 직후 호출됨: 같은 캡처로 MCU에서 방향을 계산해 결과 패킷으로 보낸다.
 // CAPTURE_SEND_RAW 1 : 원파형도 같이 나가므로 PC(doa_live.py)가 같은 frame_seq로 계산해 비교한다.
 // CAPTURE_SEND_RAW 0 : 이 결과 패킷만 나간다. (capture.h 에서 선택)
-static void on_capture(const dump_frame_t *prev, const dump_frame_t *cur,
-                       uint32_t frame_seq, uint8_t flags)
+static void on_capture(
+	const dump_frame_t *prev, 
+	const dump_frame_t *cur,
+	uint32_t frame_seq, 
+	uint8_t flags
+)
 {
 	const tdoa_frame_t frames[2] = { prev ? *prev : *cur, *cur };   // 직전 프레임이 없으면 cur만 사용
 	tdoa_result_t r;
@@ -47,7 +51,7 @@ static void on_capture(const dump_frame_t *prev, const dump_frame_t *cur,
 
 void app_init(AppHandle_t* app)
 {
-	// 처리 시간 측정용 사이클 카운터(DWT) 켜기
+	// TDoA 연산 사이클 수 카운터(DWT) 켜기
 	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
 	DWT->CYCCNT = 0;
 	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
@@ -68,10 +72,10 @@ void app_init(AppHandle_t* app)
 void app_main(void)
 /* 구현 전략
  * 1) 마이크 모듈 파형 테스트
- * 2) ADC-DMA 핑퐁 버퍼링 -> 지연 측정 & 지터 ??
+ * 2) ADC-DMA 핑퐁 버퍼링 -> 지연 측정 
  * 3) DMA 버퍼의 값을 안전하게 복사하고 uint16_t 로 형변환
- * 4) GCC-PHAT
- * 	 - 1) 3-MIC FFT (Generalized Cross-Correlation)
+ * 4) GCC(Generalized Cross-Correlation)-PHAT
+ * 	 - 1) 3-MIC FFT 
  * 	 - 2) BPF
  * 	 - 3) PHAT (Phase Transform)
  * 	 - 4) IFFT
