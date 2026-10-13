@@ -67,14 +67,23 @@ void tdoa_init(void)
 }
 
 // 이어붙인 캡처의 i번째 샘플
-static inline uint32_t sample(const tdoa_frame_t frames[], uint32_t ch, uint32_t i)
+static inline uint32_t sample(
+	const tdoa_frame_t frames[], 
+	uint32_t ch, 
+	uint32_t i
+)
 {
 	return frames[i / TDOA_FRAME][ch][i % TDOA_FRAME];
 }
 
 // i번째 샘플이 평균에서 벗어난 정도 (3채널 중 최대). 나눗셈을 피하려고 n배 한 정수로 계산:
 // |x - 평균| x n = |n·x - 합|
-static uint32_t deviation(const tdoa_frame_t frames[], const int32_t sum[], uint32_t n, uint32_t i)
+static uint32_t deviation(
+	const tdoa_frame_t frames[], 
+	const int32_t sum[], 
+	uint32_t n, 
+	uint32_t i
+)
 {
 	uint32_t worst = 0;
 	for (uint32_t ch = 0; ch < TDOA_CH; ch++)
@@ -91,7 +100,10 @@ static uint32_t deviation(const tdoa_frame_t frames[], const int32_t sum[], uint
 // 소리 시작 위치: 3채널 중 가장 먼저 잡음을 크게 넘는 샘플.
 // 잡음 = 앞쪽 1/4 구간의 평균 편차.  문턱 = max(8 x 잡음, 최대 편차 / 20)
 // 전부 정수 연산이라 Tools/gcc_phat.py 의 find_onset()과 결과가 정확히 같다.
-static uint32_t find_onset(const tdoa_frame_t frames[], uint32_t n)
+static uint32_t find_onset(
+	const tdoa_frame_t frames[], 
+	uint32_t n
+)
 {
 	int32_t sum[TDOA_CH] = {0};
 	for (uint32_t ch = 0; ch < TDOA_CH; ch++)
@@ -123,7 +135,11 @@ static uint32_t find_onset(const tdoa_frame_t frames[], uint32_t n)
 	return peak_idx; // 문턱을 넘는 샘플이 없으면 가장 큰 샘플 위치
 }
 
-void tdoa_process(const tdoa_frame_t frames[], uint32_t nframes, tdoa_result_t *out)
+void tdoa_process(
+	const tdoa_frame_t frames[], 
+	uint32_t nframes, 
+	tdoa_result_t *out
+)
 {
 	const uint32_t n = nframes * TDOA_FRAME;
 
