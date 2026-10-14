@@ -41,3 +41,6 @@ __pycache__/
 # ---- 측정 데이터 (doa_live.py / dump_viewer.py 가 만드는 것) ----
 Tools/dumps/
 *.npz
+
+# ---- 공개 데이터셋 원본·변환본 (용량이 커서 git에 올리지 않음) ----
+/DataSet/

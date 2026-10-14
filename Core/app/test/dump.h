@@ -44,12 +44,13 @@
 
 #define DUMP_N            1024u     /* 프레임당 채널별 샘플 수 (50 kHz 기준 20.48 ms) */
 #define DUMP_CH           3u        /* 마이크(ADC 채널) 수 */
-#define DUMP_MAX_FRAMES   2u        /* 한 패킷에 담을 최대 프레임 수: 직전 프레임 + 트리거 프레임 */
+#define DUMP_MAX_FRAMES   8u        /* 한 패킷에 담을 최대 프레임 수: 트리거 캡처는 2, burst 캡처는 8 (164 ms) */
 
 #define DUMP_FLAG_CLIP    0x01u     /* 클리핑 샘플 있음 (ADC가 0 또는 4095 근처에 붙음 = 신호가 너무 큼) */
 #define DUMP_FLAG_MANUAL  0x02u     /* 수동 트리거 (버튼 등) */
 #define DUMP_FLAG_PRETRIG 0x04u     /* payload 앞 절반 = 트리거 직전 프레임 */
 #define DUMP_FLAG_VALID   0x08u     /* (결과 패킷) MCU가 이 결과를 신뢰 가능으로 판정함 */
+#define DUMP_FLAG_BURST   0x10u     /* burst 캡처: payload의 프레임들이 끊김 없이 이어진 연속 구간 */
 
 /* typedef old new; */
 typedef uint16_t dump_frame_t[DUMP_CH][DUMP_N];
@@ -72,6 +73,12 @@ static inline bool dump_send(const dump_frame_t *frame, uint32_t frame_seq, uint
     const dump_frame_t *const f[1] = { frame };
     return dump_send_frames(f, 1u, frame_seq, flags);
 }
+
+/* payload 영역을 직접 채운 뒤 보내는 방식 (burst 캡처용. 프레임을 따로 모아 둘 버퍼가 필요 없음)
+ *  - dump_payload(): 채널 순서 배치 ch0[n] | ch1[n] | ch2[n] 의 시작 주소. dump_busy()가 false일 때만 써야 한다
+ *  - dump_send_payload(): 채운 payload(채널당 n샘플)에 헤더와 CRC를 붙여 송신 시작 */
+uint16_t *dump_payload(void);
+bool dump_send_payload(uint16_t n, uint32_t frame_seq, uint8_t flags);
 
 /* HAL_UART_TxCpltCallback 안에서 호출 (DMA 송신이 끝났음을 dump에 알려 busy를 해제시킴) */
 void dump_on_tx_cplt(UART_HandleTypeDef *huart);
