@@ -24,8 +24,10 @@ typedef struct __attribute__((packed)) {
 _Static_assert(sizeof(dump_hdr_t) == 20, "header must be 20 bytes");
 
 #define FRAME_CH_BYTES  (DUMP_N * 2u)                                  /* 한 프레임의 한 채널 = 1024샘플 x 2B = 2048 B */
-#define MAX_PAYLOAD     (DUMP_CH * DUMP_MAX_FRAMES * FRAME_CH_BYTES)    /* 3채널 x 2프레임 x 2048 = 12288 B */
-#define MAX_PKT         (sizeof(dump_hdr_t) + MAX_PAYLOAD + 2u)         /* 헤더 20 + payload + CRC 2 = 12310 B */
+#define MAX_PAYLOAD     (DUMP_CH * DUMP_MAX_FRAMES * FRAME_CH_BYTES)    /* 3채널 x 8프레임 x 2048 = 49152 B */
+#define MAX_PKT         (sizeof(dump_hdr_t) + MAX_PAYLOAD + 2u)         /* 헤더 20 + payload + CRC 2 = 49174 B */
+
+_Static_assert(MAX_PKT <= 0xFFFFu, "HAL_UART_Transmit_DMA length is 16-bit");
 
 /* DMA가 읽는 동안 건드리면 안 되므로 static 버퍼 사용
  * (함수 지역변수는 함수가 끝나면 사라지는데, DMA 송신은 함수가 끝난 뒤에도 계속 이 메모리를 읽는다) */
@@ -74,23 +76,16 @@ void dump_init(UART_HandleTypeDef *huart)
 // 송신 중인지 확인
 bool dump_busy(void) { return s_busy; }
 
-// 프레임들을 한 패킷으로 만들어 UART TxDMA 시작
-bool dump_send_frames(
-    const dump_frame_t *const frames[],  // 시간순 프레임 포인터 배열 (예: { 직전, 현재 })
-    uint8_t nframes,            // 프레임 개수 (1 ~ DUMP_MAX_FRAMES)
-    uint32_t frame_seq,         // 마지막 프레임의 ADC 프레임 번호 (헤더에 기록)
-    uint8_t flags               // DUMP_FLAG_* 조합 (헤더에 기록)
-)
+uint16_t *dump_payload(void) { return (uint16_t *)&tx_buf[sizeof(dump_hdr_t)]; }
+
+// 이미 채워진 payload(채널당 n샘플)에 헤더와 CRC를 붙여 UART TxDMA 시작
+bool dump_send_payload(uint16_t n, uint32_t frame_seq, uint8_t flags)
 {
-    /* 보낼 수 없는 상황이면 즉시 포기: 
-    송신 버퍼가 사용 중 / UART 미설정 / 프레임 수가 0이거나 너무 많음 */
-    if (s_busy || s_huart == NULL || nframes == 0u || nframes > DUMP_MAX_FRAMES) {
+    const uint32_t payload = DUMP_CH * (uint32_t)n * 2u;               /* 데이터 바이트 수 = 채널 x 샘플 x 2B */
+    const uint32_t pkt     = sizeof(dump_hdr_t) + payload + 2u;        /* 패킷 전체 길이 = 헤더 + 데이터 + CRC */
+    if (s_busy || s_huart == NULL || n == 0u || payload > MAX_PAYLOAD) {
         return false;
     }
-
-    const uint32_t n       = (uint32_t)nframes * DUMP_N;      /* 채널당 샘플 수 (2프레임이면 2048) */
-    const uint32_t payload = DUMP_CH * n * 2u;                /* 데이터 바이트 수 = 채널 x 샘플 x 2B */
-    const uint32_t pkt     = sizeof(dump_hdr_t) + payload + 2u; /* 패킷 전체 길이 = 헤더 + 데이터 + CRC */
 
     /* 1) 송신 버퍼 맨 앞을 헤더 구조체로 보고 필드를 채움 */
     dump_hdr_t *h = (dump_hdr_t *)tx_buf;
@@ -101,39 +96,49 @@ bool dump_send_frames(
     h->flags     = flags;
     h->seq       = s_seq++;          /* 현재 번호를 쓰고 다음을 위해 1 증가 */
     h->frame_seq = frame_seq;
-    h->n         = (uint16_t)n;
+    h->n         = n;
     h->len       = (uint16_t)payload;
 
-    /* 2) 헤더 뒤에 데이터를 채움.
-     *    채널별로 프레임을 시간 순서대로 이어붙임: ch0[f0 f1] ch1[f0 f1] ch2[f0 f1]
-     *    (PC가 채널 하나를 연속된 파형으로 바로 읽을 수 있도록 채널이 바깥 루프)
-     *    memcpy로 "복사"해 두므로, 반환 후 호출자는 frames를 바로 덮어써도 안전하다. */
-    uint8_t *dst = &tx_buf[sizeof(dump_hdr_t)];                  /* 데이터가 들어갈 시작 위치 */
-    for (uint32_t c = 0; c < DUMP_CH; c++) {                     /* 채널 */
-        for (uint32_t f = 0; f < nframes; f++) {                 /* 시간 순서대로 프레임 */
-            memcpy(dst, (*frames[f])[c], FRAME_CH_BYTES);        /* 해당 프레임의 채널 c 샘플 1024개 복사 */
-            dst += FRAME_CH_BYTES;                               /* 쓰기 위치 전진 */
-        }
-    }
-
-    /* 3) CRC 계산. 범위는 ver(4번째 바이트)부터 payload 끝까지 (sync 제외).
-     *    루프가 끝난 시점의 dst는 payload 바로 다음 = CRC를 쓸 자리이다. */
+    /* 2) CRC 계산. 범위는 ver(4번째 바이트)부터 payload 끝까지 (sync 제외). 48 KB면 약 8 ms */
+    uint8_t *crc_at = &tx_buf[sizeof(dump_hdr_t) + payload];
     uint16_t crc = crc16_ccitt(&tx_buf[4], sizeof(dump_hdr_t) - 4u + payload);
-    dst[0] = (uint8_t)(crc & 0xFFu);   /* little endian: 하위 바이트 먼저 */
-    dst[1] = (uint8_t)(crc >> 8);
+    crc_at[0] = (uint8_t)(crc & 0xFFu);   /* little endian: 하위 바이트 먼저 */
+    crc_at[1] = (uint8_t)(crc >> 8);
 
-    /* 4) DMA 송신 시작. busy를 먼저 true로 해 두고, 시작에 실패하면 되돌림.
+    /* 3) DMA 송신 시작. busy를 먼저 true로 해 두고, 시작에 실패하면 되돌림.
      *    (시작 직후 DMA 완료 인터럽트가 올 수도 있으므로 순서가 반대면 안 됨) */
     s_busy = true;
     if (HAL_UART_Transmit_DMA(s_huart, tx_buf, (uint16_t)pkt) != HAL_OK) {
         s_busy = false;
         return false;
     }
+    return true;   /* 전송은 DMA가 알아서 진행. 완료는 dump_on_tx_cplt()로 알게 됨 */
+}
 
-    // true: 송신 시작됨
-    // false: 못 보냄 (송신 중 / 초기화 안 됨 / 프레임 수 이상 / DMA 시작 실패)
-    /* 전송은 DMA가 알아서 진행. 완료는 dump_on_tx_cplt()로 알게 됨 */
-    return true;   
+// 프레임들을 한 패킷으로 만들어 UART TxDMA 시작
+bool dump_send_frames(
+    const dump_frame_t *const frames[],  // 시간순 프레임 포인터 배열 (예: { 직전, 현재 })
+    uint8_t nframes,            // 프레임 개수 (1 ~ DUMP_MAX_FRAMES)
+    uint32_t frame_seq,         // 마지막 프레임의 ADC 프레임 번호 (헤더에 기록)
+    uint8_t flags               // DUMP_FLAG_* 조합 (헤더에 기록)
+)
+{
+    if (s_busy || s_huart == NULL || nframes == 0u || nframes > DUMP_MAX_FRAMES) {
+        return false;
+    }
+    const uint32_t n = (uint32_t)nframes * DUMP_N;      /* 채널당 샘플 수 (2프레임이면 2048) */
+
+    /* 채널별로 프레임을 시간 순서대로 이어붙임: ch0[f0 f1] ch1[f0 f1] ch2[f0 f1]
+     * (PC가 채널 하나를 연속된 파형으로 바로 읽을 수 있도록 채널이 바깥 루프)
+     * memcpy로 "복사"해 두므로, 반환 후 호출자는 frames를 바로 덮어써도 안전하다. */
+    uint8_t *dst = (uint8_t *)dump_payload();
+    for (uint32_t c = 0; c < DUMP_CH; c++) {
+        for (uint32_t f = 0; f < nframes; f++) {
+            memcpy(dst, (*frames[f])[c], FRAME_CH_BYTES);
+            dst += FRAME_CH_BYTES;
+        }
+    }
+    return dump_send_payload((uint16_t)n, frame_seq, flags);
 }
 
 /**

@@ -7,6 +7,14 @@
 // UART 파형 디버깅
 #include "dump.h"
 #include "capture.h"
+#include "burst.h"
+
+/* 동작 모드
+ *  APP_MODE_BURST 1 : 트리거 없이 164 ms 연속 원파형을 반복 송신 (Step5 녹음용. 수신: Tools/burst_rx.py)
+ *  APP_MODE_BURST 0 : 기존 스냅 모드 (소리 트리거 → TDOA → 결과/원파형 송신. 수신: doa_live.py) */
+#ifndef APP_MODE_BURST
+#define APP_MODE_BURST 1
+#endif
 
 _Static_assert(TDOA_CH == DUMP_CH && TDOA_FRAME == DUMP_N, "tdoa and dump frame shapes must match");
 
@@ -14,6 +22,7 @@ static uint16_t frame[ADC_CH_CNT][ADC_SAMPLES_PER_HALF];
 
 static uint32_t frame_cnt;   // capture에 넘기는 프레임 번호 (받은 프레임마다 +1)
 
+#if !APP_MODE_BURST
 // 캡처 직후 호출됨: 같은 캡처로 MCU에서 방향을 계산해 결과 패킷으로 보낸다.
 // CAPTURE_SEND_RAW 1 : 원파형도 같이 나가므로 PC(doa_live.py)가 같은 frame_seq로 계산해 비교한다.
 // CAPTURE_SEND_RAW 0 : 이 결과 패킷만 나간다. (capture.h 에서 선택)
@@ -47,6 +56,7 @@ static void on_capture(
 		flags |= DUMP_FLAG_VALID;   // MCU의 신뢰 판정을 PC에 알림. 터렛 제어도 r.valid일 때만 r.angle_deg를 써야 한다
 	dump_queue_result(&out, frame_seq, flags);
 }
+#endif
 
 
 void app_init(AppHandle_t* app)
@@ -60,8 +70,12 @@ void app_init(AppHandle_t* app)
 
 	 // UART 핸들 등록
 	dump_init(app->huart);
+#if APP_MODE_BURST
+	burst_init();
+#else
 	capture_init(NULL);         // 기본값: k_on 4, 잡음 학습 0.5초, holdoff는 모드에 따라 1초 / 0.2초
 	capture_set_trigger_cb(on_capture);
+#endif
 
 	adc_init(app->hadcMstr, app->hadcSlv1, app->hadcSlv2);
 	// timer init : TRGO, AWD
@@ -91,7 +105,11 @@ void app_main(void)
 		if (adc_get_frame(frame))
 		{
 			frame_cnt++;
+#if APP_MODE_BURST
+			burst_on_frame((const dump_frame_t *)&frame, frame_cnt, adc_get_drop_cnt());
+#else
 			capture_on_frame((const dump_frame_t *)&frame, frame_cnt);
+#endif
 		}
 		dump_poll();   // 대기 중인 결과 패킷 송신 (원파형을 보내는 중이면 끝난 뒤에)
 	}
@@ -107,8 +125,12 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 /* 선택: B1 버튼으로 수동 캡처 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
+#if !APP_MODE_BURST
 	if (GPIO_Pin == B1_Pin)
 		capture_request_manual();
+#else
+	(void)GPIO_Pin;
+#endif
 }
 
 
