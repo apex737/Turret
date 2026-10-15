@@ -2,9 +2,9 @@
 실시간 음원 방향 표시: 덤프 패킷을 받을 때마다 GCC-PHAT으로 각도를 구해 나침반에 그린다.
 
 사용법
-  python doa_live.py --port COM8                      # 실시간 측정
-  python doa_live.py --port COM8 --truth 120          # 실제 각도를 알고 측정 (오차 통계 출력)
-  python doa_live.py --replay dumps/20261010_153000   # 저장된 세션 다시 보기
+  python doa/doa_live.py --port COM8                      # 실시간 측정
+  python doa/doa_live.py --port COM8 --truth 120          # 실제 각도를 알고 측정 (오차 통계 출력)
+  python doa/doa_live.py --replay dumps/20261010_153000   # 저장된 세션 다시 보기
 
 실시간 측정은 실행할 때마다 dumps/<날짜_시각>/ 폴더를 새로 만들어
   f_<seq>.npz  원파형 (gcc_phat.py, dump_viewer.py --replay 로 다시 볼 수 있음)
@@ -28,12 +28,14 @@ MCU 결과 비교 (펌웨어 CAPTURE_SEND_RAW 1)
 import argparse
 import csv
 import os
+import sys
 import time
 
 import numpy as np
 
 import gcc_phat as g
-from dump_viewer import TYPE_RESULT, PacketParser
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))   # Tools/ (폴더 간 import)
+from board.dump_viewer import TYPE_RESULT, PacketParser
 
 INK, MUTED, SERIES = "#0b0b0b", "#8a8984", "#2a78d6"
 R_MAX = 1.3

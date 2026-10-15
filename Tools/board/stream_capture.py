@@ -1,0 +1,144 @@
+"""Step5 연속 수음 수신기. 펌웨어 APP_MODE_STREAM 과 짝 (PCM 패킷 v3, 12.5 kHz 3ch int16).
+
+    python board/stream_capture.py --port COM8 --label quiet_10min --minutes 10
+    python board/stream_capture.py --replay Tools/dumps/stream/quiet_10min/raw.bin     # 저장한 바이트로 다시 계산
+
+저장 (Tools/dumps/stream/<label>/)
+  seg_000.wav ...   연속 구간마다 WAV 하나 (3ch, 12.5 kHz, int16). 끊김(GAP)·필터 재시작(RESYNC)에서 새 파일
+                    RESYNC 블록의 첫 19샘플(FIR 과도 구간)은 버린다
+  packets.csv       패킷마다 수신 시각·번호·플래그·유실 카운터·CPU
+  raw.bin           받은 바이트 그대로 (나중에 --replay로 재현)
+  summary.json      Step5 통과 기준 판정 (유실·OVR·CRC·클리핑 0, 시간 복원)
+
+시간 복원: 블록의 첫 샘플 번호 = (frame_seq − 1) × 256 (12.5 kHz). 각 WAV의 시작 샘플 번호는 summary.json에 있다.
+"""
+import argparse, csv, json, os, sys, time, wave
+import numpy as np
+from dump_viewer import PacketParser, TYPE_PCM
+
+FS = 12500
+N = 256
+TRANSIENT = 19                      # preproc.h PREPROC_TRANSIENT_OUT
+F_CLIP, F_RESYNC, F_VERIFY, F_GAP = 0x01, 0x02, 0x04, 0x08
+
+
+class Recorder:
+    def __init__(self, out):
+        self.out = out
+        self.wav = None
+        self.segs = []
+        self.last_fseq = None
+        self.last = None
+        self.n = dict(packets=0, frame_gaps=0, frames_missing=0, gap_flags=0, resync=0, clip_packets=0, verify_packets=0)
+        self.cpu_max = 0
+        self.first_ctr = None
+        self.lv = np.zeros(3); self.lv_n = 0
+        self.csv = csv.writer(open(os.path.join(out, "packets.csv"), "w", newline=""))
+        self.csv.writerow(["t_rx", "seq", "frame_seq", "flags", "drop", "ovr", "qdrop", "cpu"])
+
+    def _new_seg(self, start_sample):
+        if self.wav: self.wav.close()
+        path = os.path.join(self.out, f"seg_{len(self.segs):03d}.wav")
+        self.wav = wave.open(path, "wb"); self.wav.setnchannels(3); self.wav.setsampwidth(2); self.wav.setframerate(FS)
+        self.segs.append(dict(file=os.path.basename(path), start_sample=int(start_sample), samples=0))
+
+    def add(self, p, t_rx):
+        self.n["packets"] += 1
+        f = p["flags"]
+        self.csv.writerow([f"{t_rx:.4f}", p["seq"], p["frame_seq"], f, p["drop"], p["ovr"], p["qdrop"], p["cpu"]])
+        if f & F_VERIFY:
+            self.n["verify_packets"] += 1; return
+        ctr = (p["drop"], p["ovr"], p["qdrop"])
+        if self.first_ctr is None: self.first_ctr = ctr
+        self.last = ctr
+        self.cpu_max = max(self.cpu_max, p["cpu"])
+        self.n["clip_packets"] += bool(f & F_CLIP)
+        self.n["gap_flags"] += bool(f & F_GAP)
+        self.n["resync"] += bool(f & F_RESYNC)
+        jump = self.last_fseq is not None and p["frame_seq"] != self.last_fseq + 1
+        if jump:
+            self.n["frame_gaps"] += 1
+            self.n["frames_missing"] += max(0, p["frame_seq"] - self.last_fseq - 1)
+        self.last_fseq = p["frame_seq"]
+        d = p["data"]                                   # [3, 256] int16
+        start = (p["frame_seq"] - 1) * N
+        if self.wav is None or jump or (f & (F_GAP | F_RESYNC)):
+            skip = TRANSIENT if f & F_RESYNC else 0
+            self._new_seg(start + skip)
+            d = d[:, skip:]
+        self.wav.writeframes(np.ascontiguousarray(d.T).astype("<i2").tobytes())
+        self.segs[-1]["samples"] += d.shape[1]
+        self.lv += np.mean(d.astype(np.float64) ** 2, axis=1); self.lv_n += 1
+
+    def levels(self):
+        v = 10 * np.log10(self.lv / max(self.lv_n, 1) / 32768 ** 2 * 2 + 1e-12)   # 사인 기준 dBFS
+        self.lv[:] = 0; self.lv_n = 0
+        return v
+
+    def close(self, parser, seconds):
+        if self.wav: self.wav.close()
+        dc = [((b - a) & 0xFF) for a, b in zip(self.first_ctr or (0, 0, 0), self.last or (0, 0, 0))]
+        st = parser.stats
+        crit = dict(loss=self.n["frame_gaps"] == 0 and st["seq_gap"] == 0 and dc[0] == 0 and dc[2] == 0,
+                    ovr=dc[1] == 0, crc=st["crc_fail"] == 0, clip=self.n["clip_packets"] == 0,
+                    time_restore=all(s["samples"] > 0 for s in self.segs))
+        summ = dict(seconds=round(seconds, 1), packets=self.n, parser=st, delta_drop_ovr_qdrop=dc, cpu_max_pct=self.cpu_max,
+                    segments=self.segs, criteria=crit, passed=all(crit.values()),
+                    note="crc_fail에는 PCM 안의 FF FF FF FF를 sync로 잘못 잡았다가 버린 것도 포함될 수 있다. seq_gap이 0이면 실제 손실은 없음")
+        json.dump(summ, open(os.path.join(self.out, "summary.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+        return summ
+
+
+def main():
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--port"); ap.add_argument("--baud", type=int, default=921600)
+    ap.add_argument("--label"); ap.add_argument("--minutes", type=float, default=0.0)
+    ap.add_argument("--replay", help="raw.bin 경로 (포트 대신)")
+    ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "..", "dumps", "stream"))
+    a = ap.parse_args()
+
+    label = a.label or (os.path.basename(os.path.dirname(a.replay)) + "_replay" if a.replay else time.strftime("%Y%m%d_%H%M%S"))
+    out = os.path.join(a.out, label); os.makedirs(out, exist_ok=True)
+    parser, rec = PacketParser(), Recorder(out)
+    t0 = time.time(); t_show = t0; nbytes = 0
+
+    def handle(data, t_rx):
+        for p in parser.feed(data):
+            if p["type"] == TYPE_PCM:
+                rec.add(p, t_rx)
+
+    if a.replay:
+        data = open(a.replay, "rb").read()
+        for i in range(0, len(data), 4096):
+            handle(data[i:i + 4096], 0.0)
+        seconds = rec.n["packets"] * N / FS
+    else:
+        import serial
+        raw = open(os.path.join(out, "raw.bin"), "wb")
+        with serial.Serial(a.port, a.baud, timeout=0.05) as ser:
+            ser.reset_input_buffer()
+            print(f"{a.port} @ {a.baud} → {out}  (Ctrl+C로 종료)")
+            try:
+                while not (a.minutes and time.time() - t0 >= a.minutes * 60):
+                    data = ser.read(ser.in_waiting or 1)
+                    raw.write(data); nbytes += len(data)
+                    handle(data, time.time() - t0)
+                    if time.time() - t_show >= 2.0:
+                        lv = rec.levels(); dt = time.time() - t_show; t_show = time.time()
+                        print(f"{time.time() - t0:7.1f}s  {nbytes / dt / 1000:5.1f} KB/s  "
+                              + " ".join(f"ch{c + 1} {v:6.1f}" for c, v in enumerate(lv))
+                              + f"  cpu≤{rec.cpu_max}%  gaps {rec.n['frame_gaps']}  clip {rec.n['clip_packets']}  {parser.stats}")
+                        nbytes = 0
+            except KeyboardInterrupt:
+                pass
+        raw.close()
+        seconds = time.time() - t0
+    s = rec.close(parser, seconds)
+    print(json.dumps({k: s[k] for k in ("seconds", "packets", "parser", "delta_drop_ovr_qdrop", "cpu_max_pct", "criteria", "passed")},
+                     ensure_ascii=False, indent=1))
+    print(f"WAV {len(s['segments'])}개 → {out}")
+
+
+if __name__ == "__main__":
+    main()

@@ -38,9 +38,14 @@ Tools/.venv/
 __pycache__/
 *.pyc
 
-# ---- 측정 데이터 (doa_live.py / dump_viewer.py 가 만드는 것) ----
+# ---- 측정 데이터 (Tools/board/*, Tools/doa/doa_live.py 가 만드는 것) ----
 Tools/dumps/
 *.npz
+
+# ---- 오디오·모델 파일 (DataSet/ 밖에 생겨도 올리지 않음) ----
+*.wav
+*.pth
+*.pt
 
 # ---- 공개 데이터셋 원본·변환본 (용량이 커서 git에 올리지 않음) ----
 /DataSet/

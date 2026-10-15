@@ -68,8 +68,8 @@ Turret/
 
 | MCU                                    | PC                                       | 맞춰야 하는 것                    |
 | -------------------------------------- | ---------------------------------------- | --------------------------------- |
-| `Core/app/inc/tdoa.h` 상수             | `Tools/gcc_phat.py` 기본값               | 대역, 분석 구간, FFT 크기, 간격 등 |
-| `Core/app/test/dump.h` 패킷 형식       | `Tools/dump_viewer.py`, `doa_live.py`    | 헤더 필드, 버전, 패킷 종류         |
+| `Core/app/inc/tdoa.h` 상수             | `Tools/doa/gcc_phat.py` 기본값               | 대역, 분석 구간, FFT 크기, 간격 등 |
+| `Core/app/test/dump.h` 패킷 형식       | `Tools/board/dump_viewer.py`, `doa_live.py`    | 헤더 필드, 버전, 패킷 종류         |
 | `TDOA_FS`, `ADC_SAMPLES_PER_HALF`      | `Turret.ioc` 타이머 설정                 | 샘플링 주파수, 프레임 길이         |
 
 ---
@@ -95,7 +95,7 @@ Turret/
   ```
   cd Tools
   pip install -r requirements.txt
-  python dump_viewer.py --port COM5
-  python doa_live.py --port COM5
+  python board/dump_viewer.py --port COM5
+  python doa/doa_live.py --port COM5
   ```
   포트 이름은 장치 관리자에서 확인한다. 각 스크립트의 사용법은 파일 맨 위 주석에 있다.

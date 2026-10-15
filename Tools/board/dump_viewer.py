@@ -3,9 +3,9 @@ STM32 프레임 덤프 수신기 + 시간파형 / FFT 뷰어
 
 사용법
   pip install pyserial numpy matplotlib
-  python dump_viewer.py --port COM5                 # 실시간 수신 (Windows)
-  python dump_viewer.py --port /dev/ttyACM0         # 실시간 수신 (Linux)
-  python dump_viewer.py --replay dumps/f_000003.npz # 저장한 프레임 다시 보기
+  python board/dump_viewer.py --port COM5                 # 실시간 수신 (Windows)
+  python board/dump_viewer.py --port /dev/ttyACM0         # 실시간 수신 (Linux)
+  python board/dump_viewer.py --replay dumps/f_000003.npz # 저장한 프레임 다시 보기
 
 수신한 프레임은 dumps/ 폴더에 npz로 저장된다 (GCC-PHAT 프로토타입의 입력 데이터).
 패킷 형식은 dump.h 주석 참고.
@@ -28,6 +28,12 @@ RESULT_FMT = "<3f3fffHHI"         # tau[3] peak[3] angle_deg norm onset win_star
 RESULT_LEN = struct.calcsize(RESULT_FMT)  # 40
 MAX_PAYLOAD = 64 * 1024
 
+# PCM 패킷 (ver 3, type 0x03): Core/app/inc/stream.h. 헤더 24바이트 = v2 헤더 + drop ovr qdrop cpu
+VER_PCM = 3
+TYPE_PCM = 0x03
+PCM_HDR_FMT = "<4sBBBBIIHHBBBB"
+PCM_HDR_LEN = struct.calcsize(PCM_HDR_FMT)  # 24
+
 FLAG_CLIP = 0x01
 FLAG_MANUAL = 0x02
 FLAG_PRETRIG = 0x04
@@ -44,7 +50,26 @@ class PacketParser:
     def __init__(self):
         self.buf = bytearray()
         self.stats = dict(ok=0, crc_fail=0, bad_hdr=0, seq_gap=0)
-        self.last_seq = None
+        self.last_seq = {}                  # 버전별 (dump v2와 stream v3은 번호를 따로 매김)
+
+    def _header(self):
+        """버퍼 맨 앞의 헤더를 읽어 (헤더 길이, payload 길이, 필드) 또는 None(무효)."""
+        ver = self.buf[4]
+        if ver == VER:
+            _, ver, typ, ch, flags, seq, fseq, n, length = struct.unpack_from(HDR_FMT, self.buf, 0)
+            if typ == TYPE_RAW:
+                ok = ch != 0 and length == ch * n * 2 and length <= MAX_PAYLOAD
+            else:
+                ok = typ == TYPE_RESULT and length == RESULT_LEN
+            return (HDR_LEN, length, dict(ver=ver, type=typ, ch=ch, flags=flags, seq=seq, frame_seq=fseq, n=n)) if ok else None
+        if ver == VER_PCM:
+            if len(self.buf) < PCM_HDR_LEN:
+                return "wait"
+            _, ver, typ, ch, flags, seq, fseq, n, length, drop, ovr, qdrop, cpu = struct.unpack_from(PCM_HDR_FMT, self.buf, 0)
+            ok = typ == TYPE_PCM and 1 <= ch <= 8 and n > 0 and length == ch * n * 2 and length <= MAX_PAYLOAD
+            return (PCM_HDR_LEN, length, dict(ver=ver, type=typ, ch=ch, flags=flags, seq=seq, frame_seq=fseq, n=n,
+                                              drop=drop, ovr=ovr, qdrop=qdrop, cpu=cpu)) if ok else None
+        return None
 
     def feed(self, data: bytes):
         self.buf += data
@@ -59,43 +84,43 @@ class PacketParser:
             if len(self.buf) < HDR_LEN:
                 break
 
-            _, ver, typ, ch, flags, seq, fseq, n, length = struct.unpack_from(HDR_FMT, self.buf, 0)
-            if typ == TYPE_RAW:
-                len_ok = ch != 0 and length == ch * n * 2 and length <= MAX_PAYLOAD
-            else:
-                len_ok = typ == TYPE_RESULT and length == RESULT_LEN
-            if ver != VER or not len_ok:
+            hdr = self._header()
+            if hdr == "wait":
+                break
+            if hdr is None:
                 self.stats["bad_hdr"] += 1
                 del self.buf[:1]
                 continue
+            hlen, length, h = hdr
 
-            total = HDR_LEN + length + 2
+            total = hlen + length + 2
             if len(self.buf) < total:
                 break                       # 나머지가 도착할 때까지 대기
 
             pkt = bytes(self.buf[:total])
-            crc_rx = struct.unpack_from("<H", pkt, HDR_LEN + length)[0]
-            crc = binascii.crc_hqx(pkt[4:HDR_LEN + length], 0xFFFF)
+            crc_rx = struct.unpack_from("<H", pkt, hlen + length)[0]
+            crc = binascii.crc_hqx(pkt[4:hlen + length], 0xFFFF)
             if crc != crc_rx:
-                self.stats["crc_fail"] += 1
+                self.stats["crc_fail"] += 1   # PCM 안의 FF FF FF FF를 sync로 잘못 잡은 경우도 여기서 걸러짐
                 del self.buf[:1]
                 continue
             del self.buf[:total]
 
-            if self.last_seq is not None and seq != (self.last_seq + 1) & 0xFFFFFFFF:
+            seq, last = h["seq"], self.last_seq.get(h["ver"])
+            if last is not None and seq != (last + 1) & 0xFFFFFFFF:
                 self.stats["seq_gap"] += 1
-            self.last_seq = seq
+            self.last_seq[h["ver"]] = seq
             self.stats["ok"] += 1
 
-            if typ == TYPE_RESULT:
-                v = struct.unpack_from(RESULT_FMT, pkt, HDR_LEN)
-                out.append(dict(seq=seq, frame_seq=fseq, type=typ, flags=flags,
+            if h["type"] == TYPE_RESULT:
+                v = struct.unpack_from(RESULT_FMT, pkt, hlen)
+                out.append(dict(seq=seq, frame_seq=h["frame_seq"], type=h["type"], flags=h["flags"],
                                 result=dict(tau=v[0:3], peak=v[3:6], angle=v[6], norm=v[7],
                                             onset=v[8], win_start=v[9], proc_us=v[10])))
                 continue
-            data_arr = np.frombuffer(pkt, dtype="<u2", count=ch * n, offset=HDR_LEN)
-            out.append(dict(seq=seq, frame_seq=fseq, type=typ, flags=flags,
-                            data=data_arr.reshape(ch, n).copy()))
+            dt = "<i2" if h["type"] == TYPE_PCM else "<u2"
+            h["data"] = np.frombuffer(pkt, dtype=dt, count=h["ch"] * h["n"], offset=hlen).reshape(h["ch"], h["n"]).copy()
+            out.append(h)
         return out
 
 

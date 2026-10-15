@@ -1,7 +1,7 @@
 """burst 캡처 수신기 (Step5). 펌웨어 APP_MODE_BURST 1 과 짝.
 
-    python burst_rx.py --port COM8 --label sweep_1m --count 60
-    python burst_rx.py --port COM8 --label fpv_ev1 --seconds 30
+    python board/burst_rx.py --port COM8 --label sweep_1m --count 60
+    python board/burst_rx.py --port COM8 --label fpv_ev1 --seconds 30
 
 - 받은 burst(3ch x 8192샘플, 50 kHz, 164 ms 연속)를 하나씩 npz로 저장: Tools/dumps/step5/<label>/b_<seq>.npz
 - 화면에는 burst마다 채널별 RMS·피크(dBFS, 12비트 기준), 클리핑 여부, 패킷 통계를 출력
@@ -31,7 +31,7 @@ def main():
     ap.add_argument("--label", required=True, help="녹음 이름 (폴더 이름이 됨)")
     ap.add_argument("--count", type=int, default=0, help="받을 burst 수 (0이면 --seconds 또는 Ctrl+C까지)")
     ap.add_argument("--seconds", type=float, default=0.0)
-    ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "dumps", "step5"))
+    ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "..", "dumps", "step5"))
     a = ap.parse_args()
 
     import serial
