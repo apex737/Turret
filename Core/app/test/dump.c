@@ -61,6 +61,8 @@ static uint16_t crc16_ccitt(const uint8_t *p, uint32_t n)
     return crc;
 }
 
+uint16_t dump_crc16(const uint8_t *p, uint32_t n) { return crc16_ccitt(p, n); }
+
 /**
  * @brief  덤프 모듈 초기화
  * @param  huart: 송신에 사용할 UART 핸들 (CubeMX가 이미 초기화해 둔 것)

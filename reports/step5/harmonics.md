@@ -1,6 +1,6 @@
 # Step5-1 결과 — 공개 원음의 고조파 구조
 
-> 2026-10-14 | 도구: `Tools/harmonic_survey.py` (프레임 8192점 @ 50 kHz = 164 ms, Δf 6.1 Hz)
+> 2026-10-14 | 도구: `Tools/audio/harmonic_survey.py` (프레임 8192점 @ 50 kHz = 164 ms, Δf 6.1 Hz)
 > 데이터: Salford DroneNoise (지상 마이크 9개, 고도 10 m, 통과 15 m/s / 호버), Western Sydney DJI Air 3 (ch1~5)
 
 ## 1. 요약

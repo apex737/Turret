@@ -1,0 +1,8 @@
+{
+  "date": "2026-10-16",
+  "spacing_nominal_m": 0.07,
+  "d12_mm": 70, "d13_mm": 70, "d23_mm": 70,
+  "cw": false,
+  "channel_map": {"ch1": "MIC1", "ch2": "MIC2", "ch3": "MIC3"},
+  "note": "위에서 내려다봄, MIC1 방향 = 0°"
+}

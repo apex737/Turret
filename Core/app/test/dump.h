@@ -50,10 +50,14 @@
 #define DUMP_FLAG_MANUAL  0x02u     /* 수동 트리거 (버튼 등) */
 #define DUMP_FLAG_PRETRIG 0x04u     /* payload 앞 절반 = 트리거 직전 프레임 */
 #define DUMP_FLAG_VALID   0x08u     /* (결과 패킷) MCU가 이 결과를 신뢰 가능으로 판정함 */
+#define DUMP_FLAG_VERIFY  0x20u     /* 전처리 검증 모드: 같은 frame_seq의 PCM 패킷(type 0x03)과 짝 */
 #define DUMP_FLAG_BURST   0x10u     /* burst 캡처: payload의 프레임들이 끊김 없이 이어진 연속 구간 */
 
 /* typedef old new; */
 typedef uint16_t dump_frame_t[DUMP_CH][DUMP_N];
+
+/* CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF). PC: binascii.crc_hqx(data, 0xFFFF). stream 모듈도 같이 쓴다 */
+uint16_t dump_crc16(const uint8_t *p, uint32_t n);
 
 /* 모듈 초기화. 사용할 UART 핸들을 저장하고 송신 상태/패킷 번호를 0으로 만든다. */
 void dump_init(UART_HandleTypeDef *huart);

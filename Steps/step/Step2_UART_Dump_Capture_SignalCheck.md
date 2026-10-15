@@ -42,8 +42,8 @@ Turret/
 venv 사용:
 ```powershell
 cd C:\Users\user\STM32CubeIDE\Turret\Tools
-.\.venv\Scripts\python dump_viewer.py --port COM8                 # 실시간 수신
-.\.venv\Scripts\python dump_viewer.py --replay dumps\100.npz      # 저장 파일 다시 보기
+.\.venv\Scripts\python board\dump_viewer.py --port COM8                 # 실시간 수신
+.\.venv\Scripts\python board\dump_viewer.py --replay dumps\100.npz      # 저장 파일 다시 보기
 ```
 
 ---
@@ -474,7 +474,7 @@ MCU    : CMSIS-DSP 구현 → 같은 프레임 결과를 Python과 비교   (구
 - [ ] 마이크 배치(간격·형상) 실측 → 최대 지연(샘플) 계산
 - [ ] 터렛이 반응할 **대상 소리** 결정 (스냅/박수/목소리/날개 소리 등) → BPF 대역 근거. 연속음 후보는 B1 수동 캡처로 원파형부터 확인 (5.9)
 
-### 다음 단계: `Tools/gcc_phat.py`
+### 다음 단계: `Tools/doa/gcc_phat.py`
 1. npz에서 onset 근처 구간 잘라내기 (직접음 위주)
 2. 쌍(1-2, 1-3, 2-3)별 GCC-PHAT → 피크 → 지연
 3. 눈으로 읽은 값(seq 884: +1, +3샘플)과 비교 검증

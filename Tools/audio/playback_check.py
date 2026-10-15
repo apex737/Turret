@@ -1,6 +1,6 @@
 """Step5-3/5-4: 스피커로 튼 소리를 burst로 받은 녹음을 원본과 비교한다.
 
-    python playback_check.py --pink pink_1m [--silence quiet] --tone tone_1m --drone fpv_ev1=11_fpv_ev1 air3=15_air3
+    python audio/playback_check.py --pink pink_1m [--silence quiet] --tone tone_1m --drone fpv_ev1=11_fpv_ev1 air3=15_air3
 
   --pink    LABEL       핑크 잡음 녹음 → 재생 경로의 크기 응답 (채널별), -10 dB 대역
   --silence LABEL       무음 녹음 → 장치 잡음 바닥 (응답이 잡음에 묻히는 주파수를 표시)
@@ -18,10 +18,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import harmonic_survey as hs
 
-HERE = os.path.dirname(__file__)
-DUMPS = os.path.join(HERE, "dumps", "step5")
-PLAY = os.path.join(HERE, "..", "DataSet", "_playback")
-OUT = os.path.join(HERE, "..", "reports", "step5")
+TOOLS = os.path.join(os.path.dirname(__file__), "..")
+DUMPS = os.path.join(TOOLS, "dumps", "step5")
+PLAY = os.path.join(TOOLS, "..", "DataSet", "_playback")
+OUT = os.path.join(TOOLS, "..", "reports", "step5")
 FS = 50000
 FRANGE = {"fpv": (300, 1200), "mini3pro": (100, 800), "air3": (80, 600)}
 db = lambda v: 10 * np.log10(np.asarray(v, dtype=float) + 1e-30)

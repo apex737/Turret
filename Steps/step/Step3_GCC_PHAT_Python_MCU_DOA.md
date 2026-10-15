@@ -34,7 +34,7 @@
 | 신뢰 판정   | 기준           | 세 쌍 중 최저 peak ≥ 0.5, 0.3 ≤ norm ≤ 1.2                                                 | `TDOA_MIN_PEAK`, `TDOA_MIN_NORM`, `TDOA_MAX_NORM` |
 | 빌드        | 구성           | **Debug**, `-Ofast`, FPv4-SP-D16 hard float                                                | `.cproject`                                       |
 |             | DSP 라이브러리 | CMSIS-DSP 1.10.0 (STM32Cube_FW_F4_V1.28.3에서 복사)                                        | `Drivers/CMSIS/DSP/`                              |
-| Python      | 분석 옵션      | 위 GCC-PHAT 값과 같은 기본값 (`--band 150 2000 --win 5 --pre 1 --eps 0.01 --spacing 0.07`) | `Tools/gcc_phat.py`                               |
+| Python      | 분석 옵션      | 위 GCC-PHAT 값과 같은 기본값 (`--band 150 2000 --win 5 --pre 1 --eps 0.01 --spacing 0.07`) | `Tools/doa/gcc_phat.py`                               |
 
 Python과 MCU의 값이 다르면 비교가 맞지 않는다(5절). 기준선에서는 두 쪽이 같다.
 
@@ -318,14 +318,14 @@ onset   = 편차가 문턱을 처음 넘는 위치           (없으면 최대 �
 
 ```powershell
 cd C:\Users\user\STM32CubeIDE\Turret\Tools
-.\.venv\Scripts\python gcc_phat.py --selftest                   # 합성 신호로 구현 검증
-.\.venv\Scripts\python gcc_phat.py dumps\<세션>\f_000012.npz    # 파일 1개: 결과 + 그래프
-.\.venv\Scripts\python gcc_phat.py dumps\<세션>                 # 폴더 전체 표
-.\.venv\Scripts\python gcc_phat.py dumps\<세션> --sweep         # 대역 x 구간 비교
+.\.venv\Scripts\python doa\gcc_phat.py --selftest                   # 합성 신호로 구현 검증
+.\.venv\Scripts\python doa\gcc_phat.py dumps\<세션>\f_000012.npz    # 파일 1개: 결과 + 그래프
+.\.venv\Scripts\python doa\gcc_phat.py dumps\<세션>                 # 폴더 전체 표
+.\.venv\Scripts\python doa\gcc_phat.py dumps\<세션> --sweep         # 대역 x 구간 비교
 
-.\.venv\Scripts\python doa_live.py --port COM8                  # 실시간 나침반 + MCU 비교
-.\.venv\Scripts\python doa_live.py --port COM8 --truth 90       # 실제 각도를 알고 측정
-.\.venv\Scripts\python doa_live.py --replay dumps\<세션>        # 저장된 세션 다시 보기
+.\.venv\Scripts\python doa\doa_live.py --port COM8                  # 실시간 나침반 + MCU 비교
+.\.venv\Scripts\python doa\doa_live.py --port COM8 --truth 90       # 실제 각도를 알고 측정
+.\.venv\Scripts\python doa\doa_live.py --replay dumps\<세션>        # 저장된 세션 다시 보기
 ```
 
 ### 6.1 doa_live.py

@@ -1,6 +1,6 @@
 """공개 원음을 일반 플레이어로 들을 수 있는 wav로 바꾼다. (분석용 아님, 귀로 확인하는 용도)
 
-    python to_listen.py in.wav [--ch 1] [--start 82 --dur 30] [--hp 100] [--out dir]
+    python audio/to_listen.py in.wav [--ch 1] [--start 82 --dur 30] [--hp 100] [--out dir]
 
 - 형식: 무엇이든(50 kHz float, 32-bit int 다채널 …) → 48 kHz, 16-bit, 모노
 - 고역 통과(--hp): 바람 같은 저주파가 레벨을 차지해 드론 고조파가 묻히는 것을 막는다. 0이면 끔

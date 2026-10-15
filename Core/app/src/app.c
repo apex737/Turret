@@ -3,33 +3,43 @@
 #include "app.h"
 #include "adc.h"
 #include "tdoa.h"
+#include "preproc.h"
+#include "stream.h"
 
-// UART 파형 디버깅
+// UART 디버깅·녹음 모드
 #include "dump.h"
 #include "capture.h"
 #include "burst.h"
+#include "verify.h"
 
-/* 동작 모드
- *  APP_MODE_BURST 1 : 트리거 없이 164 ms 연속 원파형을 반복 송신 (Step5 녹음용. 수신: Tools/burst_rx.py)
- *  APP_MODE_BURST 0 : 기존 스냅 모드 (소리 트리거 → TDOA → 결과/원파형 송신. 수신: doa_live.py) */
-#ifndef APP_MODE_BURST
-#define APP_MODE_BURST 1
+/* 동작 모드 (컴파일 시 하나 선택)
+ *  APP_MODE_SNAP   : 기존 스냅 모드. 소리 트리거 → TDOA → 결과/원파형 송신           수신: Tools/doa_live.py
+ *  APP_MODE_BURST  : 트리거 없이 164 ms 연속 원파형(50 kHz)을 반복 송신 (Step5 재생 녹음) 수신: Tools/burst_rx.py
+ *  APP_MODE_STREAM : 50 kHz → FIR·↓4 → 12.5 kHz int16 PCM 연속 송신 (Step5 연속 수음)  수신: Tools/stream_capture.py
+ *  APP_MODE_VERIFY : 같은 8프레임의 원본과 PCM을 함께 송신 → PC/MCU 전처리 비교       수신: Tools/verify_preproc.py */
+#define APP_MODE_SNAP   0
+#define APP_MODE_BURST  1
+#define APP_MODE_STREAM 2
+#define APP_MODE_VERIFY 3
+#ifndef APP_MODE
+#define APP_MODE APP_MODE_BURST
 #endif
 
 _Static_assert(TDOA_CH == DUMP_CH && TDOA_FRAME == DUMP_N, "tdoa and dump frame shapes must match");
+_Static_assert(PREPROC_CH == ADC_CH_CNT && PREPROC_IN == ADC_SAMPLES_PER_HALF, "preproc and adc frame shapes must match");
+
+#define FRAME_CYCLES  3686400u      // 180 MHz × 20.48 ms
 
 static uint16_t frame[ADC_CH_CNT][ADC_SAMPLES_PER_HALF];
 
-static uint32_t frame_cnt;   // capture에 넘기는 프레임 번호 (받은 프레임마다 +1)
-
-#if !APP_MODE_BURST
+#if APP_MODE == APP_MODE_SNAP
 // 캡처 직후 호출됨: 같은 캡처로 MCU에서 방향을 계산해 결과 패킷으로 보낸다.
 // CAPTURE_SEND_RAW 1 : 원파형도 같이 나가므로 PC(doa_live.py)가 같은 frame_seq로 계산해 비교한다.
 // CAPTURE_SEND_RAW 0 : 이 결과 패킷만 나간다. (capture.h 에서 선택)
 static void on_capture(
-	const dump_frame_t *prev, 
+	const dump_frame_t *prev,
 	const dump_frame_t *cur,
-	uint32_t frame_seq, 
+	uint32_t frame_seq,
 	uint8_t flags
 )
 {
@@ -58,60 +68,85 @@ static void on_capture(
 }
 #endif
 
+#if APP_MODE == APP_MODE_STREAM
+/* 연속 수음: 프레임 하나 → PCM 한 블록. 끊김이 있으면 FIR 상태를 지우고 표시한다.
+ *  - ADC 번호가 건너뜀 / overrun → 샘플이 빠졌고 FIR 상태도 끊긴 입력을 이어 붙이면 안 됨 → RESYNC | GAP
+ *  - 송신 큐 유실 → MCU의 FIR은 연속이지만 PC가 받은 샘플이 빠짐 → GAP만 */
+static void on_stream_frame(uint32_t seq)
+{
+	static bool     first = true;
+	static uint32_t last_seq, last_ovr, last_qdrop;
+	static uint8_t  cpu_pct;
+	static int16_t  pcm[PREPROC_CH][PREPROC_OUT];
+
+	const uint32_t t0 = DWT->CYCCNT;
+	const uint32_t ovr = adc_get_ovr_cnt(), qdrop = stream_get_qdrop_cnt();
+	uint8_t flags = 0u;
+	if (first || seq != last_seq + 1u || ovr != last_ovr) {
+		preproc_reset();
+		flags |= STREAM_FLAG_RESYNC | (first ? 0u : STREAM_FLAG_GAP);
+	}
+	if (qdrop != last_qdrop)
+		flags |= STREAM_FLAG_GAP;
+	first = false; last_seq = seq; last_ovr = ovr; last_qdrop = qdrop;
+
+	if (preproc_run((const uint16_t (*)[PREPROC_IN])frame, pcm))
+		flags |= STREAM_FLAG_CLIP;
+	(void)stream_push(pcm, seq, flags, adc_get_drop_cnt(), ovr, cpu_pct);
+
+	const uint32_t cyc = DWT->CYCCNT - t0;   // 이번 프레임의 전처리 + 큐 적재. 다음 패킷에 실림
+	cpu_pct = (uint8_t)((cyc * 100u + FRAME_CYCLES - 1u) / FRAME_CYCLES);
+}
+#endif
+
 
 void app_init(AppHandle_t* app)
 {
-	// TDoA 연산 사이클 수 카운터(DWT) 켜기
+	// 처리 시간 측정용 사이클 카운터(DWT) 켜기
 	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
 	DWT->CYCCNT = 0;
 	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 
-	tdoa_init();
-
-	 // UART 핸들 등록
 	dump_init(app->huart);
-#if APP_MODE_BURST
-	burst_init();
-#else
+	stream_init(app->huart);
+	preproc_reset();
+#if APP_MODE == APP_MODE_SNAP
+	tdoa_init();
 	capture_init(NULL);         // 기본값: k_on 4, 잡음 학습 0.5초, holdoff는 모드에 따라 1초 / 0.2초
 	capture_set_trigger_cb(on_capture);
+#elif APP_MODE == APP_MODE_BURST
+	burst_init();
+#elif APP_MODE == APP_MODE_VERIFY
+	verify_init();
 #endif
 
-	adc_init(app->hadcMstr, app->hadcSlv1, app->hadcSlv2);
-	// timer init : TRGO, AWD
-	HAL_TIM_Base_Start(app->htimSmp);
+	adc_init(app->hadcMstr, app->hadcSlv1, app->hadcSlv2, app->htimSmp);   // 타이머는 adc_init이 마지막에 켠다
 }
 
 
 void app_main(void)
-/* 구현 전략
- * 1) 마이크 모듈 파형 테스트
- * 2) ADC-DMA 핑퐁 버퍼링 -> 지연 측정 
- * 3) DMA 버퍼의 값을 안전하게 복사하고 uint16_t 로 형변환
- * 4) GCC(Generalized Cross-Correlation)-PHAT
- * 	 - 1) 3-MIC FFT 
- * 	 - 2) BPF
- * 	 - 3) PHAT (Phase Transform)
- * 	 - 4) IFFT
- * 	 - 5) Find Max (피크)
- * 5) 후처리
- * 	 - 1) 2차 보간 (Fs를 높여주는 효과.. 원리?)
- * 	 - 2) LSE 오차보정
- * 	 - 3) 시간차 -> 각도 변환
- * */
 {
+	uint32_t seq;
 	while(1)
 	{
-		if (adc_get_frame(frame))
+		if (adc_get_frame(frame, &seq))
 		{
-			frame_cnt++;
-#if APP_MODE_BURST
-			burst_on_frame((const dump_frame_t *)&frame, frame_cnt, adc_get_drop_cnt());
-#else
-			capture_on_frame((const dump_frame_t *)&frame, frame_cnt);
+#if APP_MODE == APP_MODE_SNAP
+			capture_on_frame((const dump_frame_t *)&frame, seq);
+#elif APP_MODE == APP_MODE_BURST
+			burst_on_frame((const dump_frame_t *)&frame, seq, adc_get_drop_cnt());
+#elif APP_MODE == APP_MODE_STREAM
+			on_stream_frame(seq);
+#elif APP_MODE == APP_MODE_VERIFY
+			verify_on_frame((const dump_frame_t *)&frame, seq);
 #endif
 		}
-		dump_poll();   // 대기 중인 결과 패킷 송신 (원파형을 보내는 중이면 끝난 뒤에)
+		adc_service();    // ADC overrun이 났으면 재시작
+#if APP_MODE == APP_MODE_VERIFY
+		verify_poll();
+#endif
+		stream_poll();    // UART가 비면 대기 중인 PCM 송신
+		dump_poll();      // 대기 중인 결과 패킷 송신 (스냅 모드)
 	}
 }
 
@@ -119,26 +154,17 @@ void app_main(void)
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
 	dump_on_tx_cplt(huart);
+	stream_on_tx_cplt(huart);
 }
 
 
-/* 선택: B1 버튼으로 수동 캡처 */
+/* 선택: B1 버튼으로 수동 캡처 (스냅 모드) */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-#if !APP_MODE_BURST
+#if APP_MODE == APP_MODE_SNAP
 	if (GPIO_Pin == B1_Pin)
 		capture_request_manual();
 #else
 	(void)GPIO_Pin;
 #endif
 }
-
-
-
-
-
-
-
-
-
-

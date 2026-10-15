@@ -1,6 +1,6 @@
 """Step5-3 재생 파일을 만든다 → DataSet/_playback/ (48 kHz, 16-bit, 모노)
 
-    python make_playback.py
+    python audio/make_playback.py
 
 burst 캡처는 아무 시점에서나 164 ms를 자르므로, 시간 정렬이 필요 없는 신호만 쓴다.
   01_pink_30s        핑크 잡음 → 스피커+마이크 경로의 크기 응답 (녹음 PSD / 원본 PSD)
@@ -14,7 +14,7 @@ from scipy.signal import butter, sosfiltfilt, resample_poly
 from to_listen import load
 
 FS = 48000
-ROOT = os.path.join(os.path.dirname(__file__), "..")
+ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 DATA = os.path.join(ROOT, "DataSet")
 OUT = os.path.join(DATA, "_playback")
 SAL = os.path.join(DATA, "Salford DroneNoise")

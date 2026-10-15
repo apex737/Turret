@@ -56,7 +56,7 @@
 
 ### 5-1 원본 분석 — 고조파 검출기 v0 (PC) ✅ 2026-10-14
 
-> **결과**: [reports/step5/harmonics.md](../../reports/step5/harmonics.md). 고조파 선은 모든 기체에서 약 2 kHz 아래(FPV는 4번째 고조파 ~2.1 kHz까지)에 있다. 선 에너지 99%는 6 kHz 아래다. → **f_use = 5 kHz, ↓4(12.5 kHz) 유지.** FPV는 로터마다 회전수가 달라 빗이 4번째 차수 위로 흐트러진다. 도구: `Tools/harmonic_survey.py`, 듣기용 변환: `Tools/to_listen.py`.
+> **결과**: [reports/step5/harmonics.md](../../reports/step5/harmonics.md). 고조파 선은 모든 기체에서 약 2 kHz 아래(FPV는 4번째 고조파 ~2.1 kHz까지)에 있다. 선 에너지 99%는 6 kHz 아래다. → **f_use = 5 kHz, ↓4(12.5 kHz) 유지.** FPV는 로터마다 회전수가 달라 빗이 4번째 차수 위로 흐트러진다. 도구: `Tools/audio/harmonic_survey.py`, 듣기용 변환: `Tools/audio/to_listen.py`.
 
 ### 5-2 burst 캡처 (펌웨어) ✅ 구현·빌드 2026-10-14, 보드 확인 전
 
@@ -65,11 +65,11 @@
 - `app.c`의 `APP_MODE_BURST 1`(기본값)이 burst 모드, 0이면 기존 스냅 모드다.
 - 빌드 결과: 경고 없음. RAM은 data + bss 70.9 KB / 128 KB.
 - 송신 한 번에 약 0.53 s가 걸리므로 burst는 약 0.7 s마다 하나씩 온다.
-- PC 수신: `python Tools/burst_rx.py --port COMx --label <이름> --count <개수>` → `Tools/dumps/step5/<이름>/b_*.npz`
+- PC 수신: `python Tools/board/burst_rx.py --port COMx --label <이름> --count <개수>` → `Tools/dumps/step5/<이름>/b_*.npz`
 
 ### 5-3 재생 녹음 — 보드에서 할 일
 
-재생 파일은 `python Tools/make_playback.py`로 만들고 `DataSet/_playback/`에 있다. burst는 아무 시점에서나 잘리므로, 시간 정렬이 필요 없는 신호만 쓴다.
+재생 파일은 `python Tools/audio/make_playback.py`로 만들고 `DataSet/_playback/`에 있다. burst는 아무 시점에서나 잘리므로, 시간 정렬이 필요 없는 신호만 쓴다.
 
 | 순서 | 재생 | 녹음 | 무엇을 보나 |
 | --- | --- | --- | --- |
@@ -85,7 +85,7 @@
 ### 5-4 비교와 결정
 
 ```
-python Tools/playback_check.py --pink pink --silence quiet --tone tone --drone fpv_ev1=11_fpv_ev1 fpv_ev2=12_fpv_ev2 fpv_ev3=13_fpv_ev3 mini3pro=14_mini3pro_hover air3=15_air3
+python Tools/audio/playback_check.py --pink pink --silence quiet --tone tone --drone fpv_ev1=11_fpv_ev1 fpv_ev2=12_fpv_ev2 fpv_ev3=13_fpv_ev3 mini3pro=14_mini3pro_hover air3=15_air3
 ```
 
 - 출력: −10 dB 응답 대역, 채널 간 차이, 왜곡 없는 최대 음량, 원음별 "연속으로 쓸 만한 고조파 수"(원본 → 장치). 그림은 `reports/step5/playback_*.png`.

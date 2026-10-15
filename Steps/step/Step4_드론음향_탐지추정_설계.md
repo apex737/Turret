@@ -431,7 +431,7 @@ S(f0) = Σ_{h=1…H} min( SNR(h·f0), 상한 )          SNR(f) = 그 칸의 세�
 | f0/2로 읽음 | 점수가 절반이라 보통 뽑히지 않음 | 빗살의 절반이 빈 칸 → 잡음 bin이 섞임 | 위 규칙에서 걸러짐 |
 | 프레임마다 오락가락 | M-of-N이 흔들림 | 마스크가 프레임마다 바뀜 | f0 추적: 직전 f0 근처만 탐색 |
 
-"가장 낮은 f0" 규칙은 합성 신호에서는 통했지만(`Tools/f0_probe.py`, 117·210·95 Hz) 실제 녹음에서는 낮은 주파수의 잡다한 선에 끌려가는 것이 보였다. 후보 범위의 하한을 대상에 맞게 올려야 한다.
+"가장 낮은 f0" 규칙은 합성 신호에서는 통했지만(`Tools/audio/f0_probe.py`, 117·210·95 Hz) 실제 녹음에서는 낮은 주파수의 잡다한 선에 끌려가는 것이 보였다. 후보 범위의 하한을 대상에 맞게 올려야 한다.
 
 ### 5.5 임계값과 M-of-N: 미탐과 오탐
 
@@ -602,7 +602,7 @@ v0.1은 탐지(12.5 kHz)와 방향(50 kHz)을 따로 두었다. 방향 쪽을 50
 | 32종 드론 데이터셋 (arXiv 2509.04715) | 브랜드·모델별 원음 | 기종 간 차이 |
 | Western Sydney 대학 배열 녹음 | DJI Air 3, 24채널, GPS 비행 로그 | 방향 추정 검증까지 가능 |
 
-분석 도구는 `Tools/f0_probe.py`다. wav 파일에 5.3절의 점수를 돌려 f0 분포와 스펙트로그램을 낸다. 합성 신호(117, 210, 95 Hz)에서 116, 209, 93~95 Hz로 읽었고 잡음만 넣으면 검출이 0건이다. 실제 드론 소리로는 아직 검증하지 못했다.
+분석 도구는 `Tools/audio/f0_probe.py`다. wav 파일에 5.3절의 점수를 돌려 f0 분포와 스펙트로그램을 낸다. 합성 신호(117, 210, 95 Hz)에서 116, 209, 93~95 Hz로 읽었고 잡음만 넣으면 검출이 0건이다. 실제 드론 소리로는 아직 검증하지 못했다.
 
 ### 7.3 대상이 FPV형이면 달라지는 것
 
@@ -712,7 +712,7 @@ v0.1은 탐지(12.5 kHz)와 방향(50 kHz)을 따로 두었다. 방향 쪽을 50
 
 - Knapp, C. H., & Carter, G. C. (1976). The generalized correlation method for estimation of time delay. _IEEE Trans. ASSP_, 24(4).
 - 그림과 직접 돌려 보는 계산: [Step4_helper.html](Step4_helper.html)
-- f0 분석 도구: `Tools/f0_probe.py`
+- f0 분석 도구: `Tools/audio/f0_probe.py`
 - 엔진 제원: [Limbach L550E](https://en.wikipedia.org/wiki/Limbach_L550E), [HESA Shahed 136](https://en.wikipedia.org/wiki/HESA_Shahed_136)
 - 데이터셋: [DroneAudioset](https://neurips.cc/virtual/2025/poster/121409), [32종 드론 데이터셋](https://arxiv.org/pdf/2509.04715), [Western Sydney 대학 배열 녹음](https://research-data.westernsydney.edu.au/published/1f8cceb0801b11f189a547c836cf5bee/)
 - 날개 통과 주파수의 계산 예(DJI FPV 555 Hz)는 검색 요약에서 본 값이고 원문을 대조하지 못했다. 후보 출처: [Acoustic Drone Package Delivery Detection](https://arxiv.org/html/2602.09991v1)

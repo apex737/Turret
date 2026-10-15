@@ -1,6 +1,6 @@
 """Step5-1: 공개 원음의 고조파 구조를 잰다 → f_use(쓸 대역 상한) 결정 근거.
 
-    python harmonic_survey.py            # DataSet/ 아래 정해진 그룹 전체, 결과는 reports/step5/
+    python audio/harmonic_survey.py            # DataSet/ 아래 정해진 그룹 전체, 결과는 reports/step5/
 
 프레임마다 (1) 고조파 점수로 f0를 찾고 (2) 1번째부터 나이퀴스트까지 각 고조파 자리의 SNR을 잰다.
 같은 탐색 폭으로 고조파 "사이"(h+0.5)·f0 자리의 SNR도 재서 기준으로 삼는다. 둘의 차이가 그 고조파가 실제로 있는지다.
@@ -20,7 +20,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-ROOT = os.path.join(os.path.dirname(__file__), "..")
+ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 DATA = os.path.join(ROOT, "DataSet")
 OUT = os.path.join(ROOT, "reports", "step5")
 

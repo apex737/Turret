@@ -1,6 +1,6 @@
 """녹음 파일에서 고조파 구조(f0)를 읽는다. Step4 8절의 점수 S(f0)와 같은 방식.
 
-    python f0_probe.py a.wav [b.wav ...] [--fmin 40 --fmax 500 --out dir]
+    python audio/f0_probe.py a.wav [b.wav ...] [--fmin 40 --fmax 500 --out dir]
 
 잡음 바닥은 "같은 프레임의 이웃 주파수 중앙값"으로 잡는다. 드론이 녹음 내내 들려도 선은 좁아서 바닥에 섞이지 않는다.
 """

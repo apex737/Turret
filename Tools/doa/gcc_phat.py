@@ -2,10 +2,10 @@
 GCC-PHAT 프로토타입: 덤프(npz)에서 마이크 쌍별 도달 시간차(TDOA)와 음원 방향을 구한다.
 
 사용법
-  python gcc_phat.py --selftest                 # 지연/각도를 아는 합성 신호로 구현 검증
-  python gcc_phat.py dumps/99.npz               # 파일 1개: 결과 출력 + 그래프
-  python gcc_phat.py dumps                      # 폴더 전체: 표 + 요약
-  python gcc_phat.py dumps --sweep              # BPF 대역 x 분석 구간 길이 비교
+  python doa/gcc_phat.py --selftest                 # 지연/각도를 아는 합성 신호로 구현 검증
+  python doa/gcc_phat.py dumps/99.npz               # 파일 1개: 결과 출력 + 그래프
+  python doa/gcc_phat.py dumps                      # 폴더 전체: 표 + 요약
+  python doa/gcc_phat.py dumps --sweep              # BPF 대역 x 분석 구간 길이 비교
 
 부호 규칙
   tau_ij = (j 도달 시각) - (i 도달 시각) [샘플].  양수 = MIC j가 MIC i보다 늦게 들음.
