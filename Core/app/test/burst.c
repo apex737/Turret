@@ -17,11 +17,16 @@ void burst_init(void)
 
 uint32_t burst_get_restart_cnt(void) { return s_restart; }
 
-void burst_on_frame(const dump_frame_t *frame, uint32_t frame_seq, uint32_t drop_cnt)
+void burst_on_frame(
+	const dump_frame_t *frame,
+	uint32_t frame_seq,
+	uint32_t drop_cnt
+)
 {
     const bool dropped = (drop_cnt != s_last_drop);
     s_last_drop = drop_cnt;
 
+    // 예외처리 (Busy, 프레임 누수)
     if (dump_busy()) {               /* 이전 burst를 보내는 중: 버퍼를 건드릴 수 없으니 이 프레임은 버림 */
         s_filled = 0u;
         return;
@@ -30,6 +35,8 @@ void burst_on_frame(const dump_frame_t *frame, uint32_t frame_seq, uint32_t drop
         s_filled = 0u;
         s_restart++;
     }
+
+    //
     if (s_filled == 0u) {
         s_flags = DUMP_FLAG_BURST;
     }
@@ -42,7 +49,10 @@ void burst_on_frame(const dump_frame_t *frame, uint32_t frame_seq, uint32_t drop
         memcpy(&pl[c * n_total + s_filled * DUMP_N], src, DUMP_N * sizeof(uint16_t));
         if (!(s_flags & DUMP_FLAG_CLIP)) {
             for (uint32_t i = 0; i < DUMP_N; i++) {
-                if (src[i] <= CLIP_LO || src[i] >= CLIP_HI) { s_flags |= DUMP_FLAG_CLIP; break; }
+                if (src[i] <= CLIP_LO || src[i] >= CLIP_HI) {
+                	s_flags |= DUMP_FLAG_CLIP;
+                	break;
+                }
             }
         }
     }

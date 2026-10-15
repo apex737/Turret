@@ -73,7 +73,7 @@ void capture_set_trigger_cb(capture_trigger_cb_t cb)
 // 프레임 수신 시 처리
 bool capture_on_frame(
 		const dump_frame_t *frame, // 수신된 프레임
-		uint32_t frame_seq				 // 프레임 번호
+		uint32_t frame_seq			// 프레임 번호
 )
 /** 한 프레임당 흐름:
  *  1) 크기(level) 측정
