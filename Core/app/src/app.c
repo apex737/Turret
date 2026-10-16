@@ -22,7 +22,7 @@
 #define APP_MODE_STREAM 2
 #define APP_MODE_VERIFY 3
 #ifndef APP_MODE
-#define APP_MODE APP_MODE_BURST
+#define APP_MODE APP_MODE_STREAM
 #endif
 
 _Static_assert(TDOA_CH == DUMP_CH && TDOA_FRAME == DUMP_N, "tdoa and dump frame shapes must match");

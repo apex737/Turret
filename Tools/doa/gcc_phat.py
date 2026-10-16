@@ -117,7 +117,11 @@ def gcc_phat(a, b, fs, band, max_lag, up=16, eps=0.01):
     n = len(a)
     nfft = 1 << int(np.ceil(np.log2(2 * n)))
     A, B = np.fft.rfft(a, nfft), np.fft.rfft(b, nfft)
-    R = B * np.conj(A)
+    return phat_peak(B * np.conj(A), nfft, fs, band, max_lag, up, eps)
+
+
+def phat_peak(R, nfft, fs, band, max_lag, up=16, eps=0.01):
+    """교차 스펙트럼 R(= B·conj(A), rfft 길이 nfft) → PHAT 가중 상관의 피크. gcc_phat()와 지속음(doa_stream.py)이 공유."""
     f = np.fft.rfftfreq(nfft, 1.0 / fs)
     in_band = (f >= band[0]) & (f <= band[1])
     mag = np.abs(R)
