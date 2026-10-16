@@ -114,16 +114,32 @@ def main():
             handle(data[i:i + 4096], 0.0)
         seconds = rec.n["packets"] * N / FS
     else:
-        import serial
+        import serial, threading, queue
         raw = open(os.path.join(out, "raw.bin"), "wb")
         with serial.Serial(a.port, a.baud, timeout=0.05) as ser:
+            try:
+                ser.set_buffer_size(rx_size=1 << 20)         # Windows: OS 수신 버퍼 1 MB (약 13 s분). 기본 4 KB는 50 ms만 멈춰도 넘친다
+            except (AttributeError, ValueError, serial.SerialException):
+                pass
             ser.reset_input_buffer()
+            # 수신은 별도 스레드: 화면 출력·파일 쓰기가 잠깐 멈춰도(콘솔 선택 모드 등) 포트 읽기는 계속된다
+            q, stop = queue.Queue(), threading.Event()
+
+            def reader():
+                while not stop.is_set():
+                    d = ser.read(ser.in_waiting or 1)
+                    if d:
+                        q.put((d, time.time() - t0))
+            th = threading.Thread(target=reader, daemon=True); th.start()
             print(f"{a.port} @ {a.baud} → {out}  (Ctrl+C로 종료)")
             try:
                 while not (a.minutes and time.time() - t0 >= a.minutes * 60):
-                    data = ser.read(ser.in_waiting or 1)
+                    try:
+                        data, t_rx = q.get(timeout=0.1)
+                    except queue.Empty:
+                        continue
                     raw.write(data); nbytes += len(data)
-                    handle(data, time.time() - t0)
+                    handle(data, t_rx)
                     if time.time() - t_show >= 2.0:
                         lv = rec.levels(); dt = time.time() - t_show; t_show = time.time()
                         print(f"{time.time() - t0:7.1f}s  {nbytes / dt / 1000:5.1f} KB/s  "
@@ -132,6 +148,9 @@ def main():
                         nbytes = 0
             except KeyboardInterrupt:
                 pass
+            stop.set(); th.join(timeout=1.0)
+            while not q.empty():                             # 멈추기 전에 받아 둔 것까지 처리
+                data, t_rx = q.get_nowait(); raw.write(data); handle(data, t_rx)
         raw.close()
         seconds = time.time() - t0
     s = rec.close(parser, seconds)
