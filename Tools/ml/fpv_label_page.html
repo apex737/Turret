@@ -1,0 +1,60 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FPV 후보 듣기</title>
+<style>
+:root{--bg:#f7f7f5;--card:#fff;--ink:#1d1d1b;--muted:#6b6b66;--line:#e2e1dc;--yes:#1baf7a;--mix:#e0a020;--no:#c8553d;--unk:#8a8a85}
+@media (prefers-color-scheme:dark){:root{--bg:#161615;--card:#20201e;--ink:#ecebe6;--muted:#a3a29c;--line:#34332f}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,"Malgun Gothic",sans-serif}
+header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 16px;z-index:2}
+h1{font-size:18px;margin:0 0 4px}.sub{color:var(--muted);font-size:13px}
+.bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 12px;cursor:pointer}
+main{max-width:980px;margin:0 auto;padding:12px 16px 80px}
+.row{display:grid;grid-template-columns:40px 380px 1fr;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0}
+.row.focus{outline:2px solid var(--ink)}
+.rank{color:var(--muted);text-align:right}
+img{width:100%;height:auto;border-radius:6px;display:block}
+audio{width:100%;margin-top:6px}
+.meta{font-size:13px;color:var(--muted)}.meta b{color:var(--ink)}
+.choices{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.choices button.on[data-v=fpv]{background:var(--yes);color:#fff;border-color:var(--yes)}
+.choices button.on[data-v=mix]{background:var(--mix);color:#fff;border-color:var(--mix)}
+.choices button.on[data-v=no]{background:var(--no);color:#fff;border-color:var(--no)}
+.choices button.on[data-v=unk]{background:var(--unk);color:#fff;border-color:var(--unk)}
+@media (max-width:760px){.row{grid-template-columns:1fr}.rank{text-align:left}}
+</style></head><body>
+<header><h1>FPV 후보 듣기</h1>
+<div class="sub">영상·녹음에서 말소리·음악이 아닌 구간. 위에서부터 확실한 FPV(5deMayo, TinyHawk)와 비슷한 순서. 스펙트로그램은 0~5 kHz.</div>
+<div class="bar"><span id="count"></span><button id="save">labels.csv 저장</button><span class="sub">단축키: ↑↓ 이동 · Space 재생 · 1 FPV · 2 FPV+잡음 · 3 아님 · 4 모름</span></div></header>
+<main id="list"></main>
+<script>
+const ROWS = __ROWS__;
+const KEY = "fpv_labels_" + ROWS.length + "_" + ((ROWS[0] || {}).id || "");  /* 후보 묶음마다 따로 저장 */
+let L = {}; try { L = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+const NAMES = {fpv:"FPV (깨끗)", mix:"FPV + 잡음/말소리", no:"FPV 아님", unk:"모르겠음"};
+const list = document.getElementById("list"); let cur = 0;
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(L)); } catch (e) {} count(); }
+function count(){ const n = Object.keys(L).length; document.getElementById("count").textContent = `표시 ${n} / ${ROWS.length}`; }
+ROWS.forEach((r, i) => {
+  const d = document.createElement("div"); d.className = "row"; d.id = "r" + i;
+  d.innerHTML = `<div class="rank">${i+1}</div><div><img src="${r.id}.png" alt="스펙트로그램"><audio controls preload="none" src="${r.id}.wav"></audio></div>
+  <div><div class="meta"><b>${r.video}</b> · ${r.t0}–${r.t1} s · 유사도 ${r.sim}</div><div class="meta">AudioSet: ${r.top}</div>
+  <div class="choices">${Object.entries(NAMES).map(([v,n]) => `<button data-v="${v}">${n}</button>`).join("")}</div></div>`;
+  d.querySelectorAll(".choices button").forEach(b => b.onclick = () => { set(i, b.dataset.v); });
+  d.onclick = () => focus(i, false);
+  list.appendChild(d); paint(i);
+});
+function paint(i){ document.querySelectorAll(`#r${i} .choices button`).forEach(b => b.classList.toggle("on", L[ROWS[i].id] === b.dataset.v)); }
+function set(i, v){ L[ROWS[i].id] = v; paint(i); save(); if (i === cur && i + 1 < ROWS.length) focus(i + 1, true); }
+function focus(i, scroll){ document.getElementById("r" + cur).classList.remove("focus"); cur = i; const e = document.getElementById("r" + i); e.classList.add("focus"); if (scroll) e.scrollIntoView({block:"center"}); }
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown") { e.preventDefault(); focus(Math.min(cur+1, ROWS.length-1), true); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); focus(Math.max(cur-1, 0), true); }
+  else if (e.key === " ") { e.preventDefault(); const a = document.querySelector(`#r${cur} audio`); a.paused ? a.play() : a.pause(); }
+  else if ("1234".includes(e.key)) set(cur, ["fpv","mix","no","unk"][+e.key-1]);
+});
+document.getElementById("save").onclick = () => {
+  const lines = ["id,video,file,t0,t1,sim,label"].concat(ROWS.map(r => [r.id, `"${r.video}"`, r.file, r.t0, r.t1, r.sim, L[r.id] || ""].join(",")));
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([lines.join("\n")], {type:"text/csv"})); a.download = "labels.csv"; a.click();
+};
+focus(0, false); count();
+</script></body></html>
