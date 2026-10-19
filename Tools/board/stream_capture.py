@@ -7,6 +7,7 @@
   seg_000.wav ...   연속 구간마다 WAV 하나 (3ch, 12.5 kHz, int16). 끊김(GAP)·필터 재시작(RESYNC)에서 새 파일
                     RESYNC 블록의 첫 19샘플(FIR 과도 구간)은 버린다
   packets.csv       패킷마다 수신 시각·번호·플래그·유실 카운터·CPU
+  doa_mcu.csv       MCU 방위 추정 결과 (0.25 s마다, doa.c). PC 기준과 비교: python doa/compare_mcu.py dumps/stream/<label>
   raw.bin           받은 바이트 그대로 (나중에 --replay로 재현)
   summary.json      Step5 통과 기준 판정 (유실·OVR·CRC·클리핑 0, 시간 복원)
 
@@ -14,7 +15,7 @@
 """
 import argparse, csv, json, os, sys, time, wave
 import numpy as np
-from dump_viewer import PacketParser, TYPE_PCM
+from dump_viewer import PacketParser, TYPE_PCM, TYPE_DOA
 
 FS = 12500
 N = 256
@@ -35,6 +36,30 @@ class Recorder:
         self.lv = np.zeros(3); self.lv_n = 0
         self.csv = csv.writer(open(os.path.join(out, "packets.csv"), "w", newline=""))
         self.csv.writerow(["t_rx", "seq", "frame_seq", "flags", "drop", "ovr", "qdrop", "cpu"])
+        self.doa_csv = None
+        self.doa_n = dict(results=0, valid=0, bg=0); self.doa_last = None; self.proc_max = 0
+
+    def add_doa(self, p, t_rx):
+        d = p["doa"]
+        if self.doa_csv is None:
+            self.doa_csv = csv.writer(open(os.path.join(self.out, "doa_mcu.csv"), "w", newline=""))
+            self.doa_csv.writerow(["t_rx", "frame_seq", "s0", "tau12", "tau13", "tau23", "peak12", "peak13", "peak23",
+                                   "angle", "norm", "snr_db", "flags", "proc_us", "bg_s0", "bg_n"])
+        self.doa_csv.writerow([f"{t_rx:.4f}", p["frame_seq"], d["s0"], *[f"{t:.6f}" for t in d["tau"]], *[f"{v:.6f}" for v in d["peak"]],
+                               f"{d['angle']:.4f}", f"{d['norm']:.5f}", f"{d['snr_db']:.3f}", d["flags"], d["proc_us"], d["bg_s0"], d["bg_n"]])
+        self.doa_n["results"] += 1
+        self.doa_n["valid"] += bool(d["flags"] & 0x01) and bool(d["flags"] & 0x02)
+        self.doa_n["bg"] += bool(d["flags"] & 0x04)
+        self.proc_max = max(self.proc_max, d["proc_us"])
+        self.doa_last = d
+
+    def doa_status(self):
+        d = self.doa_last
+        if d is None:
+            return ""
+        state = "배경학습" if d["flags"] & 0x08 and not d["flags"] & 0x04 else ("D1" if d["flags"] & 0x04 else "D0")
+        ok = d["flags"] & 0x01 and d["flags"] & 0x02
+        return f"  방위 {d['angle']:+6.1f}° {'유효' if ok else '----'} {state} snr {d['snr_db']:4.1f}"
 
     def _new_seg(self, start_sample):
         if self.wav: self.wav.close()
@@ -83,6 +108,7 @@ class Recorder:
                     ovr=dc[1] == 0, crc=st["crc_fail"] == 0, clip=self.n["clip_packets"] == 0,
                     time_restore=all(s["samples"] > 0 for s in self.segs))
         summ = dict(seconds=round(seconds, 1), packets=self.n, parser=st, delta_drop_ovr_qdrop=dc, cpu_max_pct=self.cpu_max,
+                    doa=dict(self.doa_n, proc_us_max=self.proc_max),
                     segments=self.segs, criteria=crit, passed=all(crit.values()),
                     note="crc_fail에는 PCM 안의 FF FF FF FF를 sync로 잘못 잡았다가 버린 것도 포함될 수 있다. seq_gap이 0이면 실제 손실은 없음")
         json.dump(summ, open(os.path.join(self.out, "summary.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
@@ -107,6 +133,8 @@ def main():
         for p in parser.feed(data):
             if p["type"] == TYPE_PCM:
                 rec.add(p, t_rx)
+            elif p["type"] == TYPE_DOA:
+                rec.add_doa(p, t_rx)
 
     if a.replay:
         data = open(a.replay, "rb").read()
@@ -144,7 +172,7 @@ def main():
                         lv = rec.levels(); dt = time.time() - t_show; t_show = time.time()
                         print(f"{time.time() - t0:7.1f}s  {nbytes / dt / 1000:5.1f} KB/s  "
                               + " ".join(f"ch{c + 1} {v:6.1f}" for c, v in enumerate(lv))
-                              + f"  cpu≤{rec.cpu_max}%  gaps {rec.n['frame_gaps']}  clip {rec.n['clip_packets']}  {parser.stats}")
+                              + f"  cpu≤{rec.cpu_max}%  gaps {rec.n['frame_gaps']}  clip {rec.n['clip_packets']}  {parser.stats}" + rec.doa_status())
                         nbytes = 0
             except KeyboardInterrupt:
                 pass
@@ -154,7 +182,7 @@ def main():
         raw.close()
         seconds = time.time() - t0
     s = rec.close(parser, seconds)
-    print(json.dumps({k: s[k] for k in ("seconds", "packets", "parser", "delta_drop_ovr_qdrop", "cpu_max_pct", "criteria", "passed")},
+    print(json.dumps({k: s[k] for k in ("seconds", "packets", "parser", "delta_drop_ovr_qdrop", "cpu_max_pct", "doa", "criteria", "passed")},
                      ensure_ascii=False, indent=1))
     print(f"WAV {len(s['segments'])}개 → {out}")
 

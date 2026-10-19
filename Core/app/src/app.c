@@ -5,6 +5,7 @@
 #include "tdoa.h"
 #include "preproc.h"
 #include "stream.h"
+#include "doa.h"
 
 // UART 디버깅·녹음 모드
 #include "dump.h"
@@ -16,6 +17,7 @@
  *  APP_MODE_SNAP   : 기존 스냅 모드. 소리 트리거 → TDOA → 결과/원파형 송신           수신: Tools/doa_live.py
  *  APP_MODE_BURST  : 트리거 없이 164 ms 연속 원파형(50 kHz)을 반복 송신 (Step5 재생 녹음) 수신: Tools/burst_rx.py
  *  APP_MODE_STREAM : 50 kHz → FIR·↓4 → 12.5 kHz int16 PCM 연속 송신 (Step5 연속 수음)  수신: Tools/stream_capture.py
+ *                    + 같은 PCM으로 방위 추정(D1, doa.c), 0.25 s마다 결과 패킷. B1 버튼 = 배경 다시 배우기
  *  APP_MODE_VERIFY : 같은 8프레임의 원본과 PCM을 함께 송신 → PC/MCU 전처리 비교       수신: Tools/verify_preproc.py */
 #define APP_MODE_SNAP   0
 #define APP_MODE_BURST  1
@@ -94,10 +96,21 @@ static void on_stream_frame(uint32_t seq)
 		flags |= STREAM_FLAG_CLIP;
 	(void)stream_push(pcm, seq, flags, adc_get_drop_cnt(), ovr, cpu_pct);
 
-	const uint32_t cyc = DWT->CYCCNT - t0;   // 이번 프레임의 전처리 + 큐 적재. 다음 패킷에 실림
+	// 방위 추정: 송신 큐 유실(GAP만)은 MCU 입력과 무관하므로 전처리를 다시 시작했을 때만 끊김으로 본다
+	doa_result_t r;
+	if (doa_push((const int16_t (*)[DOA_FRAME])pcm, seq, (flags & STREAM_FLAG_RESYNC) != 0u, &r))
+		(void)stream_push_doa(&r, seq);
+
+	const uint32_t cyc = DWT->CYCCNT - t0;   // 이번 프레임의 전처리 + 큐 적재 + 방위 추정. 다음 패킷에 실림
 	cpu_pct = (uint8_t)((cyc * 100u + FRAME_CYCLES - 1u) / FRAME_CYCLES);
 }
 #endif
+
+// doa.c의 계산 시간 측정용
+uint32_t doa_now_cycles(void)
+{
+	return DWT->CYCCNT;
+}
 
 
 void app_init(AppHandle_t* app)
@@ -116,6 +129,8 @@ void app_init(AppHandle_t* app)
 	capture_set_trigger_cb(on_capture);
 #elif APP_MODE == APP_MODE_BURST
 	burst_init();
+#elif APP_MODE == APP_MODE_STREAM
+	doa_init();
 #elif APP_MODE == APP_MODE_VERIFY
 	verify_init();
 #endif
@@ -158,12 +173,15 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 }
 
 
-/* 선택: B1 버튼으로 수동 캡처 (스냅 모드) */
+/* B1 버튼: 스냅 모드 = 수동 캡처, 연속 모드 = 방위 추정 배경 다시 배우기 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 #if APP_MODE == APP_MODE_SNAP
 	if (GPIO_Pin == B1_Pin)
 		capture_request_manual();
+#elif APP_MODE == APP_MODE_STREAM
+	if (GPIO_Pin == B1_Pin)
+		doa_request_bg();
 #else
 	(void)GPIO_Pin;
 #endif

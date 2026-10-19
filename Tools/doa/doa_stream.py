@@ -38,6 +38,18 @@ def positions():
         return g.mic_positions(), g.SPACING
 
 
+def channel_delays_us():
+    """config/geometry.json의 채널 고유 지연 [us] (ch1, ch2, ch3). 없으면 0."""
+    try:
+        cd = json.load(open(GEOM, encoding="utf-8")).get("channel_delay_us", {})
+    except (OSError, ValueError):
+        cd = {}
+    return np.array([float(cd.get(f"ch{k}", 0.0)) for k in (1, 2, 3)])
+
+
+DELAY_US = channel_delays_us()
+
+
 def effective_fs(folder, n_samples):
     """packets.csv의 수신 시각과 frame_seq로 실제 프레임률을 맞춰 샘플레이트를 구한다. 없으면 공칭값."""
     p = os.path.join(folder, "packets.csv")
@@ -76,7 +88,8 @@ def estimate(x, fs, pos, spacing, band, block, up=16, eps=0.01, bg=None):
         if bg is not None:
             R = R - bg[k]
         t, p, _, _, _ = g.phat_peak(R, nfft, fs, band, max_lag, up, eps)
-        tau.append(t); peak.append(p)
+        i, j = g.PAIRS[k]
+        tau.append(t - (DELAY_US[j] - DELAY_US[i]) * 1e-6 * fs); peak.append(p)      # 채널 고유 지연 보정
     ang, norm = g.tdoa_to_angle(tau, fs, pos)
     return dict(tau=tau, peak=peak, angle=ang, norm=norm, closure=tau[0] + tau[2] - tau[1], snr=snr,
                 elev=float(np.degrees(np.arccos(min(norm, 1.0)))))
@@ -132,6 +145,16 @@ def load_folder(folder):
     return x.T.astype(np.float64), seg["start_sample"]
 
 
+def load_segments(folder):
+    """끊김으로 나뉜 연속 구간 전부 → [(x[3, N], 시작 샘플), ...]"""
+    summ = json.load(open(os.path.join(folder, "summary.json"), encoding="utf-8"))
+    out = []
+    for seg in summ["segments"]:
+        x, _ = sf.read(os.path.join(folder, seg["file"]), dtype="int16")
+        out.append((x.T.astype(np.float64), seg["start_sample"]))
+    return out
+
+
 def add_args(ap):
     ap.add_argument("--obs", type=float, default=0.5, help="관측 창 길이 [s]")
     ap.add_argument("--hop", type=float, default=0.25, help="창 이동 [s]")
@@ -151,21 +174,27 @@ def main():
     ap.add_argument("--fs", type=float, default=0.0, help="샘플레이트 직접 지정 (0이면 packets.csv로 추정)")
     ap.add_argument("--csv", action="store_true", help="폴더마다 doa.csv 저장")
     ap.add_argument("--bg", help="배경 빼기용 드론 없는 녹음 폴더 (예: dumps/stream/quiet_10min). 앞 60 s 사용")
+    ap.add_argument("--global-offset", action="store_true",
+                    help="정답 있는 녹음들의 공통 회전(편향의 원형 평균)을 빼고 다시 판정. 음원의 0° 위치를 정확히 모를 때")
     add_args(ap)
+    ap.add_argument("--no-delay-cal", action="store_true", help="채널 지연 보정을 끈다 (geometry.json channel_delay_us 무시)")
     a = ap.parse_args()
+    global DELAY_US
+    if a.no_delay_cal:
+        DELAY_US = np.zeros(3)
     pos, d = positions()
     print(f"배열 간격 {d * 1000:.1f} mm, 관측 {a.obs} s / 이동 {a.hop} s / 블록 {a.block}, 대역 {a.band[0]:.0f}–{a.band[1]:.0f} Hz, "
-          f"배경 빼기 {a.bg or '없음 (D0)'}")
+          f"배경 빼기 {a.bg or '없음 (D0)'}, 채널 지연 보정 {np.round(DELAY_US, 1).tolist()} us")
     bg = None
     if a.bg:
         xb, _ = load_folder(a.bg)
         bg = background(xb, a.fs or effective_fs(a.bg, xb.shape[1]), a)
-    rows = []
+    rows, results = [], []
     folders = [f for pat in a.folders for f in (sorted(glob.glob(pat)) if any(c in pat for c in "*?") else [pat])]   # PowerShell은 * 를 펼치지 않음
     for folder in folders:
-        x, s0 = load_folder(folder)
-        fs = a.fs or effective_fs(folder, x.shape[1])
-        res = run(x, fs, a, s0, bg)
+        segs = load_segments(folder)                     # 중간에 끊겨도 모든 구간을 평가 (관측 창보다 짧은 구간은 건너뜀)
+        fs = a.fs or effective_fs(folder, sum(x.shape[1] for x, _ in segs))
+        res = [r for x, s0 in segs for r in run(x, fs, a, s0, bg)]
         m = re.search(r"az(\d{1,3})", os.path.basename(os.path.normpath(folder)))
         truth = float(m.group(1)) if m else None
         s = summarize(res, truth)
@@ -176,6 +205,7 @@ def main():
             line += f"  | 정답 {truth:.0f}°  오차 중앙 {s['err_median']:.1f}° p95 {s['err_p95']:.1f}°  편향 {s['bias']:+.1f}°"
         print(line)
         rows.append(dict(folder=folder, truth=truth, fs=fs, **s))
+        results.append(res)
         if a.csv:
             with open(os.path.join(folder, "doa.csv"), "w", newline="") as f:
                 w = csv.writer(f); w.writerow(["s0", "s1", "valid", "present", "snr_db", "angle", "elev", "norm", "closure", "tau12", "tau13", "tau23", "peak12", "peak13", "peak23"])
@@ -183,6 +213,15 @@ def main():
                     w.writerow([r["s0"], r["s1"], int(r["valid"]), int(r["present"]), f"{r['snr']:.1f}", f"{r['angle']:.2f}", f"{r['elev']:.1f}", f"{r['norm']:.3f}", f"{r['closure']:.3f}",
                                 *[f"{t:.3f}" for t in r["tau"]], *[f"{p:.3f}" for p in r["peak"]]])
     t = [r for r in rows if r["truth"] is not None and "err_median" in r]
+    if a.global_offset and len(t) > 1:
+        off = float(np.degrees(np.angle(np.mean(np.exp(1j * np.radians([r["bias"] for r in t]))))))
+        print(f"\n공통 회전 {off:+.1f}° 를 뺀 판정 (정답 + {off:+.1f}°와 비교):")
+        for row, res in zip(rows, results):
+            if row["truth"] is None or "err_median" not in row:
+                continue
+            s = summarize(res, (row["truth"] + off) % 360)
+            row.update(err_median=s["err_median"], err_p95=s["err_p95"], bias=s["bias"])
+            print(f"{os.path.basename(os.path.normpath(row['folder'])):16s} 정답 {row['truth']:5.0f}°  오차 중앙 {s['err_median']:4.1f}° p95 {s['err_p95']:4.1f}°  남은 편향 {s['bias']:+5.1f}°")
     if len(t) > 1:
         print(f"\n정답 있는 녹음 {len(t)}개: 오차 중앙값의 최대 {max(r['err_median'] for r in t):.1f}°, "
               f"p95의 최대 {max(r['err_p95'] for r in t):.1f}°, 유효율 최소 {min(r['valid_rate'] for r in t) * 100:.0f}%  "

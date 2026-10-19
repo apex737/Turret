@@ -20,6 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE); sys.path.insert(0, os.path.join(HERE, ".."))
 import gcc_phat as g
 import doa_stream as ds
+ds.DELAY_US = np.zeros(3)                                # 합성 신호는 채널 지연이 없다
 import preproc.frontend as fe
 
 PLAY = os.path.join(HERE, "..", "..", "DataSet", "_playback")
