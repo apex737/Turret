@@ -2,7 +2,7 @@
 
 > 작성: 2026-10-15 | 브랜치: `FPV_Target` | 기준: [Step4.5.2_Roadmap_축소.md](Step4.5.2_Roadmap_축소.md) Step8
 > 데이터·split: [Step6_데이터_split_평가규칙.md](Step6_데이터_split_평가규칙.md)
-> 상태: **v3m · 직선 · 창 오탐 0.5% 채택 — 오탐 0.77회/시간 통과, 사건 검출 81% 미달, 장치 경로 FPV 약함 (9절).** 표본(사건 21 < 30)이 부족해 성능 통과는 보류한다.
+> 상태: **v3m · 직선 · 창 오탐 0.5% 채택 — 오탐 0.77회/시간 통과, 사건 검출 81% 미달, 장치 경로 FPV 약함 (9절) → v5 장치 경로 녹음 대기 (10절).** 표본(사건 21 < 30)이 부족해 성능 통과는 보류한다.
 
 ## 0. 질문
 
@@ -225,7 +225,45 @@ flowchart LR
 
 **남은 문제 (결정 필요):** (1) 장치 경로 FPV 재현율 0.05 — 실제 장치는 MAX4466으로 듣는다. (2) 확정 지연 기준 ≤ 1 s가 현재 창 설계와 맞지 않는다. (3) FPV를 가까이 와서야 잡는다.
 
-## 10. 재현
+## 10. v5 — 장치 경로 녹음을 학습에 (2026-10-19): 녹음 대기
+
+**문제:** 공개 원음으로 배운 모델이 스피커 → MAX4466 → 보드를 거친 FPV를 거의 못 잡는다 (장치 경로 FPV 창 재현율 0.05).
+같은 FPV인데 입력 분포가 다르다 (도메인 이동). 실제 운용도 MAX4466으로 듣는다.
+
+**방법:** 학습용 소리 일부를 같은 경로로 녹음해 학습에 넣는다. 시험 원음(Salford·WS)은 재생하지 않는다.
+
+```mermaid
+flowchart LR
+  F[학습 FPV<br/>DVIDS·Freesound 9분] --> M
+  N[학습 비드론<br/>FSD50K 200클립 16분] --> M
+  T[시험 비드론<br/>ESC-50 150클립 12.5분] --> M
+  M[무작위로 섞어<br/>A·B 두 파일, 각 23분] --> S[노트북 스피커 → 보드 STREAM]
+  S --> E[ml/embed_v5.py<br/>정렬·라벨·임베딩]
+  E --> R[ml/train_v5.py<br/>v3m · v5p · v5 비교]
+  style M fill:#f9a825,color:#000
+```
+
+| 설계 | 이유 |
+| --- | --- |
+| 양성·음성을 한 파일에 섞음 | 따로 녹음하면 그날 방 잡음(에어컨 등)이 "드론 표시"가 된다 |
+| 음성도 같은 스피커로 (v5) | 양성만 넣으면 모델이 "스피커 음색 = 드론"을 배운다. v5p는 이 지름길을 확인하는 대조군 |
+| ESC-50은 시험 전용 | 장치 경로 오탐/시간을 처음으로 잰다 (지금까지는 공개 원음 오탐만 쟀다) |
+| 원음과 같은 묶음 이름 | 같은 소리의 원본·장치 녹음이 문턱 교차검증에서 갈라지면 문턱이 낙관적이 된다 |
+
+**녹음 절차 (사용자):** speaker_10min과 같은 배치·노트북 음량. 알림음·음향 효과는 끈다. 보드는 STREAM 모드.
+
+```
+cd Tools
+.venv/Scripts/python.exe board/stream_capture.py --port COMx --label devpath_A --minutes 25
+#   시작 메시지가 뜨면 DataSet/_playback/30_devpath_A.wav 재생 (1분 안에 재생을 시작한다)
+.venv/Scripts/python.exe board/stream_capture.py --port COMx --label devpath_B --minutes 25
+#   같은 방법으로 30_devpath_B.wav
+```
+
+통과 조건: 각 녹음 summary.json의 clip 0, 소리 구간 레벨이 speaker_10min과 비슷 (약 −30 dBFS).
+시계 차이·시작 시각은 `embed_v5.py`가 찾는다 (가짜 녹음 검증: 시작 오차 5 ms 이하, 시계 차이 오차 7 ppm 이하).
+
+## 11. 재현
 
 ```
 cd Tools
@@ -242,4 +280,8 @@ cd Tools
 .venv/Scripts/python.exe ml/train_v3.py      # reports/step8/v3_report.md
 .venv/Scripts/python.exe ml/train_v4.py      # reports/step8/v4_report.md (약 17분, MLP)
 .venv/Scripts/python.exe ml/diag_v4_curve.py # reports/step8/v4_curve.png (오탐 예산별 재현율·사건 검출)
+.venv/Scripts/python.exe audio/make_devpath_playback.py  # DataSet/_playback/30_devpath_A·B.wav, 30_devpath.csv
+# 보드 녹음 devpath_A·B (10절)
+.venv/Scripts/python.exe ml/embed_v5.py      # DataSet/_cache/emb_v5_dev.npz
+.venv/Scripts/python.exe ml/train_v5.py      # reports/step8/v5_report.md
 ```

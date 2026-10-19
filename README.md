@@ -83,7 +83,8 @@ Turret/
 | `Step3_GCC_PHAT_Python_MCU_DOA`        | GCC-PHAT을 Python으로 먼저 만들고 MCU로 이식, 결과 비교. 기준선 정의 |
 | `Step4_드론음향_탐지추정_설계`         | 순간음 검출기를 드론 탐지 + 방향 추정으로 바꾸는 설계        |
 | `TDOA_튜닝_배경지식`                   | 원리, 파라미터 카드, 튜닝 실험 절차                          |
-| `decisions.md`                         | 방향을 좌우한 설계 결정과 근거                               |
+| `decisions.md`                         | 방향을 좌우한 설계 결정과 근거 (Step 1~3)                    |
+| `decision.html`                        | Step 4 이후 결정 트리: 선택·버림·실패 시 되돌아갈 곳, 시간순 재생 (브라우저로 열기) |
 | `Step*_helper.html`                    | 각 단계의 원리를 그림으로 설명하는 페이지 (브라우저로 열기)  |
 
 ---
