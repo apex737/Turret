@@ -76,7 +76,7 @@ def run_fold(O, A, D, P, cfg, k, off, extra=None):
             fa += 1; cat_fa[cat[mm][0]] = cat_fa.get(cat[mm][0], 0) + 1
     air = O["aircraft"][te][pos][0]
     res = dict(fold=k, air=air, auc=roc_auc_score(yt, s), rec=np.mean(s[pos] >= thr), fpr=np.mean(s[neg] >= thr),
-               ev=sum(ev_hit.values()), n_ev=len(ev_hit), fa=fa, nclip=nclip, hours=dur / 3600, cat_fa=cat_fa, thr=thr)
+               ev=sum(ev_hit.values()), n_ev=len(ev_hit), fa=fa, nclip=nclip, hours=dur / 3600, cat_fa=cat_fa, thr=thr, clf=clf)
     for o in ("flyover", "hover", "flight"):
         m = pos & (op == o)
         if m.any():
