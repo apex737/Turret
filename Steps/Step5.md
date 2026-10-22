@@ -46,7 +46,7 @@ status: {impl: 통과}
 | 송신 큐 | 4칸 링버퍼 | UART 여유 약 17% |
 | 마이크 전원 RC | 220 Ω, 100 µF (f_c 7.2 Hz) | 프레임 동기 간섭 대응, logs/Step5.md |
 
-규약(PCM v3, 시간축, 끊김 처리)은 [docs/protocol.md](../docs/protocol.md), 코드 블록 구조와 모드는 [docs/firmware.md](../docs/firmware.md), 보드 시험 명령은 [docs/run.md](../docs/run.md).
+규약(PCM v3, 시간축, 끊김 처리)은 [docs/interfaces.html](../docs/interfaces.html#v3), 코드 블록 구조와 모드는 [docs/firmware.html](../docs/firmware.html#blocks), 보드 시험 명령은 [docs/run.md](../docs/run.md).
 
 ## 남은 일
 - [ ] ch3 고역 잡음 원인 가리기 (모듈 교체 뒤에도 1.6–5 kHz 약 +5 dB, 5–10 kHz 약 +9 dB) — 배선 또는 ADC 핀 추정, 미확정

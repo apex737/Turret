@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turret 인터페이스</title>
+<style>
+:root {
+  --bg: #f7f6f2; --panel: #ffffff; --ink: #1f2328; --muted: #646b74; --line: #dcdfe4; --soft: #f1f2f4;
+  --accent: #2459d6; --accent-soft: #e9efff;
+  --c-sync: #8a8f98; --c-id: #2459d6; --c-cnt: #7c3aed; --c-len: #0e7490; --c-pay: #1a7f4b; --c-crc: #c0362c; --c-st: #b45309;
+  --warn: #b45309; --warn-soft: #fff1df; --bad: #c0362c; --bad-soft: #fdeceb; --ok: #1a7f4b; --ok-soft: #e5f4ec;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141619; --panel: #1c1f23; --ink: #e5e7ea; --muted: #9aa2ac; --line: #30353b; --soft: #24282d;
+    --accent: #7ea3ff; --accent-soft: #1f2a43;
+    --c-sync: #9aa2ac; --c-id: #7ea3ff; --c-cnt: #b69cff; --c-len: #4fc3dc; --c-pay: #63d49c; --c-crc: #ff8a80; --c-st: #f3b25e;
+    --warn: #f3b25e; --warn-soft: #3a2b16; --bad: #ff8a80; --bad-soft: #3b1f1d; --ok: #63d49c; --ok-soft: #173326;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141619; --panel: #1c1f23; --ink: #e5e7ea; --muted: #9aa2ac; --line: #30353b; --soft: #24282d;
+  --accent: #7ea3ff; --accent-soft: #1f2a43;
+  --c-sync: #9aa2ac; --c-id: #7ea3ff; --c-cnt: #b69cff; --c-len: #4fc3dc; --c-pay: #63d49c; --c-crc: #ff8a80; --c-st: #f3b25e;
+  --warn: #f3b25e; --warn-soft: #3a2b16; --bad: #ff8a80; --bad-soft: #3b1f1d; --ok: #63d49c; --ok-soft: #173326;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 20px 16px 80px; }
+h1 { font-size: 1.5rem; margin: 0; }
+h2 { font-size: 1.25rem; margin: 36px 0 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+h3 { font-size: 1.05rem; margin: 22px 0 8px; }
+p { max-width: 78ch; margin: 6px 0; }
+.sub { color: var(--muted); margin: 2px 0 0; font-size: .92rem; }
+code { font-family: ui-monospace, Consolas, monospace; font-size: .9em; background: var(--soft); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--accent); }
+.top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+nav.docs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+nav.docs a, .theme { font-size: .85rem; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 2px 12px; text-decoration: none; cursor: pointer; }
+nav.docs a.here { border-color: var(--accent); color: var(--accent); }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 0; }
+nav.toc a { font-size: .85rem; text-decoration: none; color: var(--muted); border-bottom: 1px dashed var(--line); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 10px 0; }
+.note { border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: .93rem; }
+.note.warn { border-color: var(--warn); background: var(--warn-soft); }
+.tw { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; margin: 8px 0; }
+th, td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; vertical-align: top; }
+th { background: var(--soft); font-weight: 600; }
+td.num { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+svg { display: block; width: 100%; height: auto; }
+.svg-t { font-size: 12px; fill: var(--muted); }
+
+/* 계층 3개 */
+.layers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.layer { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.layer b { display: block; font-size: 1rem; }
+.layer span { font-size: .88rem; color: var(--muted); }
+@media (max-width: 640px) { .layers { grid-template-columns: 1fr; } }
+
+/* 패킷 전체 띠 */
+.strip { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); margin: 6px 0 2px; font-size: .8rem; }
+.strip > div { padding: 6px 6px; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.strip .s-sync { background: var(--c-sync); } .strip .s-hdr { background: var(--c-id); }
+.strip .s-pay { background: var(--c-pay); flex: 1; } .strip .s-crc { background: var(--c-crc); }
+.strip-cap { font-size: .8rem; color: var(--muted); }
+
+/* 32비트 워드 배치도 */
+.wordmap { display: grid; grid-template-columns: 54px repeat(4, minmax(0, 1fr)); gap: 3px; margin: 8px 0; }
+.wordmap .hdrcell { font-size: .75rem; color: var(--muted); text-align: center; }
+.wordmap .off { font-family: ui-monospace, Consolas, monospace; font-size: .75rem; color: var(--muted); text-align: right; padding-right: 6px; align-self: center; }
+.field { border-radius: 6px; padding: 4px 6px; font-size: .82rem; line-height: 1.25; min-height: 34px; cursor: help; border: 1px solid transparent;
+  display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.field b { font-weight: 650; }
+.field small { font-size: .72rem; opacity: .85; }
+.field:hover, .field:focus { outline: 2px solid var(--ink); outline-offset: -1px; }
+.f-sync { background: color-mix(in srgb, var(--c-sync) 22%, var(--panel)); }
+.f-id { background: color-mix(in srgb, var(--c-id) 20%, var(--panel)); }
+.f-cnt { background: color-mix(in srgb, var(--c-cnt) 20%, var(--panel)); }
+.f-len { background: color-mix(in srgb, var(--c-len) 20%, var(--panel)); }
+.f-pay { background: color-mix(in srgb, var(--c-pay) 20%, var(--panel)); }
+.f-crc { background: color-mix(in srgb, var(--c-crc) 20%, var(--panel)); }
+.f-st { background: color-mix(in srgb, var(--c-st) 20%, var(--panel)); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .8rem; color: var(--muted); margin: 4px 0; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+.fdesc { font-size: .88rem; color: var(--muted); min-height: 1.6em; margin: 2px 0 6px; }
+.fdesc b { color: var(--ink); }
+
+/* 플래그 비트 */
+.bits { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; margin: 6px 0 2px; }
+.bit { border: 1px solid var(--line); border-radius: 6px; padding: 4px 2px; text-align: center; font-size: .78rem; min-height: 46px; background: var(--panel); }
+.bit.on { background: var(--accent-soft); border-color: var(--accent); }
+.bit small { display: block; color: var(--muted); font-size: .7rem; }
+.bitcap { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; font-size: .7rem; color: var(--muted); text-align: center; }
+
+/* 단계 사슬 */
+.chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; margin: 8px 0; }
+.chain .st { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: .86rem; }
+.chain .st b { display: block; font-size: .78rem; color: var(--muted); font-weight: 500; }
+.chain .ar { align-self: center; color: var(--muted); padding: 0 6px; }
+
+/* 파서 흐름 */
+.flow { display: grid; gap: 6px; max-width: 640px; }
+.fbox { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 10px; font-size: .9rem; }
+.fbox.q { border-color: var(--accent); }
+.fbox .no { color: var(--bad); font-size: .82rem; }
+.fbox .wait { color: var(--warn); font-size: .82rem; }
+.down { text-align: center; color: var(--muted); line-height: 1; }
+
+.meter { height: 14px; background: var(--soft); border-radius: 7px; overflow: hidden; border: 1px solid var(--line); position: relative; }
+.meter > div { height: 100%; background: var(--accent); }
+.meter-cap { font-size: .82rem; color: var(--muted); display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<main>
+<div class="top">
+  <div>
+    <h1>인터페이스 — MCU ↔ PC 경계의 약속</h1>
+    <p class="sub">UART 921600 bps 위로 오가는 패킷의 형식·의미·규칙 · 코드가 원본이고 이 페이지는 참고표다 (코드와 같은 커밋에서 고친다)</p>
+    <nav class="docs"><a class="here" href="interfaces.html">인터페이스</a><a href="firmware.html">펌웨어 구조</a><a href="run.md">실행 절차</a><a href="../flow.html">Step 흐름도</a></nav>
+  </div>
+  <button class="theme" id="themeBtn" type="button">◐ 테마</button>
+</div>
+<nav class="toc">
+  <a href="#layers">세 층</a><a href="#modes">모드별 패킷</a><a href="#v2">v2 원파형·결과</a><a href="#v3">v3 PCM·DOA</a>
+  <a href="#flags">플래그</a><a href="#pcm">PCM 값</a><a href="#time">시간축</a><a href="#parser">수신 파서</a><a href="#gap">끊김 규칙</a><a href="#budget">대역폭</a><a href="#pairs">같이 고칠 짝</a>
+</nav>
+
+<h2 id="layers">세 층으로 나눈 약속</h2>
+<p>송신 코드(MCU)와 수신 코드(PC)는 각자 이 약속을 구현한 것이다. 한쪽을 바꾸면 다른 쪽도 같은 커밋에서 바꾼다.</p>
+<div class="layers">
+  <div class="layer"><b>1. 형식</b><span>바이트가 어떤 순서·크기로 놓이나 — 헤더, payload, CRC, little endian</span></div>
+  <div class="layer"><b>2. 의미</b><span>값이 무엇을 뜻하나 — 플래그 비트, PCM 스케일, 프레임 번호와 시간축</span></div>
+  <div class="layer"><b>3. 규칙</b><span>상황마다 누가 무엇을 하나 — 수신 파서 절차, 끊김 표시, 번호 소비</span></div>
+</div>
+<div class="tw"><table>
+<tr><th></th><th>송신 (MCU)</th><th>수신 (PC)</th></tr>
+<tr><td>v2 원파형·결과</td><td><code>Core/app/test/dump.h</code>, <code>dump.c</code></td><td rowspan="2"><code>Tools/board/dump_viewer.py</code> <code>PacketParser</code> (<code>HDR_FMT</code>, <code>RESULT_FMT</code>, <code>PCM_HDR_FMT</code>, <code>DOA_FMT</code>)</td></tr>
+<tr><td>v3 PCM·DOA</td><td><code>Core/app/inc/stream.h</code>, <code>stream.c</code></td></tr>
+<tr><td>끊김 규칙</td><td><code>Core/app/src/app.c</code> <code>on_stream_frame</code></td><td><code>Tools/board/stream_capture.py</code> (WAV 분할, 과도 19샘플 제외)</td></tr>
+</table></div>
+
+<h2 id="modes">모드별로 오가는 패킷</h2>
+<div class="tw"><table>
+<tr><th>APP_MODE</th><th>보내는 패킷</th><th>받는 도구</th></tr>
+<tr><td>0 SNAP</td><td>v2 RAW 0x01 (트리거 프레임 2개) + v2 결과 0x02</td><td><code>doa/doa_live.py</code>, <code>board/dump_viewer.py</code></td></tr>
+<tr><td>1 BURST</td><td>v2 RAW 0x01 (8프레임, flags BURST)</td><td><code>board/burst_rx.py</code></td></tr>
+<tr><td>2 STREAM (기본)</td><td>v3 PCM 0x03 (프레임마다) + v3 DOA 0x04 (창마다, 약 0.25 s)</td><td><code>board/stream_capture.py</code></td></tr>
+<tr><td>3 VERIFY</td><td>v2 RAW 0x01 (flags VERIFY) + v3 PCM 0x03 (flags VERIFY), 같은 frame_seq끼리 짝</td><td><code>board/verify_preproc.py</code></td></tr>
+</table></div>
+
+<h2 id="v2">1. 형식 — v2 원파형·결과 패킷</h2>
+<p>칸 하나가 1바이트, 한 줄이 4바이트(32비트 워드)다. 칸에 마우스를 올리거나 눌러 설명을 본다. 모든 값은 little endian이다.</p>
+<div class="legend" id="legend"></div>
+<h3>v2 헤더 (20 B) — 원파형 RAW 0x01과 결과 0x02가 같이 쓴다</h3>
+<div class="strip"><div class="s-sync" style="flex:0 0 12%">sync 4</div><div class="s-hdr" style="flex:0 0 22%">헤더 16</div><div class="s-pay">payload ch×n×2 (2프레임 12,288 B)</div><div class="s-crc" style="flex:0 0 9%">CRC 2</div></div>
+<p class="strip-cap">2프레임 RAW 패킷 = 20 + 12,288 + 2 = 12,310 B, 전송 약 134 ms</p>
+<div id="map-v2hdr"></div>
+<h3>v2 결과 payload (40 B, type 0x02) — 패킷 62 B</h3>
+<div id="map-v2res"></div>
+<p>RAW payload는 채널이 바깥 루프다: <code>ch0 직전 | ch0 현재 | ch1 직전 | ch1 현재 | ch2 직전 | ch2 현재</code>, 샘플마다 uint16. 결과 패킷은 같은 <code>frame_seq</code>의 RAW와 짝이다.</p>
+
+<h2 id="v3">1. 형식 — v3 PCM·DOA 패킷</h2>
+<h3>v3 헤더 (24 B) — PCM 0x03과 DOA 0x04가 같이 쓴다</h3>
+<div class="strip"><div class="s-sync" style="flex:0 0 12%">sync 4</div><div class="s-hdr" style="flex:0 0 26%">헤더 20</div><div class="s-pay">PCM payload 3 × 256 × 2 = 1,536 B</div><div class="s-crc" style="flex:0 0 9%">CRC 2</div></div>
+<p class="strip-cap">PCM 패킷 = 24 + 1,536 + 2 = 1,562 B, 20.48 ms마다 하나 · DOA 패킷 = 24 + 52 + 2 = 78 B</p>
+<div id="map-v3hdr"></div>
+<h3>DOA payload (52 B, type 0x04)</h3>
+<div id="map-doa"></div>
+<p>PCM payload: <code>ch0[256] | ch1[256] | ch2[256]</code>, 샘플마다 int16. DOA 패킷 헤더의 drop·ovr·cpu 칸은 0이고 qdrop만 참고용으로 실린다.</p>
+<div class="note"><b>little endian 예:</b> <code>seq = 258 = 0x00000102</code>는 offset 8부터 <code>02 01 00 00</code> 순서로 놓인다. 작은 자리가 앞(낮은 주소)이다.</div>
+
+<h2 id="flags">2. 의미 — 플래그 비트</h2>
+<h3>v2 헤더 flags (offset 7)</h3>
+<div id="bits-v2"></div>
+<h3>v3 헤더 flags (offset 7)</h3>
+<div id="bits-v3"></div>
+<h3>DOA payload flags (payload offset 40)</h3>
+<div id="bits-doa"></div>
+
+<h2 id="pcm">2. 의미 — PCM 값이 만들어지는 과정</h2>
+<div class="chain">
+  <div class="st"><b>ADC</b>0 ~ 4095 (uint16)</div><div class="ar">→</div>
+  <div class="st"><b>중심 빼기</b>x = adc − 2048</div><div class="ar">→</div>
+  <div class="st"><b>FIR · ↓4</b>75탭, 50 → 12.5 kHz</div><div class="ar">→</div>
+  <div class="st"><b>스케일</b>× 16</div><div class="ar">→</div>
+  <div class="st"><b>반올림</b>nearest-even (= <code>np.rint</code>)</div><div class="ar">→</div>
+  <div class="st"><b>포화</b>int16 −32768 ~ 32767</div>
+</div>
+<p>×16은 12비트 범위를 16비트로 옮겨 FIR 출력의 소수 아래 4비트를 남긴다. 반올림 규칙이 PC와 같아야 같은 디지털 입력에서 비트 단위로 비교할 수 있다 (MCU·PC 차이 기준 ≤ 2 LSB, 실측 최대 1 LSB).</p>
+<p>출력 위상: <code>y[k] = Σ b[j]·x[4k − j]</code> — 블록의 첫 샘플 시점에 맞춘다 (호스트 시험으로 확인, 처음 가정한 <code>4k + 3</code>은 틀렸음).</p>
+
+<h2 id="time">2. 의미 — 시간축: 모두가 같이 쓰는 시계는 샘플 번호</h2>
+<p>ADC 프레임 번호(<code>frame_seq</code>, 1부터)가 곧 시간이다. PC가 받은 시각에는 UART·OS 지연이 섞이므로 쓰지 않는다.</p>
+<svg id="timeSvg" viewBox="0 0 900 250" role="img" aria-label="frame_seq, PCM 샘플 번호, 초, DOA 창의 대응"></svg>
+<div class="tw"><table>
+<tr><th>값</th><th>식</th><th>예</th></tr>
+<tr><td>PCM 블록의 첫 샘플 번호</td><td class="num">(frame_seq − 1) × 256</td><td class="num">frame_seq 50 → 12,544</td></tr>
+<tr><td>그 시각 (초)</td><td class="num">샘플 번호 ÷ 12,500</td><td class="num">12,544 → 1.0035 s</td></tr>
+<tr><td>DOA 관측 창</td><td class="num">s0 ~ s0 + 6,250 (0.5 s), 다음 창은 + 3,072</td><td class="num">s0 = 25,000 → 2.0 ~ 2.5 s</td></tr>
+</table></div>
+
+<h2 id="parser">3. 규칙 — 수신 파서 절차</h2>
+<p>UART는 패킷 경계가 없는 바이트 흐름이다. 수신단은 아래 순서로 패킷을 잘라 낸다. PCM payload 안에는 <code>FF FF FF FF</code>가 나올 수 있으므로 sync만 믿지 않고 버전·종류·길이·CRC가 모두 맞아야 받는다.</p>
+<div class="flow">
+  <div class="fbox q"><b>① sync 찾기</b> — 버퍼에서 <code>FF FF FF FF</code><br><span class="wait">없으면: 마지막 3바이트만 남기고 버림 (sync가 경계에 걸쳐 있을 수 있음)</span></div>
+  <div class="down">↓</div>
+  <div class="fbox q"><b>② 헤더 검증</b> — ver 2 이면 20 B, ver 3 이면 24 B 헤더로 읽고 종류별로 확인<br>
+    <small>RAW: ch ≠ 0, len = ch × n × 2 ≤ 64 KB · 결과: len = 40 · PCM: 1 ≤ ch ≤ 8, len = ch × n × 2 · DOA: len = 52</small><br>
+    <span class="no">틀리면: 1바이트만 버리고 ①로 (bad_hdr 증가)</span></div>
+  <div class="down">↓</div>
+  <div class="fbox q"><b>③ 길이만큼 모일 때까지 대기</b> — 헤더 + len + 2<br><span class="wait">모자라면: 다음 수신까지 기다림</span></div>
+  <div class="down">↓</div>
+  <div class="fbox q"><b>④ CRC-16/CCITT-FALSE</b> — ver부터 payload 끝까지 (<code>binascii.crc_hqx(data, 0xFFFF)</code>)<br>
+    <span class="no">틀리면: 1바이트만 버리고 ①로 (crc_fail 증가 — payload 속 가짜 sync도 여기서 걸러짐)</span></div>
+  <div class="down">↓</div>
+  <div class="fbox"><b>⑤ 받음</b> — 패킷만큼 버퍼에서 떼어 내고, (버전, 종류)별로 <code>seq</code>가 1씩 늘었는지 확인 (아니면 seq_gap 증가). v2, PCM, DOA는 번호를 따로 센다.</div>
+</div>
+
+<h2 id="gap">3. 규칙 — 끊김 표시와 수신단의 처리</h2>
+<p>끊긴 입력을 정상 연속 신호처럼 이어 붙이지 않는다 (problem.md I1). MCU는 프레임마다 아래 판정으로 플래그를 붙인다.</p>
+<svg id="gapSvg" viewBox="0 0 900 230" role="img" aria-label="정상, ADC 유실, 송신 큐 유실 때의 프레임과 플래그"></svg>
+<div class="tw"><table>
+<tr><th>상황</th><th>MCU가 아는 방법</th><th>MCU 처리</th><th>플래그</th><th>PC 처리 (stream_capture.py)</th></tr>
+<tr><td>정상</td><td>frame_seq = 직전 + 1, ovr·qdrop 그대로</td><td>FIR 상태 유지</td><td>—</td><td>같은 WAV에 이어 씀</td></tr>
+<tr><td>ADC 프레임 유실 · overrun</td><td>frame_seq가 건너뜀 또는 ovr 증가</td><td>FIR 상태 0 (<code>preproc_reset</code>), 방향 창 버림</td><td>RESYNC + GAP</td><td>새 WAV 구간, 첫 19샘플(⌈75/4⌉, 과도 구간) 버림</td></tr>
+<tr><td>송신 큐 넘침</td><td>qdrop 증가</td><td>FIR은 연속 (MCU 입력은 안 빠짐)</td><td>GAP만</td><td>새 WAV 구간 (빈 seq로도 확인)</td></tr>
+<tr><td>부팅 직후 첫 프레임</td><td>first</td><td>FIR 상태 0</td><td>RESYNC</td><td>첫 19샘플 버림</td></tr>
+</table></div>
+<p>송신 큐가 넘쳐 버린 PCM 패킷도 <code>seq</code>를 하나 소비한다. 그래서 PC는 빈 번호로 무엇이 빠졌는지 안다.</p>
+
+<h2 id="budget">대역폭 예산</h2>
+<p>UART 921600 bps, 8N1 → 바이트당 10비트 → 이론상 약 92 KB/s.</p>
+<div class="meter" aria-label="STREAM이 쓰는 대역폭"><div style="width:83%"></div></div>
+<div class="meter-cap"><span>STREAM PCM 76.3 KB/s (약 83%) + DOA 약 0.3 KB/s</span><span>여유 약 17%</span></div>
+<div class="tw"><table>
+<tr><th>보낼 것</th><th>필요량</th><th>판정</th></tr>
+<tr><td>50 kHz × 3ch × 2 B 원파형 연속</td><td class="num">300 KB/s</td><td>불가 → v2는 소리가 났을 때만 (D2-1)</td></tr>
+<tr><td>12.5 kHz × 3ch × 2 B PCM 연속 + 헤더</td><td class="num">76.3 KB/s</td><td>가능 → v3 STREAM (D4-2)</td></tr>
+<tr><td>↓2 (25 kHz) 연속</td><td class="num">150 KB/s</td><td>불가 (보류)</td></tr>
+</table></div>
+<p>여유가 17%뿐이라 qdrop이 생기면 보율 상향 또는 2프레임 묶음 패킷을 검토한다 (Step10 남은 일).</p>
+
+<h2 id="pairs">같이 고칠 짝 (I3)</h2>
+<div class="tw"><table>
+<tr><th>MCU</th><th>PC</th><th>맞출 것</th></tr>
+<tr><td><code>Core/app/test/dump.h</code>, <code>Core/app/inc/stream.h</code></td><td><code>Tools/board/dump_viewer.py</code> (<code>HDR_FMT</code>, <code>RESULT_FMT</code>, <code>PCM_HDR_FMT</code>, <code>DOA_FMT</code>), <code>stream_capture.py</code> (플래그 값, <code>TRANSIENT</code>)</td><td>헤더 필드, 버전, 패킷 종류, 플래그 비트</td></tr>
+<tr><td><code>Core/app/inc/fir_coeffs.h</code>, <code>preproc.h</code></td><td><code>Tools/preproc/fir_design.py</code>, <code>frontend.py</code></td><td>FIR 계수·스케일·반올림·위상</td></tr>
+<tr><td><code>Core/app/inc/tdoa.h</code> (<code>TDOA_BAND_*</code>, <code>TDOA_WIN</code>, <code>TDOA_PRE</code>, <code>TDOA_MAX_LAG</code>, <code>TDOA_PHAT_EPS</code>, <code>TDOA_SPACING_M</code>, <code>TDOA_MIN_PEAK</code>·<code>_NORM</code>)</td><td><code>Tools/doa/gcc_phat.py</code> (<code>--band</code>, <code>--win</code>, <code>--pre</code>, <code>--max-lag</code>, <code>--eps</code>, <code>--spacing</code>, <code>--min-peak</code>, <code>--min-norm</code>, <code>--max-norm</code>)</td><td>스냅 방향 계산 상수</td></tr>
+<tr><td><code>Core/app/inc/doa.h</code> (<code>DOA_HOP</code>, <code>DOA_BAND_*</code>, <code>DOA_BG_SECONDS</code>, 유효 판정)</td><td><code>Tools/doa/doa_stream.py</code>, <code>config/geometry.json</code></td><td>지속음 방향 창·대역·판정, 채널 지연</td></tr>
+<tr><td><code>TDOA_FS</code>, <code>ADC_SAMPLES_PER_HALF</code></td><td><code>Turret.ioc</code> 타이머</td><td>샘플링 주파수, 프레임 길이</td></tr>
+</table></div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  // ── 필드 정의 (offset, size, 이름, 색, 설명). stream.h · dump.h 주석과 같다 ──
+  var V2HDR = [
+    [0, 4, "sync", "sync", "항상 FF FF FF FF. ADC 값은 0x0FFF 이하라 RAW payload에는 FF 4개가 연속으로 나올 수 없다"],
+    [4, 1, "ver", "id", "2"],
+    [5, 1, "type", "id", "0x01 RAW_ADC / 0x02 결과"],
+    [6, 1, "ch", "id", "채널 수 3 (결과 패킷은 0)"],
+    [7, 1, "flags", "st", "CLIP 0x01 · MANUAL 0x02 · PRETRIG 0x04 · VALID 0x08 · BURST 0x10 · VERIFY 0x20"],
+    [8, 4, "seq", "cnt", "송신 패킷 번호. 종류와 상관없이 보내는 순서대로 증가, MCU 리셋 시 0부터"],
+    [12, 4, "frame_seq", "cnt", "마지막 ADC 프레임 번호. 같은 번호의 RAW와 결과가 짝"],
+    [16, 2, "n", "len", "채널당 샘플 수 (2프레임이면 2048, burst 8192)"],
+    [18, 2, "len", "len", "payload 바이트 수 (2프레임이면 12,288, 결과 40)"]
+  ];
+  var V2RES = [
+    [0, 12, "tau[3]", "pay", "float × 3: τ12, τ13, τ23 [샘플 @50 kHz]. τij = (j 도달) − (i 도달), 양수면 j가 늦음"],
+    [12, 12, "peak[3]", "pay", "float × 3: 쌍별 상관 피크 높이 (0~1)"],
+    [24, 4, "angle_deg", "pay", "float: 방향 [deg]. MIC1 쪽 0°, 위에서 볼 때 반시계가 +"],
+    [28, 4, "norm", "pay", "float: 방향 벡터 길이"],
+    [32, 2, "onset", "pay", "uint16: 소리 시작 위치 [샘플]"],
+    [34, 2, "win_start", "pay", "uint16: 분석 구간 시작 [샘플]"],
+    [36, 4, "proc_us", "pay", "uint32: 계산 시간 [µs]"]
+  ];
+  var V3HDR = [
+    [0, 4, "sync", "sync", "항상 FF FF FF FF. PCM payload 안에도 나올 수 있어 sync만으로는 믿지 않는다"],
+    [4, 1, "ver", "id", "3"],
+    [5, 1, "type", "id", "0x03 PCM / 0x04 DOA 결과"],
+    [6, 1, "ch", "id", "3"],
+    [7, 1, "flags", "st", "CLIP 0x01 · RESYNC 0x02 · VERIFY 0x04 · GAP 0x08"],
+    [8, 4, "seq", "cnt", "송신 번호. PCM과 DOA가 따로 센다. 큐에서 버린 PCM도 번호를 소비"],
+    [12, 4, "frame_seq", "cnt", "ADC 프레임 번호 (adc.c ISR이 1부터 매김). 블록 첫 샘플 = (frame_seq − 1) × 256"],
+    [16, 2, "n", "len", "채널당 샘플 수 (PCM 256, DOA 1)"],
+    [18, 2, "len", "len", "payload 바이트 (PCM 1536, DOA 52)"],
+    [20, 1, "drop", "cnt", "ADC 프레임 유실 누계 (mod 256)"],
+    [21, 1, "ovr", "cnt", "ADC overrun 누계 (mod 256)"],
+    [22, 1, "qdrop", "cnt", "송신 큐 유실 누계 (mod 256)"],
+    [23, 1, "cpu", "st", "직전 프레임 전처리 + 큐 적재 + 방향 시간 / 20.48 ms [%]"]
+  ];
+  var DOA = [
+    [0, 4, "s0", "cnt", "uint32: 관측 창 첫 샘플 번호 (PCM 시간축, 12.5 kHz)"],
+    [4, 12, "tau[3]", "pay", "float × 3: 채널 지연 보정 후 [샘플 @12.5 kHz] (1,2) (1,3) (2,3)"],
+    [16, 12, "peak[3]", "pay", "float × 3"],
+    [28, 4, "angle", "pay", "float: 방위 [deg]"],
+    [32, 4, "norm", "pay", "float"],
+    [36, 4, "snr_db", "pay", "float: 배경 대비 SNR (배경이 없으면 0)"],
+    [40, 1, "flags", "st", "VALID 0x01 · PRESENT 0x02 · BG 0x04 · LEARNING 0x08"],
+    [41, 1, "reserved", "sync", "항상 0 (정렬용)"],
+    [42, 2, "proc_us", "pay", "uint16: 창 마무리 계산 시간 [µs], 65535에서 포화"],
+    [44, 4, "bg_s0", "cnt", "uint32: 사용한 배경의 첫 샘플 번호"],
+    [48, 4, "bg_n", "cnt", "uint32: 배경 길이 [샘플]. 0이면 배경 없음 (D0)"]
+  ];
+  var GROUP = { sync: "sync·예약", id: "식별", cnt: "번호·카운터", len: "길이", st: "상태", pay: "값", crc: "CRC" };
+
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  var lg = document.getElementById("legend");
+  Object.keys(GROUP).forEach(function (k) {
+    if (k === "crc") return;
+    var s = el("span"); var i = el("i"); i.style.background = "var(--c-" + k + ")"; s.appendChild(i); s.appendChild(document.createTextNode(GROUP[k])); lg.appendChild(s);
+  });
+
+  function wordmap(id, fields) {
+    var host = document.getElementById(id);
+    var g = el("div", "wordmap"); host.appendChild(g);
+    var desc = el("p", "fdesc", "칸을 누르면 설명이 여기 나온다."); host.appendChild(desc);
+    g.appendChild(el("div"));
+    ["+0", "+1", "+2", "+3"].forEach(function (t) { g.appendChild(el("div", "hdrcell", t)); });
+    var row = 2;
+    fields.forEach(function (f) {
+      var off = f[0], size = f[1];
+      var col = off % 4, r = row + Math.floor(off / 4);
+      if (col === 0) {
+        var o = el("div", "off", String(off)); o.style.gridRow = r; o.style.gridColumn = 1; g.appendChild(o);
+        for (var k = 4; k < size; k += 4) { var o2 = el("div", "off", String(off + k)); o2.style.gridRow = r + k / 4; o2.style.gridColumn = 1; g.appendChild(o2); }
+      }
+      var c = el("div", "field f-" + f[3]);
+      c.tabIndex = 0;
+      c.style.gridRow = r + " / span " + Math.max(1, Math.ceil(size / 4));
+      c.style.gridColumn = (col + 2) + " / span " + Math.min(size, 4);
+      c.appendChild(el("b", null, f[2]));
+      c.appendChild(el("small", null, size + " B · @" + off));
+      var show = function () { desc.textContent = ""; desc.appendChild(el("b", null, f[2] + " (offset " + off + ", " + size + " B) ")); desc.appendChild(document.createTextNode(f[4])); };
+      c.addEventListener("mouseenter", show); c.addEventListener("focus", show); c.addEventListener("click", show);
+      g.appendChild(c);
+    });
+  }
+  wordmap("map-v2hdr", V2HDR);
+  wordmap("map-v2res", V2RES);
+  wordmap("map-v3hdr", V3HDR);
+  wordmap("map-doa", DOA);
+
+  function bits(id, defs) {
+    var host = document.getElementById(id);
+    var b = el("div", "bits"), cap = el("div", "bitcap");
+    for (var i = 7; i >= 0; i--) {
+      var d = defs[i];
+      var c = el("div", "bit" + (d ? " on" : ""));
+      c.appendChild(document.createTextNode(d ? d[0] : "—"));
+      c.appendChild(el("small", null, "0x" + (1 << i).toString(16).toUpperCase().padStart(2, "0")));
+      if (d) c.title = d[1];
+      b.appendChild(c); cap.appendChild(el("div", null, "bit " + i));
+    }
+    host.appendChild(b); host.appendChild(cap);
+    var ul = el("ul"); ul.style.margin = "6px 0"; ul.style.fontSize = ".88rem";
+    Object.keys(defs).sort().forEach(function (k) { var li = el("li"); li.appendChild(el("b", null, defs[k][0] + " ")); li.appendChild(document.createTextNode(defs[k][1])); ul.appendChild(li); });
+    host.appendChild(ul);
+  }
+  bits("bits-v2", {
+    0: ["CLIP", "클리핑 샘플이 있음 (8 이하 또는 4087 이상)"], 1: ["MANUAL", "B1 버튼 수동 캡처"],
+    2: ["PRETRIG", "payload 앞 절반이 트리거 직전 프레임"], 3: ["VALID", "(결과 패킷) MCU가 신뢰 가능으로 판정"],
+    4: ["BURST", "payload 프레임들이 끊김 없는 연속 구간 (8프레임)"], 5: ["VERIFY", "같은 frame_seq의 PCM 패킷과 짝 (검증 모드)"]
+  });
+  bits("bits-v3", {
+    0: ["CLIP", "이 프레임의 ADC 입력에 클리핑"], 1: ["RESYNC", "이 블록 직전에 FIR 상태를 0으로 → 첫 19샘플은 과도 구간"],
+    2: ["VERIFY", "검증 모드: 같은 frame_seq의 원본 burst와 짝"], 3: ["GAP", "이 블록 앞에서 샘플이 빠짐 (ADC 유실, overrun, 큐 유실)"]
+  });
+  bits("bits-doa", {
+    0: ["VALID", "피크·닫힘 오차·norm 기준을 모두 만족"], 1: ["PRESENT", "배경보다 DOA_MIN_SNR_DB 이상 큼 (배경이 없으면 항상 1)"],
+    2: ["BG", "배경 빼기를 적용함 (D1). 0이면 D0"], 3: ["LEARNING", "이 창이 끝날 때 배경을 배우는 중"]
+  });
+
+  // ── SVG 도우미 ──
+  var NS = "http://www.w3.org/2000/svg";
+  function s(tag, a, p) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+  function t(x, y, str, p, extra) { var e = s("text", Object.assign({ x: x, y: y, "font-size": 12, fill: "var(--muted)" }, extra || {}), p); e.textContent = str; return e; }
+
+  // 시간축 그림: frame_seq 1..8, 샘플 번호, 초, DOA 창
+  (function () {
+    var g = document.getElementById("timeSvg");
+    var x0 = 110, w = 760, N = 30;              // 프레임 30개 = 7,680샘플 = 0.6144 s
+    var fx = function (k) { return x0 + w * k / N; };
+    t(10, 46, "frame_seq", g); t(10, 106, "PCM 샘플 번호", g); t(10, 146, "시간 (s)", g); t(10, 196, "DOA 창", g);
+    for (var k = 0; k < N; k++) {
+      s("rect", { x: fx(k) + 1, y: 30, width: w / N - 2, height: 24, rx: 3, fill: k % 2 ? "var(--accent-soft)" : "var(--soft)", stroke: "var(--line)" }, g);
+      if (k < 3 || k === N - 1) t(fx(k) + 4, 46, String(k + 1), g, { "font-size": 11, fill: "var(--ink)" });
+    }
+    t(fx(3) + 4, 46, "…", g);
+    s("line", { x1: x0, y1: 100, x2: x0 + w, y2: 100, stroke: "var(--ink)" }, g);
+    [0, 1, 2, 10, 20, 30].forEach(function (k) {
+      s("line", { x1: fx(k), y1: 58, x2: fx(k), y2: 104, stroke: "var(--line)", "stroke-dasharray": "3 3" }, g);
+      t(fx(k) - 8, 118, String(k * 256), g, { "font-size": 11 });
+    });
+    t(fx(0) + 2, 80, "frame_seq 1 → 샘플 0 ~ 255 (20.48 ms)", g, { "font-size": 11 });
+    s("line", { x1: x0, y1: 140, x2: x0 + w, y2: 140, stroke: "var(--ink)" }, g);
+    [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6].forEach(function (sec) {
+      var x = x0 + w * (sec * 12500) / (N * 256);
+      s("line", { x1: x, y1: 136, x2: x, y2: 144, stroke: "var(--ink)" }, g); t(x - 8, 160, sec.toFixed(1), g, { "font-size": 11 });
+    });
+    var span = function (a, b) { return [x0 + w * a / (N * 256), w * (b - a) / (N * 256)]; };
+    var r1 = span(0, 6250), r2 = span(3072, 3072 + 6250);
+    s("rect", { x: r1[0], y: 178, width: r1[1], height: 16, rx: 4, fill: "var(--c-pay)", opacity: .35 }, g);
+    s("rect", { x: r2[0], y: 200, width: Math.min(r2[1], x0 + w - r2[0]), height: 16, rx: 4, fill: "var(--c-pay)", opacity: .2 }, g);
+    t(r1[0] + 6, 191, "창 1: s0 = 0, 6,250샘플 (0.5 s)", g, { "font-size": 11, fill: "var(--ink)" });
+    t(r2[0] + 6, 213, "창 2: s0 = 3,072 (창 이동 0.246 s)", g, { "font-size": 11, fill: "var(--ink)" });
+    t(x0, 240, "PC 분류 창(1 s)도 같은 샘플 번호로 시작·끝을 붙이고, 구간이 겹치는 결과끼리 짝짓는다 (Step9A)", g, { "font-size": 11 });
+  })();
+
+  // 끊김 그림
+  (function () {
+    var g = document.getElementById("gapSvg");
+    var rows = [
+      { y: 30, name: "정상", frames: [1, 2, 3, 4, 5, 6], flags: {} },
+      { y: 100, name: "ADC 유실", frames: [1, 2, 3, null, 5, 6], flags: { 4: "RESYNC+GAP" } },
+      { y: 170, name: "큐 유실", frames: [1, 2, 3, "q", 5, 6], flags: { 4: "GAP" } }
+    ];
+    var x0 = 120, bw = 112;
+    rows.forEach(function (r) {
+      t(10, r.y + 22, r.name, g, { "font-size": 13, fill: "var(--ink)" });
+      r.frames.forEach(function (f, i) {
+        var x = x0 + i * bw;
+        var missing = f === null, qd = f === "q";
+        s("rect", { x: x, y: r.y, width: bw - 8, height: 34, rx: 6,
+          fill: missing ? "var(--bad-soft)" : qd ? "var(--warn-soft)" : "var(--panel)",
+          stroke: missing ? "var(--bad)" : qd ? "var(--warn)" : "var(--line)", "stroke-dasharray": (missing || qd) ? "5 3" : "" }, g);
+        t(x + 8, r.y + 15, missing ? "frame 4 유실" : qd ? "PCM 4 버림" : "frame " + f, g, { "font-size": 11, fill: "var(--ink)" });
+        t(x + 8, r.y + 29, missing ? "(main이 못 가져감)" : qd ? "(seq 번호는 소비)" : "PCM 전송", g, { "font-size": 10 });
+      });
+      var tag = r.flags[4];
+      if (tag) {
+        var x = x0 + 4 * bw;
+        s("rect", { x: x, y: r.y + 38, width: bw - 8, height: 18, rx: 4, fill: "var(--accent-soft)", stroke: "var(--accent)" }, g);
+        t(x + 6, r.y + 51, "frame 5: " + tag, g, { "font-size": 10.5, fill: "var(--accent)" });
+      }
+    });
+  })();
+
+  // 테마
+  try { var th = localStorage.getItem("turret-theme"); if (th) document.documentElement.setAttribute("data-theme", th); } catch (e) {}
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme");
+    var dark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    var next = dark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("turret-theme", next); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>

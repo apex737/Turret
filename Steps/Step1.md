@@ -37,9 +37,9 @@ status: {impl: 통과}
 |---|---|---|
 | 샘플링 | 50 kHz (TIM2 PSC 0, ARR 1799) | [D1-2](../decisions.md) |
 | 프레임 | 1024샘플 = 20.48 ms | D1-2 |
-| ADC 변환 | 28 + 12 cycles ≈ 1.78 µs | [docs/firmware.md](../docs/firmware.md) |
+| ADC 변환 | 28 + 12 cycles ≈ 1.78 µs | [docs/firmware.html](../docs/firmware.html#clock) |
 
-설정표 전체는 [docs/firmware.md](../docs/firmware.md)에 있다.
+클럭 트리와 ADC·DMA 설정은 [docs/firmware.html](../docs/firmware.html#clock)에 있다.
 
 ## 남은 일
 - 없음. 미측정 항목은 [D4.5-5](../decisions.md)(하드웨어 점검 Step 생략)로 넘어갔고, 프레임 주기 흔들림은 [Step10](Step10.md)에서 잰다.

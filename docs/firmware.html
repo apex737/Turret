@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turret 펌웨어 구조</title>
+<style>
+:root {
+  --bg: #f7f6f2; --panel: #ffffff; --ink: #1f2328; --muted: #646b74; --line: #dcdfe4; --soft: #f1f2f4;
+  --accent: #2459d6; --accent-soft: #e9efff; --hw: #7c3aed; --hw-soft: #f1ebff; --isr: #b45309; --isr-soft: #fff1df;
+  --ok: #1a7f4b; --ok-soft: #e5f4ec; --bad: #c0362c; --bad-soft: #fdeceb;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141619; --panel: #1c1f23; --ink: #e5e7ea; --muted: #9aa2ac; --line: #30353b; --soft: #24282d;
+    --accent: #7ea3ff; --accent-soft: #1f2a43; --hw: #b69cff; --hw-soft: #2a2140; --isr: #f3b25e; --isr-soft: #3a2b16;
+    --ok: #63d49c; --ok-soft: #173326; --bad: #ff8a80; --bad-soft: #3b1f1d;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141619; --panel: #1c1f23; --ink: #e5e7ea; --muted: #9aa2ac; --line: #30353b; --soft: #24282d;
+  --accent: #7ea3ff; --accent-soft: #1f2a43; --hw: #b69cff; --hw-soft: #2a2140; --isr: #f3b25e; --isr-soft: #3a2b16;
+  --ok: #63d49c; --ok-soft: #173326; --bad: #ff8a80; --bad-soft: #3b1f1d;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 20px 16px 80px; }
+h1 { font-size: 1.5rem; margin: 0; }
+h2 { font-size: 1.25rem; margin: 36px 0 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+h3 { font-size: 1.05rem; margin: 20px 0 8px; }
+p { max-width: 78ch; margin: 6px 0; }
+.sub { color: var(--muted); margin: 2px 0 0; font-size: .92rem; }
+code { font-family: ui-monospace, Consolas, monospace; font-size: .9em; background: var(--soft); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--accent); }
+.top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+nav.docs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+nav.docs a, .theme { font-size: .85rem; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 2px 12px; text-decoration: none; cursor: pointer; }
+nav.docs a.here { border-color: var(--accent); color: var(--accent); }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 0; }
+nav.toc a { font-size: .85rem; text-decoration: none; color: var(--muted); border-bottom: 1px dashed var(--line); }
+.note { border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: .93rem; }
+.note.warn { border-color: var(--isr); background: var(--isr-soft); }
+.tw { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; margin: 8px 0; }
+th, td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; vertical-align: top; }
+th { background: var(--soft); font-weight: 600; }
+td.num { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+svg { display: block; width: 100%; height: auto; }
+
+/* 모듈 지도 */
+.mods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.grp { border: 1px dashed var(--line); border-radius: 10px; padding: 8px; }
+.grp > b { font-size: .82rem; color: var(--muted); display: block; margin-bottom: 6px; }
+.mod { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; margin: 4px 0; font-size: .86rem; }
+.mod code { background: none; padding: 0; font-weight: 650; }
+.mod span { display: block; color: var(--muted); font-size: .78rem; }
+.mod.hot { border-color: var(--accent); }
+@media (max-width: 720px) { .mods { grid-template-columns: 1fr; } }
+
+/* 단계 사슬 */
+.chain { display: flex; flex-wrap: wrap; align-items: stretch; margin: 8px 0; }
+.chain .st { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: .86rem; }
+.chain .st b { display: block; font-size: .76rem; color: var(--muted); font-weight: 500; }
+.chain .st.hw { border-color: var(--hw); background: var(--hw-soft); }
+.chain .st.isr { border-color: var(--isr); background: var(--isr-soft); }
+.chain .ar { align-self: center; color: var(--muted); padding: 0 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .8rem; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--line); }
+
+/* 막대 */
+.bar { display: flex; height: 26px; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); font-size: .78rem; margin: 6px 0 2px; background: var(--soft); }
+.bar > div { display: flex; align-items: center; justify-content: center; color: #fff; white-space: nowrap; overflow: hidden; padding: 0 4px; }
+.cap { font-size: .8rem; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.cpu { display: grid; grid-template-columns: 170px 1fr; gap: 6px 10px; align-items: center; font-size: .86rem; }
+.cpu .track { position: relative; height: 18px; background: var(--soft); border-radius: 4px; border: 1px solid var(--line); }
+.cpu .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+.cpu .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; }
+.cpu .val { position: absolute; right: 6px; top: -1px; font-size: .78rem; }
+@media (max-width: 520px) { .cpu { grid-template-columns: 1fr; } }
+
+/* 큐 */
+.ring { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 520px; margin: 8px 0; }
+.slot { border: 1px solid var(--line); border-radius: 8px; padding: 8px; text-align: center; font-size: .85rem; background: var(--panel); min-height: 64px; }
+.slot.full { background: var(--accent-soft); border-color: var(--accent); }
+.slot small { display: block; color: var(--muted); font-size: .74rem; }
+.ptrs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 520px; font-size: .78rem; text-align: center; min-height: 18px; }
+.ctrl { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+.ctrl button { font: inherit; font-size: .85rem; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+.qlog { font-size: .85rem; color: var(--muted); min-height: 1.5em; }
+</style>
+</head>
+<body>
+<main>
+<div class="top">
+  <div>
+    <h1>펌웨어 구조 — STM32F446RE 안에서 일어나는 일</h1>
+    <p class="sub">모듈, 데이터 흐름, 클럭, DMA 핑퐁, 송신 큐, 방향 계산, 메모리·CPU, 빌드 · 코드가 원본이고 이 페이지는 참고표다 (코드와 같은 커밋에서 고친다)</p>
+    <nav class="docs"><a href="interfaces.html">인터페이스</a><a class="here" href="firmware.html">펌웨어 구조</a><a href="run.md">실행 절차</a><a href="../flow.html">Step 흐름도</a></nav>
+  </div>
+  <button class="theme" id="themeBtn" type="button">◐ 테마</button>
+</div>
+<nav class="toc">
+  <a href="#modules">모듈</a><a href="#flow">데이터 흐름</a><a href="#clock">클럭</a><a href="#pingpong">DMA 핑퐁</a><a href="#queue">송신 큐</a>
+  <a href="#doa">방향 계산</a><a href="#budget">메모리·CPU</a><a href="#modes">모드</a><a href="#blocks">코드 블록</a><a href="#tdoa">tdoa.c</a><a href="#build">빌드·CubeMX</a>
+</nav>
+
+<h2 id="modules">모듈 지도</h2>
+<p>파란 테두리는 기본 모드(STREAM)에서 매 프레임 실행되는 모듈이다. 패킷 형식은 <a href="interfaces.html">인터페이스</a>에 있다.</p>
+<div class="mods">
+  <div class="grp"><b>Core/app/ (직접 작성)</b>
+    <div class="mod hot"><code>app</code><span>초기화·메인 루프. APP_MODE에 따라 모듈 연결, 끊김 판정 (<code>on_stream_frame</code>)</span></div>
+    <div class="mod hot"><code>adc</code><span>ADC 3개 + DMA 핑퐁, 프레임 번호, OVR 복구</span></div>
+    <div class="mod hot"><code>preproc</code><span>CMSIS FIR ↓4 → int16 PCM</span></div>
+    <div class="mod hot"><code>doa</code><span>지속음 방향 (D1, Step7)</span></div>
+    <div class="mod hot"><code>stream</code><span>PCM·DOA 패킷, 송신 큐 4칸</span></div>
+    <div class="mod"><code>tdoa</code><span>스냅 GCC-PHAT (SNAP 모드, Step3)</span></div>
+    <div class="mod"><code>def</code><span>공통 include, <code>error_handle</code></span></div>
+  </div>
+  <div class="grp"><b>Core/app/test/ (검증·디버그)</b>
+    <div class="mod"><code>capture</code><span>소리 트리거 (RMS, 잡음 바닥 EMA, holdoff)</span></div>
+    <div class="mod"><code>dump</code><span>v2 패킷 + CRC, UART DMA</span></div>
+    <div class="mod"><code>burst</code><span>50 kHz 164 ms 연속 원파형</span></div>
+    <div class="mod"><code>verify</code><span>원본 + PCM 쌍</span></div>
+  </div>
+  <div class="grp"><b>생성 코드 · 라이브러리</b>
+    <div class="mod"><code>Core/Src/main.c</code><span>CubeMX 생성. 주변장치 초기화 후 <code>app_init</code> / <code>app_main</code> 호출</span></div>
+    <div class="mod"><code>fir_coeffs.h</code><span><code>Tools/preproc/fir_design.py</code>가 생성</span></div>
+    <div class="mod"><code>Drivers/CMSIS/DSP</code><span>FFT, FIR 데시메이션 (직접 고치지 않음)</span></div>
+    <div class="mod"><code>Drivers/STM32F4xx_HAL</code><span>HAL (직접 고치지 않음)</span></div>
+  </div>
+</div>
+
+<h2 id="flow">데이터 흐름 (STREAM 모드)</h2>
+<div class="legend"><span><i style="background:var(--hw-soft);border-color:var(--hw)"></i>하드웨어가 CPU 없이</span><span><i style="background:var(--isr-soft);border-color:var(--isr)"></i>인터럽트(ISR)</span><span><i></i>main 루프</span></div>
+<div class="chain">
+  <div class="st hw"><b>TIM2</b>50 kHz 트리거</div><div class="ar">→</div>
+  <div class="st hw"><b>ADC1·2·3</b>3채널 동시 변환</div><div class="ar">→</div>
+  <div class="st hw"><b>DMA2</b>핑퐁 버퍼 6144</div><div class="ar">→</div>
+  <div class="st isr"><b>HT / TC 콜백</b>반버퍼 준비 + 번호</div><div class="ar">→</div>
+  <div class="st"><b>adc_get_frame</b>복사 3 × 1024</div><div class="ar">→</div>
+  <div class="st"><b>preproc_run</b>FIR ↓4 → 3 × 256</div><div class="ar">→</div>
+  <div class="st"><b>doa_push</b>블록 누적, 창마다 방위</div><div class="ar">→</div>
+  <div class="st"><b>stream_push</b>큐 4칸</div><div class="ar">→</div>
+  <div class="st hw"><b>USART2 TX DMA</b>921600 bps</div>
+</div>
+<p>ADC overrun 인터럽트는 횟수만 세고 <code>ovrPending</code>을 켠다. main의 <code>adc_service</code>가 타이머 → ADC → DMA를 멈추고 다시 시작한다 (아래 핑퐁 절).</p>
+
+<h2 id="clock">클럭 트리</h2>
+<div class="chain">
+  <div class="st hw"><b>HSE BYPASS</b>8 MHz (ST-LINK 입력)</div><div class="ar">→</div>
+  <div class="st"><b>÷ PLLM 4</b>2 MHz</div><div class="ar">→</div>
+  <div class="st"><b>× PLLN 180</b>360 MHz</div><div class="ar">→</div>
+  <div class="st"><b>÷ PLLP 2</b>SYSCLK 180 MHz</div>
+</div>
+<div class="tw"><table>
+<tr><th>가지</th><th>계산</th><th>결과</th><th>쓰는 곳</th></tr>
+<tr><td>APB1 ÷4 → 타이머 ×2</td><td class="num">180 ÷ 4 × 2</td><td class="num">90 MHz</td><td>TIM2 클럭</td></tr>
+<tr><td>TIM2 PSC 0, ARR 1799</td><td class="num">90 MHz ÷ 1800</td><td class="num">50 kHz</td><td>ADC 트리거 (TRGO Update)</td></tr>
+<tr><td>APB2 ÷2 → ADC ÷4</td><td class="num">180 ÷ 2 ÷ 4</td><td class="num">22.5 MHz</td><td>ADC 클럭. 샘플링 28 + 변환 12 = 40 cycles ≈ 1.78 µs</td></tr>
+<tr><td>프레임 = 반버퍼 1024샘플</td><td class="num">1024 ÷ 50 kHz</td><td class="num">20.48 ms</td><td>처리 마감. 180 MHz × 20.48 ms = 3,686,400 cycles</td></tr>
+</table></div>
+<div class="note warn">2026-10-16 HSI(내부 RC 16 MHz, +1.7% 오차)에서 HSE로 바꿨다 (D5-1). CubeMX에서 HSE를 16 MHz 크리스털 모드로 두면 보드가 절반 속도로 돈다 (UART 깨짐). 반드시 BYPASS 8 MHz.</div>
+
+<h2 id="pingpong">DMA 핑퐁 버퍼</h2>
+<p>버퍼 하나를 반으로 나눠, DMA가 한쪽을 채우는 동안 main이 다른 쪽을 가져간다. 버퍼 안은 <code>[ADC1, ADC2, ADC3, ADC1, …]</code> 순서로 섞여 있다(인터리브). 반버퍼 = 1024샘플 × 3채널 = 3072칸.</p>
+<svg id="ppSvg" viewBox="0 0 900 300" role="img" aria-label="DMA 핑퐁 버퍼의 시간 흐름"></svg>
+<div class="tw"><table>
+<tr><th>장치</th><th>무엇을 막나</th><th>코드</th></tr>
+<tr><td>ISR은 표시만</td><td>ISR을 짧게: 어느 절반이 찼는지(<code>readyHalf</code>)와 번호(<code>readySeq = ++frameSeq</code>)만 기록</td><td><code>adc_on_half_ready</code></td></tr>
+<tr><td>짝인 값을 한 번에 읽기</td><td>포인터와 번호를 따로 읽는 사이 ISR이 끼면 다른 프레임끼리 짝지어짐</td><td><code>adc_get_frame</code>의 <code>__disable_irq()</code> 구간</td></tr>
+<tr><td>못 가져간 프레임 세기</td><td>main이 늦어 다음 콜백이 먼저 오면 이전 반버퍼는 사라짐 → <code>drop</code> 증가</td><td><code>adc_on_half_ready</code></td></tr>
+<tr><td>복사 중 덮어쓰기 감지</td><td>복사하는 동안 반대쪽이 완료되면 DMA가 복사 중인 쪽을 쓰기 시작함 → 폐기 + <code>drop</code></td><td>복사 후 <code>frameSeq != my_seq</code> 검사</td></tr>
+<tr><td>OVR 복구</td><td>overrun이 나면 DMA가 조용히 멈춤</td><td><code>HAL_ADC_ErrorCallback</code> → <code>adc_service</code>: 정지 후 슬레이브 → 마스터 → 타이머 순 재시작 (buffer[0] = ADC1 보장)</td></tr>
+</table></div>
+<p>F446(Cortex-M4)에는 D-Cache가 없어 DMA 캐시 일관성 문제가 없다. 샘플 간격은 TIM2(하드웨어)가 정하므로 콜백이 조금 늦어도 샘플 자체는 흔들리지 않고, 처리 마감에만 영향이 있다.</p>
+
+<h2 id="queue">송신 큐 (stream.c)</h2>
+<p>UART로 PCM 패킷 하나를 보내는 데 약 17 ms가 걸리고, 다음 프레임은 20.48 ms마다 온다. main이 채우고 송신 완료 ISR이 비우는 4칸 링버퍼로 둘 사이를 잇는다. <code>s_head</code>는 main만, <code>s_tail</code>은 ISR만 바꾼다 — 한 변수를 양쪽이 같이 쓰지 않게 나눈 구조다.</p>
+<div class="ring" id="ring"></div>
+<div class="ptrs" id="ptrs"></div>
+<div class="ctrl"><button type="button" id="qPush">main: 프레임 넣기 (stream_push)</button><button type="button" id="qPop">ISR: 송신 완료</button><button type="button" id="qReset">처음으로</button></div>
+<p class="qlog" id="qlog"></p>
+<p>큐가 가득 차면 새 패킷을 버리고 <code>qdrop</code>을 올린다. 버려도 <code>seq</code> 번호는 하나 소비하므로 PC가 빈 번호로 알 수 있다. DOA 결과는 별도 4칸 큐에 있고, UART가 비면 PCM보다 먼저 나간다.</p>
+
+<h2 id="doa">방향 계산 (doa.c)</h2>
+<p>PC 기준 구현(<code>Tools/doa/doa_stream.py</code>)과 같은 값을 내되, 메모리와 계산을 프레임마다 고르게 나누도록 바꿨다.</p>
+<svg id="doaSvg" viewBox="0 0 900 230" role="img" aria-label="블록 누적과 겹치는 두 창"></svg>
+<div class="tw"><table>
+<tr><th>결정</th><th>PC와 다른 점</th><th>이유</th></tr>
+<tr><td>블록이 준비될 때마다 누적</td><td>0.5 s 창을 저장하지 않는다</td><td>창 저장은 37 KB, 링버퍼 6 KB면 된다. 프레임마다 블록 하나라 계산이 고르게 나뉜다</td></tr>
+<tr><td>창 이동 3072샘플 (0.246 s)</td><td>PC 기본 3125 (0.25 s)</td><td>블록 간격 256의 배수 → 겹치는 두 창과 배경이 같은 블록 FFT를 함께 쓴다 (프레임당 FFT 3개)</td></tr>
+<tr><td>상관을 지연 범위만 직접 계산</td><td>16배 제로패딩 IFFT(16384점) 대신 115개 지연 × 221빈 합</td><td>같은 값, IFFT용 64 KB 불필요. 회전 인자는 부팅 때 표로, 세 쌍 공유, ±지연 대칭</td></tr>
+<tr><td>배경 10 s, 부팅 시 + B1 버튼</td><td>PC 시험은 60 s</td><td>켠 뒤 빨리 쓰기 위함. 다시 배우는 동안 기존 배경 사용, 처음 10 s만 D0</td></tr>
+<tr><td>ADC 유실·overrun이면 창을 버림</td><td>송신 큐 유실은 무시</td><td>큐 유실은 PC만 못 받은 것이고 MCU 입력은 연속이다</td></tr>
+</table></div>
+
+<h2 id="budget">메모리 · CPU</h2>
+<h3>RAM 108 KB / 128 KB (doa 포함 빌드, 2026-10-18)</h3>
+<div class="bar">
+  <div style="flex:0 0 12.5%;background:var(--accent)">배경 16</div>
+  <div style="flex:0 0 12.5%;background:#3b82f6">창 16</div>
+  <div style="flex:0 0 25%;background:#60a5fa">doa 나머지 약 32</div>
+  <div style="flex:0 0 34.4%;background:var(--hw)">그 밖 약 44</div>
+  <div style="flex:1;background:var(--soft);color:var(--muted)">여유 20</div>
+</div>
+<div class="cap"><span>doa 약 64 KB = 배경 2벌 16 + 창 2개 16 + 링버퍼·FFT·블록 스펙트럼·PHAT 버퍼</span><span>Flash 148 KB (CMSIS FFT 표 포함) · 스택 최대 112 B</span></div>
+<p class="cap">"그 밖"은 108 − 64로 어림한 값이다 (ADC 버퍼 12 KB, 송신 큐, HAL 등).</p>
+
+<h3>프레임당 CPU (20.48 ms 대비, 프레임마다 DWT로 측정)</h3>
+<div class="cpu" id="cpu"></div>
+<p class="cap">세로선: 초록 = Step10 여유 목표 70%, 빨강 = 마감 100%. 판정은 평균이 아니라 가장 무거운 프레임으로 한다.</p>
+
+<h2 id="modes">동작 모드 (<code>app.c</code>의 <code>APP_MODE</code>, 또는 <code>-DAPP_MODE=n</code>)</h2>
+<div class="tw"><table>
+<tr><th>모드</th><th>값</th><th>내용</th><th>텍스트</th><th>data + bss</th></tr>
+<tr><td>SNAP</td><td>0</td><td>소리 트리거 → TDOA → 결과/원파형 (<code>CAPTURE_SEND_RAW</code> 1 검증 / 0 결과 전용)</td><td class="num">146.1 KB</td><td class="num">106.8 KB</td></tr>
+<tr><td>BURST</td><td>1</td><td>50 kHz 164 ms 연속 원파형 반복</td><td class="num">14.3 KB</td><td class="num">89.4 KB</td></tr>
+<tr><td>STREAM</td><td>2 (기본)</td><td>12.5 kHz PCM 연속 + DOA 결과</td><td class="num">14.8 KB</td><td class="num">46.8 KB</td></tr>
+<tr><td>VERIFY</td><td>3</td><td>원본 + PCM 쌍</td><td class="num">15.3 KB</td><td class="num">106.8 KB</td></tr>
+</table></div>
+<p class="cap">크기는 2026-10-15 명령줄 빌드 (doa.c 추가 전). 각 모드가 보내는 패킷은 <a href="interfaces.html#modes">인터페이스</a>.</p>
+
+<h2 id="blocks">STREAM 코드 블록과 도입 이유</h2>
+<div class="tw"><table>
+<tr><th>코드</th><th>해결하려는 문제</th><th>근거</th></tr>
+<tr><td><code>adc.c</code> <code>readySeq</code>, <code>adc_get_frame(out, &amp;seq)</code></td><td>main이 받은 횟수를 세면 놓친 프레임이 번호에 안 드러남</td><td>ISR에서 번호를 매기고 데이터와 같은 임계 구역에서 꺼냄</td></tr>
+<tr><td><code>preproc.c</code> <code>arm_fir_decimate_f32</code> ×3</td><td>7.5 kHz 위가 0~5 kHz로 접힘</td><td>계수 하나, 상태는 채널마다 (세 채널 위상 응답이 같아야 방위가 안 틀어짐)</td></tr>
+<tr><td><code>preproc.c</code> 상태를 프레임 사이에서 유지</td><td>경계마다 지우면 20.48 ms마다 과도 응답 → 48.8 Hz 빗</td><td><code>preproc_reset()</code>은 부팅과 끊김 뒤에만</td></tr>
+<tr><td><code>preproc.c</code> <code>×16</code>, <code>lrintf</code>, <code>__SSAT</code></td><td>PC와 비트 단위로 비교하려면 int16 고정</td><td>반올림 규칙이 <code>np.rint</code>와 같음</td></tr>
+<tr><td><code>stream.c</code> 링버퍼 4칸 + <code>kick_locked</code></td><td>송신 중에도 20.48 ms마다 다음 프레임</td><td>생산자 1·소비자 1. 넘치면 버리고 <code>qdrop</code>, 번호는 소비</td></tr>
+<tr><td><code>app.c</code> <code>on_stream_frame</code></td><td>끊긴 입력을 필터에 이어 넣으면 가짜 파형</td><td>번호 건너뜀·OVR → 필터 재시작 + RESYNC·GAP, 큐 유실은 GAP만 (<a href="interfaces.html#gap">끊김 규칙</a>)</td></tr>
+<tr><td><code>verify.c</code></td><td>"같은 디지털 입력"으로 비교해야 함</td><td>8프레임 원본과 PCM을 같이 보냄</td></tr>
+</table></div>
+
+<h2 id="tdoa">tdoa.c (스냅, Step3)</h2>
+<div class="chain">
+  <div class="st"><b>1</b>onset 탐색 (정수 연산)</div><div class="ar">→</div>
+  <div class="st"><b>2</b>구간 250샘플 · 평균 제거 · Tukey</div><div class="ar">→</div>
+  <div class="st"><b>3</b>FFT 512 × 3</div><div class="ar">→</div>
+  <div class="st"><b>4</b>교차 스펙트럼 · 대역 · PHAT</div><div class="ar">→</div>
+  <div class="st"><b>5</b>IFFT · 피크 · 2차 보간</div><div class="ar">→</div>
+  <div class="st"><b>6</b>최소제곱 → atan2 · norm</div><div class="ar">→</div>
+  <div class="st"><b>7</b>신뢰 판정 <code>valid</code></div>
+</div>
+<div class="tw"><table>
+<tr><th>함수</th><th>하는 일</th></tr>
+<tr><td><code>tdoa_init()</code></td><td>FFT 준비, 창 계산, 마이크 좌표 → 최소제곱 풀이 행렬(2×3). 부팅 시 한 번</td></tr>
+<tr><td><code>tdoa_process(frames, nframes, out)</code></td><td>위 1~7. 프레임 1개 또는 2개(직전 + 트리거)</td></tr>
+<tr><td><code>find_onset()</code>, <code>deviation()</code>, <code>sample()</code></td><td>onset 탐색. 두 프레임을 붙이지 않고 번호로 읽음</td></tr>
+</table></div>
+<p>고정 버퍼 약 11 KB. <code>arm_rfft_fast_f32</code>는 입력 버퍼를 덮어쓴다. 음수 지연은 <code>corr[512 + l]</code>. 피크가 1이 되도록 <code>512 / (2 × 19)</code>를 곱한다. 터렛 제어는 <code>r.valid</code>가 참일 때만 <code>r.angle_deg</code>를 써야 한다.</p>
+
+<h2 id="build">빌드 · IDE · CubeMX</h2>
+<div class="tw"><table>
+<tr><th>항목</th><th>값</th></tr>
+<tr><td>소스 경로</td><td><code>.cproject</code> 소스 폴더가 <code>Core</code> 전체 → <code>Core/app/**.c</code> 자동 컴파일 (새 파일이 안 잡히면 F5 Refresh). Include에 <code>Core/app/inc</code>, <code>Core/app/test</code></td></tr>
+<tr><td>최적화</td><td><code>-Ofast</code> (D3-3). FPv4-SP-D16, Hardware ABI (기본값). FPU는 CubeMX <code>SystemInit()</code>이 켠다</td></tr>
+<tr><td>CMSIS-DSP</td><td>1.10.0 (STM32Cube_FW_F4_V1.28.3에서 소스만 복사). Include <code>../Drivers/CMSIS/DSP/Include</code>, <code>PrivateInclude</code>. <code>ARM_MATH_CM4</code> define 불필요</td></tr>
+<tr><td>UART</td><td>USART2 921600 bps, TX DMA1 Stream6 Ch4 Normal Byte. <b>USART2 global interrupt ON</b> — 꺼져 있으면 송신 완료 콜백이 안 불려 busy가 풀리지 않는다</td></tr>
+<tr><td>ADC·DMA</td><td>Triple regular simultaneous, ADC1 = PA0(IN0), ADC2 = PA1(IN1), ADC3 = PC0(IN10). DMA2 Stream0 Ch0 Circular half-word, 다중모드 DMA mode 1, <code>DMAContinuousRequests = ENABLE</code></td></tr>
+</table></div>
+<h3>CMSIS-DSP 소스 (Source 폴더를 통째로 넣지 않는다 — 묶음 파일 때문에 같은 함수가 두 번 정의된다)</h3>
+<div class="tw"><table>
+<tr><th>폴더</th><th>파일</th></tr>
+<tr><td>TransformFunctions</td><td><code>arm_rfft_fast_f32</code>, <code>arm_rfft_fast_init_f32</code>, <code>arm_cfft_f32</code>, <code>arm_cfft_init_f32</code>, <code>arm_cfft_radix8_f32</code>, <code>arm_bitreversal2</code></td></tr>
+<tr><td>CommonTables</td><td><code>arm_common_tables</code>, <code>arm_const_structs</code></td></tr>
+<tr><td>ComplexMathFunctions</td><td><code>arm_cmplx_conj_f32</code>, <code>arm_cmplx_mult_cmplx_f32</code>, <code>arm_cmplx_mag_f32</code></td></tr>
+<tr><td>BasicMathFunctions</td><td><code>arm_offset_f32</code>, <code>arm_mult_f32</code></td></tr>
+<tr><td>StatisticsFunctions</td><td><code>arm_mean_f32</code>, <code>arm_max_f32</code></td></tr>
+<tr><td>FilteringFunctions</td><td><code>arm_fir_decimate_f32</code>, <code>arm_fir_decimate_init_f32</code> (Step5)</td></tr>
+</table></div>
+<h3>CubeMX로 다시 생성할 때 주의</h3>
+<ul>
+  <li>ADC 전역 인터럽트를 켜면 <code>stm32f4xx_it.c</code>에 <code>ADC_IRQHandler</code>가 생겨 <code>adc.c</code>의 것과 링크 충돌이 난다 → <code>adc.c</code>의 핸들러를 지운다.</li>
+  <li>HSE는 BYPASS 8 MHz (ST-LINK 입력). 크리스털 16 MHz로 두면 보드가 절반 속도로 돈다.</li>
+  <li>명령줄 빌드를 위해 <code>Debug/</code>의 생성 makefile에 새 파일을 추가한 적이 있다. CubeIDE 빌드에서는 자동으로 다시 만들어진다.</li>
+</ul>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  function s(tag, a, p) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+  function t(x, y, str, p, extra) { var e = s("text", Object.assign({ x: x, y: y, "font-size": 12, fill: "var(--muted)" }, extra || {}), p); e.textContent = str; return e; }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  // ── 핑퐁 시간 흐름 (adc.c 동작을 그대로 흉내 낸다) ──
+  (function () {
+    var g = document.getElementById("ppSvg");
+    var x0 = 120, w = 760, T = 8;               // 프레임 8개
+    var X = function (k) { return x0 + w * k / T; };
+    t(10, 44, "DMA 쓰기", g); t(10, 92, "ISR", g); t(10, 140, "main (정상)", g); t(10, 214, "main (25 ms씩)", g);
+    for (var k = 0; k < T; k++) {
+      var A = k % 2 === 0;
+      s("rect", { x: X(k) + 2, y: 28, width: w / T - 4, height: 26, rx: 5, fill: A ? "var(--hw-soft)" : "var(--accent-soft)", stroke: A ? "var(--hw)" : "var(--accent)" }, g);
+      t(X(k) + 6, 45, (A ? "A" : "B") + " 채움", g, { "font-size": 11, fill: "var(--ink)" });
+      s("line", { x1: X(k + 1), y1: 58, x2: X(k + 1), y2: 100, stroke: "var(--isr)", "stroke-width": 2 }, g);
+      t(X(k + 1) - 22, 96, (A ? "HT" : "TC") + " #" + (k + 1), g, { "font-size": 10.5, fill: "var(--isr)" });
+    }
+    // 정상: 콜백 직후 가져가 약 7 ms 처리
+    for (var k2 = 1; k2 < T; k2++) {
+      s("rect", { x: X(k2) + 2, y: 124, width: 0.34 * w / T, height: 24, rx: 5, fill: "var(--ok-soft)", stroke: "var(--ok)" }, g);
+      t(X(k2) + 5, 140, "#" + k2, g, { "font-size": 10.5, fill: "var(--ink)" });
+    }
+    // 느림: 처리 1회 = 25 ms = 1.22 프레임. 콜백은 readyHalf를 덮어쓰고, main은 끝날 때마다 가장 최근 것을 가져간다
+    var L = 25 / 20.48, ready = null, drops = 0, ev = [];
+    for (var c = 1; c <= T; c++) ev.push({ t: c, kind: "cb", n: c });
+    for (var st = 1; st < T; st += L) ev.push({ t: st + 1e-6, kind: "take" });
+    ev.sort(function (a, b) { return a.t - b.t; });
+    ev.forEach(function (e) {
+      if (e.kind === "cb") {
+        if (ready !== null) {
+          drops++;
+          s("line", { x1: X(e.t), y1: 184, x2: X(e.t), y2: 246, stroke: "var(--bad)", "stroke-width": 2, "stroke-dasharray": "4 3" }, g);
+          t(X(e.t) + 4, 262, "#" + ready + " 덮어써짐 → drop " + drops, g, { "font-size": 10.5, fill: "var(--bad)" });
+        }
+        ready = e.n;
+      } else if (ready !== null) {
+        var wd = Math.min(L * w / T, x0 + w - X(e.t)) - 3;
+        s("rect", { x: X(e.t) + 2, y: 198, width: wd, height: 24, rx: 5, fill: "var(--isr-soft)", stroke: "var(--isr)" }, g);
+        t(X(e.t) + 6, 214, "#" + ready + " 처리 25 ms", g, { "font-size": 10.5, fill: "var(--ink)" });
+        ready = null;
+      }
+    });
+    t(x0, 288, "한 번 늦는 것은 괜찮지만, 매 프레임 4.5 ms씩 밀리면 결국 가져가기 전에 다음 콜백이 와서 반버퍼를 잃는다", g, { "font-size": 11 });
+  })();
+
+  // ── 송신 큐 ──
+  (function () {
+    var N = 4, head = 0, tail = 0, seq = 0, qdrop = 0, slots = [null, null, null, null];
+    var ring = document.getElementById("ring"), ptrs = document.getElementById("ptrs"), log = document.getElementById("qlog");
+    function draw(msg) {
+      ring.textContent = ""; ptrs.textContent = "";
+      for (var i = 0; i < N; i++) {
+        var c = el("div", "slot" + (slots[i] != null ? " full" : ""));
+        c.appendChild(document.createTextNode("칸 " + i));
+        c.appendChild(el("small", null, slots[i] != null ? "PCM seq " + slots[i] : "비어 있음"));
+        ring.appendChild(c);
+        var p = [];
+        if (head % N === i) p.push("head (main)");
+        if (tail % N === i) p.push("tail (ISR)");
+        ptrs.appendChild(el("div", null, p.join(" · ")));
+      }
+      log.textContent = "쌓인 패킷 = head − tail = " + (head - tail) + " · qdrop " + qdrop + (msg ? " · " + msg : "");
+    }
+    document.getElementById("qPush").addEventListener("click", function () {
+      var my = seq++;
+      if (head - tail >= N) { qdrop++; draw("가득 참 → seq " + my + " 버림 (번호는 소비)"); return; }
+      slots[head % N] = my; head++; draw("seq " + my + " 넣음");
+    });
+    document.getElementById("qPop").addEventListener("click", function () {
+      if (head === tail) { draw("보낼 것 없음"); return; }
+      var v = slots[tail % N]; slots[tail % N] = null; tail++; draw("seq " + v + " 송신 완료");
+    });
+    document.getElementById("qReset").addEventListener("click", function () { head = tail = seq = qdrop = 0; slots = [null, null, null, null]; draw(""); });
+    draw("");
+  })();
+
+  // ── doa 창 ──
+  (function () {
+    var g = document.getElementById("doaSvg");
+    var x0 = 120, w = 760, F = 36;              // 프레임 36개 = 9216샘플
+    var X = function (smp) { return x0 + w * smp / (F * 256); };
+    t(10, 42, "프레임 (256샘플)", g); t(10, 92, "블록 512, 50% 겹침", g); t(10, 152, "창 (23블록 = 0.5 s)", g);
+    for (var k = 0; k < F; k++) s("rect", { x: X(k * 256) + 1, y: 28, width: w / F - 2, height: 18, rx: 2, fill: k % 2 ? "var(--soft)" : "var(--panel)", stroke: "var(--line)" }, g);
+    for (var b = 0; b < 8; b++) {
+      var y = 70 + (b % 2) * 14;
+      s("rect", { x: X(b * 256), y: y, width: X(512) - X(0), height: 10, rx: 2, fill: "var(--accent)", opacity: .35 }, g);
+    }
+    t(X(8 * 256) + 6, 86, "… 프레임마다 블록 하나 → Hann → FFT 1024 → 대역 빈 221개만 보관", g, { "font-size": 11 });
+    var win = 6250, hop = 3072;
+    [0, hop, 2 * hop].forEach(function (s0, i) {
+      var y = 130 + i * 24;
+      var x = X(s0), ww = Math.min(X(s0 + win), x0 + w) - x;
+      s("rect", { x: x, y: y, width: ww, height: 18, rx: 4, fill: "var(--ok)", opacity: .25 + .1 * (2 - i) }, g);
+      t(x + 6, y + 13, "창 " + (i + 1) + ": s0 = " + s0, g, { "font-size": 11, fill: "var(--ink)" });
+    });
+    t(x0, 218, "창 이동 3072 = 12프레임. 같은 블록 스펙트럼을 겹친 두 창이 함께 누적한다 → 창이 끝나는 프레임에서만 PHAT·상관·각도 계산 (CPU가 튀는 곳)", g, { "font-size": 11 });
+  })();
+
+  // ── CPU 막대 ──
+  (function () {
+    var host = document.getElementById("cpu");
+    var rows = [
+      ["2차 평상시 프레임", 31, 34, "var(--ok)"],
+      ["2차 창이 끝나는 프레임", 47, 48, "var(--ok)"],
+      ["1차 평상시 프레임", 40, 40, "var(--accent)"],
+      ["1차 창이 끝나는 프레임", 97, 98, "var(--isr)"],
+      ["1차 + 배경 학습 겹침", 107, 108, "var(--bad)"]
+    ];
+    rows.forEach(function (r) {
+      host.appendChild(el("div", null, r[0]));
+      var tr = el("div", "track");
+      var f = el("div", "fill"); f.style.width = Math.min(r[2], 110) / 110 * 100 + "%"; f.style.background = r[3]; f.style.opacity = ".75"; tr.appendChild(f);
+      [[70, "var(--ok)"], [100, "var(--bad)"]].forEach(function (m) { var mk = el("div", "mark"); mk.style.left = m[0] / 110 * 100 + "%"; mk.style.background = m[1]; tr.appendChild(mk); });
+      tr.appendChild(el("span", "val", (r[1] === r[2] ? r[1] : r[1] + "–" + r[2]) + "%"));
+      host.appendChild(tr);
+    });
+  })();
+
+  // ── 테마 ──
+  try { var th = localStorage.getItem("turret-theme"); if (th) document.documentElement.setAttribute("data-theme", th); } catch (e) {}
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme");
+    var dark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    var next = dark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("turret-theme", next); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>

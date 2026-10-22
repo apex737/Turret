@@ -20,8 +20,8 @@ Turret/
 │  └─ logs/           반복 실험의 경과. 필요한 Step만 (예: logs/Step8.md)
 │
 ├─ docs/              코드와 함께 바뀌는 것
-│  ├─ protocol.md     PC와 MCU가 맞춰야 하는 약속: 패킷 형식, CRC, 시간축, 스케일
-│  ├─ firmware.md     모듈 구조, 동작 모드, 빌드·IDE 설정, CubeMX 주의사항
+│  ├─ interfaces.html MCU ↔ PC 경계의 약속: 패킷 형식(바이트 배치)·의미(스케일·시간축·플래그)·규칙(파서·끊김), 같이 고칠 짝
+│  ├─ firmware.html   MCU 내부 구조: 모듈, 데이터 흐름, 클럭, DMA 핑퐁, 송신 큐, 방향 계산, 메모리·CPU, 빌드·CubeMX
 │  └─ run.md          두 번 이상 실행하는 절차: 배치 방법, 녹음·분석 명령
 │
 ├─ learning/          학습 기록
@@ -174,4 +174,5 @@ python Tools/flow/gen_flow.py .
 - `problem.md`와 `Steps/*.md`의 frontmatter를 읽어 루트에 `flow.html`을 만든다.
 - 다음이면 실패하고 HTML을 만들지 않는다: G와 연결되지 않은 Step, 비어 있는 `exit`, 없는 ID를 가리키는 `goal_ref`·`depends_on`·`on_fail`, 순환.
 - 어떤 Step도 검증하지 않는 G·I는 경고로 알린다.
-- Step 파일을 고쳤으면 다시 실행한다.
+- **누가 언제:** `problem.md`나 `Steps/*.md`를 고친 쪽(사람이든 AI든)이 커밋 전에 실행한다. 흐름도를 만드는 동시에 위 규칙을 검사하므로, 직접 고친 뒤 한 번 돌려 보면 규칙을 어겼는지 바로 안다.
+- `Tools/.venv`의 파이썬으로 실행한다 (`Tools\.venv\Scripts\python.exe Tools/flow/gen_flow.py .`). 다른 파이썬에서 패키지가 없으면 그렇다고 알려 준다.

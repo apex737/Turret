@@ -43,9 +43,9 @@ status: {impl: 통과}
 | 유효 판정 | peak ≥ 0.15, 닫힘 ≤ 0.3샘플, norm 0.5–1.3 | norm 0.5 = 고도 60° |
 | 평가 대상 | 배경 대비 대역 전력 ≥ 6 dB | 시험 전 고정 |
 | 채널 지연 | ch2가 ch1보다 23 µs, ch3보다 27 µs 먼저 → `config/geometry.json` `channel_delay_us` | [D7-2](../decisions.md) |
-| 배경 (MCU) | 10 s, 부팅 시 + B1 버튼 | MCU 설계는 [docs/firmware.md](../docs/firmware.md) |
+| 배경 (MCU) | 10 s, 부팅 시 + B1 버튼 | MCU 설계는 [docs/firmware.html](../docs/firmware.html#doa) |
 
-배치·녹음·분석 절차는 [docs/run.md](../docs/run.md), 결과 패킷(type 0x04)은 [docs/protocol.md](../docs/protocol.md).
+배치·녹음·분석 절차는 [docs/run.md](../docs/run.md), 결과 패킷(type 0x04)은 [docs/interfaces.html](../docs/interfaces.html#v3).
 
 ## 남은 일
 - [ ] 지연 크기가 70 mm 기대보다 약 22% 작음 (고도 중앙 24–49°) → 캡슐 간 거리 실측. 방위 무관, 고도·norm 판정에만 영향

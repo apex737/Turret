@@ -45,7 +45,7 @@ status: {impl: 통과}
 | `holdoff_frames` | 50 (원파형) / 10 (결과 전용) | [D3-6](../decisions.md)                |
 | `floor_alpha`    | 0.05                         | D2-3. 조용한 프레임에서만 갱신         |
 
-값은 이론이 아니라 실험으로 정했다. 패킷 형식은 [docs/protocol.md](../docs/protocol.md), UART 설정은 [docs/firmware.md](../docs/firmware.md).
+값은 이론이 아니라 실험으로 정했다. 패킷 형식은 [docs/interfaces.html](../docs/interfaces.html#v2), UART 설정은 [docs/firmware.html](../docs/firmware.html#build).
 
 ## 남은 일
 

@@ -48,7 +48,7 @@ status: {impl: 통과}
 | 보간                      | 포물선                              | [D3-2](../decisions.md)        |
 | 신뢰 판정                 | peak ≥ 0.5, 0.3 ≤ norm ≤ 1.2        | [D3-5](../decisions.md)        |
 
-MCU·Python 상수 대응표는 [docs/firmware.md](../docs/firmware.md), 실행 명령은 [docs/run.md](../docs/run.md).
+MCU·Python 상수 대응표는 [docs/interfaces.html](../docs/interfaces.html#pairs), 실행 명령은 [docs/run.md](../docs/run.md).
 
 ## 남은 일 (스냅 경로 — [D4.5-4](../decisions.md)에 따라 비교 기준이 아니라 회귀 확인용)
 

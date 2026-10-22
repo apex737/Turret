@@ -11,7 +11,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-- 펌웨어: STM32CubeIDE로 열고 빌드 → 다운로드. 모드는 `app.c`의 `APP_MODE` ([firmware.md](firmware.md)).
+- 펌웨어: STM32CubeIDE로 열고 빌드 → 다운로드. 모드는 `app.c`의 `APP_MODE` ([firmware.html](firmware.html)).
 - `Debug/`, `*.launch`, `Tools/.venv/`, `Tools/dumps/`, `DataSet/`은 git에서 제외된다.
 
 ## SNAP 모드 (스냅 방향, Step3)
@@ -121,9 +121,11 @@ cd Tools
 
 ## 흐름도
 
-```
-pip install pyyaml markdown
-python Tools/flow/gen_flow.py .
-```
+`problem.md`나 `Steps/*.md`를 고친 쪽(사람이든 AI든)이 커밋 전에 실행한다. 규칙 검사를 겸한다 (README 5절).
 
-Windows 콘솔(cp949)에서는 마지막 출력 줄에서 `UnicodeEncodeError`가 날 수 있다 (`flow.html`은 이미 만들어진 뒤). `PYTHONIOENCODING=utf-8`을 주고 실행한다.
+```
+cd Tools
+.\.venv\Scripts\python.exe -m pip install pyyaml markdown     # 처음 한 번
+cd ..
+Tools\.venv\Scripts\python.exe Tools/flow/gen_flow.py .
+```
