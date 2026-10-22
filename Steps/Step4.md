@@ -42,7 +42,7 @@ status: {impl: 통과}
 | f_use | 설계 당시 미정 → [Step5pre](Step5pre.md)에서 5 kHz | D5pre-2 |
 
 ## 남은 일
-- 없음. 미결 사항 12절의 처리는 [migration.md](../migration.md)에 항목별로 적었다 (대부분 Step5pre·7·8에서 결정됨).
+- 없음. 이전 판 12절 미결 사항은 대부분 Step5pre(f_use)·Step7(배열 간격 D7-0, 방식 D7-1)·Step8(확정 규칙)에서 결정됐다.
 
 ## 관련 결정
 - D4-1, D4-2 (decisions.md)
