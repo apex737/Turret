@@ -5,7 +5,7 @@
 |---|---|---|
 | FIR 응답 | `Tools/preproc/fir_design.py` → [fir_response.png](../../reports/step5/fir_response.png) | 75탭, 통과 리플 0.016 dB, 저지 −60.4 dB |
 | MCU 코드 = PC 기준 | `Tools/preproc/test_preproc_host.py`: preproc.c와 CMSIS 소스를 PC용 gcc로 빌드해 32프레임 연속 처리 → `frontend.py`와 비교 | 랜덤·550 Hz+11 kHz·0/4095 극단·임펄스 모두 최대 1 LSB (기준 ≤ 2) |
-| 출력 위상 | 같은 시험에서 위상 0~3 대조 | 위상 0만 일치 → 규약을 `x[4k − j]`로 확정 (처음 가정한 `4k + 3`은 틀렸음) |
+| 출력 위상 | 같은 시험에서 위상 0 ~ 3 대조 | 위상 0만 일치 → 규약을 `x[4k − j]`로 확정 (처음 가정한 `4k + 3`은 틀렸음) |
 | 패킷 파서 | 합성 v2·v3 혼합 스트림, payload 안 FF FF FF FF, 777 B 단위로 쪼개 넣기 | 7/7 수신, CRC 실패 0 |
 | 수신기 | `stream_capture.py --replay`로 유실 1, 클리핑 1, 검증 패킷 1이 섞인 합성 스트림 | 파일 분리 위치, 과도 19샘플 제외, 시작 샘플 번호, 판정 모두 계산값과 일치 |
 
@@ -17,7 +17,7 @@
 | 1 | BURST (quiet, pink, tone, 드론 재생) + 간격·채널 순서 실측 | 채널 순서 확인, 클리핑 없는 재생 음량, `geometry.json` — 완료, [playback.md](../../reports/step5/playback.md) |
 | 2 | VERIFY 20쌍 (조용히 / 말소리 / 재생음) | 통과: 입력 −55 ~ −28 dBFS, 최대 1 LSB, 차이 있는 샘플 ≤ 0.05%, CRC 오류 0 |
 | 3 | STREAM quiet 10분 | 통과: 유실·OVR·qdrop·CRC·클리핑 0 |
-| 4a | STREAM 스피커 `20_drones_10min.wav` | 통과: 유실·OVR·qdrop·CRC·클리핑 0, CPU 20%, RMS −30.5~−30.9 dBFS, 피크 −11.4 dBFS |
+| 4a | STREAM 스피커 `20_drones_10min.wav` | 통과: 유실·OVR·qdrop·CRC·클리핑 0, CPU 20%, RMS −30.5 ~ −30.9 dBFS, 피크 −11.4 dBFS |
 | 4b | STREAM 선풍기 | 통과: 유실 0, 수신 간격 최대 54 ms. 455 s에 꺼져 실제 구간 약 7.6분. ch2에 바람이 닿아 20–100 Hz에서 +16 dB (채널 간 일치도 0.52 → 기류 잡음) |
 
 ## 샘플레이트 +1.7% → HSE (2026-10-16)

@@ -34,9 +34,9 @@ status: {impl: 통과}
 ## 파라미터
 | 이름 | 현재 값 | 근거 |
 |---|---|---|
-| f_use | 5 kHz | [D5pre-2](../decisions.md) |
+| f_use | 5 kHz | [D5pre-2](../decision.html#D5pre-2) |
 | 처리 속도 | 50 → 12.5 kHz (↓4) | D5pre-2 |
-| 원음 | Salford DroneNoise(전체), Western Sydney DJI Air 3 → `DataSet/` (git 제외) | [D5pre-1](../decisions.md) |
+| 원음 | Salford DroneNoise(전체), Western Sydney DJI Air 3 → `DataSet/` (git 제외) | [D5pre-1](../decision.html#D5pre-1) |
 
 원음 후보 표와 FPV 추가 출처 조사는 [logs/Step5pre.md](logs/Step5pre.md).
 
@@ -44,4 +44,4 @@ status: {impl: 통과}
 - 없음. 장치 음압 보정 측정은 [problem.md](../problem.md) 열린 결정에 있다.
 
 ## 관련 결정
-- D4.5-1, D5pre-1, D5pre-2 (decisions.md)
+- D4.5-1, D5pre-1, D5pre-2 (decision.html)

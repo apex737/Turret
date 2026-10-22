@@ -34,23 +34,23 @@ status: {impl: 통과}
 | 같은 자리 반복 정밀도                  | 표준편차 1.3° (스냅)                                     | 기록   | 2026-10-11 | logs/Step3.md                                       |
 | 신뢰 판정 통과 비율                    | 235개 중 220개 (94%), MCU·PC 판정 15/15 일치             | 기록   | 2026-10-11 | logs/Step3.md                                       |
 | 정확도 (실제 방향 대비 치우침)         | —                                                        | 미측정 | —          | —                                                   |
-| 대역 150~2000 Hz 변경 후 보드 MCU = PC | —                                                        | 미측정 | —          | —                                                   |
+| 대역 150 ~ 2000 Hz 변경 후 보드 MCU = PC | —                                                        | 미측정 | —          | —                                                   |
 | 메모리                                 | 플래시 143.8 KB / RAM 50.7 KB (`-O2`), `-Ofast`는 미측정 | 기록   | 2026-10-11 | [build_analyze](../reports/step3/build_analyze.png) |
 
 ## 파라미터 (기준선 `baseline-v1` 이후 대역만 변경)
 
 | 이름                      | 현재 값                             | 근거                           |
 | ------------------------- | ----------------------------------- | ------------------------------ |
-| 대역                      | 150 ~ 2000 Hz (실제 195~1953 Hz)    | [D3-1](../decisions.md)        |
+| 대역                      | 150 ~ 2000 Hz (실제 195 ~ 1953 Hz)    | [D3-1](../decision.html#D3-1)        |
 | 분석 구간 / onset 전 여유 | 250샘플(5 ms) / 50샘플(1 ms), Tukey | 이전 판 5.1절 비교             |
 | FFT / 최대 지연           | 512점 / ±13샘플                     | 7 cm 최대 지연 10.2샘플 + 여유 |
 | PHAT ε                    | 0.01 (대역 내 최대 크기 대비)       | 신호 없는 빈 억제              |
-| 보간                      | 포물선                              | [D3-2](../decisions.md)        |
-| 신뢰 판정                 | peak ≥ 0.5, 0.3 ≤ norm ≤ 1.2        | [D3-5](../decisions.md)        |
+| 보간                      | 포물선                              | [D3-2](../decision.html#D3-2)        |
+| 신뢰 판정                 | peak ≥ 0.5, 0.3 ≤ norm ≤ 1.2        | [D3-5](../decision.html#D3-5)        |
 
 MCU·Python 상수 대응표는 [docs/interfaces.html](../docs/interfaces.html#pairs), 실행 명령은 [docs/run.md](../docs/run.md).
 
-## 남은 일 (스냅 경로 — [D4.5-4](../decisions.md)에 따라 비교 기준이 아니라 회귀 확인용)
+## 남은 일 (스냅 경로 — [D4.5-4](../decision.html#D4.5-4)에 따라 비교 기준이 아니라 회귀 확인용)
 
 - [ ] 대역 변경을 보드에서 확인 (원파형 모드, MCU = PC) → 맞으면 `baseline-v2` 태그
 - [ ] 기준선 정확도: 각도를 아는 위치에서 `--truth` 세션
@@ -63,4 +63,4 @@ MCU·Python 상수 대응표는 [docs/interfaces.html](../docs/interfaces.html#p
 
 ## 관련 결정
 
-- D3-1 ~ D3-6 (decisions.md)
+- D3-1 ~ D3-6 (decision.html)

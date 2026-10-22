@@ -119,6 +119,19 @@ cd Tools
 
 통과 조건: 각 녹음 `summary.json`의 clip 0, 소리 구간 레벨이 speaker_10min과 비슷 (약 −30 dBFS). 시계 차이·시작 시각은 `embed_v5.py`가 찾는다.
 
+## Step9A 결합 평가 (보드 불필요)
+
+Step7 12방향 녹음(`doa_az*`, 배경 `doa_bg`)에 정답 타임라인 분류를 넣어 결합 규칙을 채점한다. 결합 규칙은 `fusion/combine.py`.
+
+```
+cd Tools
+.venv/Scripts/python.exe fusion/eval_9a.py --check            # 입력만 확인 (재생 정렬 상관, 창 수, 공통 회전)
+.venv/Scripts/python.exe fusion/eval_9a.py --combiner naive   # 기준선 → reports/step9a/eval_naive.md
+.venv/Scripts/python.exe fusion/eval_9a.py --combiner rule    # combine.py → reports/step9a/eval_rule.md
+```
+
+옵션: `--cls-lat` 분류 도착 지연(기본 0.3 s), `--doa-lat` 방향 도착 지연(0.02 s), `--max-age` 고장 채점의 허용 결과 경과 시간(1 s), `--release` 비드론 구간 해제 허용(2 s).
+
 ## 흐름도
 
 `problem.md`나 `Steps/*.md`를 고친 쪽(사람이든 AI든)이 커밋 전에 실행한다. 규칙 검사를 겸한다 (README 5절).

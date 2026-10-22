@@ -39,4 +39,4 @@ status: {impl: 대기}
 - 실패 시: 분류 → Step8, 각도 → Step7, 잘못된 음원 선택 → Step9A·9B, 운용 중 유실·지연 → Step10
 
 ## 관련 결정
-- D4.5-1 (decisions.md)
+- D4.5-1 (decision.html)

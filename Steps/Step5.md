@@ -34,14 +34,14 @@ status: {impl: 통과}
 | 채널 순서·재생 음량·`geometry.json` | 확인 | 통과 | 2026-10-16 | [playback.md](../reports/step5/playback.md) |
 | VERIFY | 20쌍, 입력 −55 ~ −28 dBFS, 최대 1 LSB, CRC 오류 0 | 통과 | 2026-10-16 | logs/Step5.md |
 | STREAM quiet 10분 | 유실·OVR·qdrop·CRC·클리핑 0 | 통과 | 2026-10-16 | logs/Step5.md |
-| STREAM 스피커 10분 | 위와 같음, CPU 20%, RMS −30.5~−30.9 dBFS | 통과 | 2026-10-16 | logs/Step5.md |
+| STREAM 스피커 10분 | 위와 같음, CPU 20%, RMS −30.5 ~ −30.9 dBFS | 통과 | 2026-10-16 | logs/Step5.md |
 | STREAM 선풍기 | 유실 0 (실제 선풍기 구간 약 7.6분) | 통과 | 2026-10-16 | logs/Step5.md |
 | 샘플레이트 | HSI 약 50.86 kHz(+1.7%) → HSE BYPASS 8 MHz로 49,999.6 Hz | 해결 | 2026-10-16 | logs/Step5.md |
 
 ## 파라미터
 | 이름 | 현재 값 | 근거 |
 |---|---|---|
-| FIR | Kaiser β 5.65, 75탭, 통과 5 kHz / 저지 7.5 kHz, 군지연 37샘플 @ 50 kHz | [D5pre-2](../decisions.md), `Tools/preproc/fir_design.py` |
+| FIR | Kaiser β 5.65, 75탭, 통과 5 kHz / 저지 7.5 kHz, 군지연 37샘플 @ 50 kHz | [D5pre-2](../decision.html#D5pre-2), `Tools/preproc/fir_design.py` |
 | PCM 스케일 | `x = adc − 2048` → FIR·↓4 → ×16 → nearest-even → int16 포화 | PC `np.rint`와 같은 반올림 |
 | 송신 큐 | 4칸 링버퍼 | UART 여유 약 17% |
 | 마이크 전원 RC | 220 Ω, 100 µF (f_c 7.2 Hz) | 프레임 동기 간섭 대응, logs/Step5.md |
@@ -52,4 +52,4 @@ status: {impl: 통과}
 - [ ] ch3 고역 잡음 원인 가리기 (모듈 교체 뒤에도 1.6–5 kHz 약 +5 dB, 5–10 kHz 약 +9 dB) — 배선 또는 ADC 핀 추정, 미확정
 
 ## 관련 결정
-- D4-2, D5pre-2, D5-1 (decisions.md)
+- D4-2, D5pre-2, D5-1 (decision.html)

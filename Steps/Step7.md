@@ -36,13 +36,13 @@ status: {impl: 통과}
 ## 파라미터
 | 이름 | 현재 값 | 근거 |
 |---|---|---|
-| 방식 | D1: GCC-PHAT + 배경 교차 스펙트럼 빼기 | [D7-1](../decisions.md) |
+| 방식 | D1: GCC-PHAT + 배경 교차 스펙트럼 빼기 | [D7-1](../decision.html#D7-1) |
 | 관측 창 / 이동 | 0.5 s / 0.25 s (MCU 3072샘플 = 0.246 s) | 지연 우선. 1.0 s는 먼 거리용 선택지 |
 | 블록 | 512, Hann 50%, 교차·자기 스펙트럼 평균 | 지속음 평균 |
 | 대역 | 300–3000 Hz, ×16 보간, 포물선 | `doa.h` |
 | 유효 판정 | peak ≥ 0.15, 닫힘 ≤ 0.3샘플, norm 0.5–1.3 | norm 0.5 = 고도 60° |
 | 평가 대상 | 배경 대비 대역 전력 ≥ 6 dB | 시험 전 고정 |
-| 채널 지연 | ch2가 ch1보다 23 µs, ch3보다 27 µs 먼저 → `config/geometry.json` `channel_delay_us` | [D7-2](../decisions.md) |
+| 채널 지연 | ch2가 ch1보다 23 µs, ch3보다 27 µs 먼저 → `config/geometry.json` `channel_delay_us` | [D7-2](../decision.html#D7-2) |
 | 배경 (MCU) | 10 s, 부팅 시 + B1 버튼 | MCU 설계는 [docs/firmware.html](../docs/firmware.html#doa) |
 
 배치·녹음·분석 절차는 [docs/run.md](../docs/run.md), 결과 패킷(type 0x04)은 [docs/interfaces.html](../docs/interfaces.html#v3).
@@ -53,4 +53,4 @@ status: {impl: 통과}
 - [ ] 평면 배열의 위/아래 모호성과 머리 위 음원의 방위 불안정성을 시험 범위에 명시 (60°에서 유효 54%)
 
 ## 관련 결정
-- D7-0, D7-1, D7-2, D7-3 (decisions.md)
+- D7-0, D7-1, D7-2, D7-3 (decision.html)
