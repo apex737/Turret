@@ -26,8 +26,8 @@ Turret/
 │
 ├─ learning/          학습 기록
 │  ├─ GUIDE.md        학습형 개발 지침
-│  ├─ profile.md  concepts.md  quiz.md
-│  ├─ background.html 보완 교재. 수준 확인을 거쳐 AI가 만든다 (GUIDE.md 교재 절)
+│  ├─ profile.md      학습자 배경 (모든 프로젝트 공통)
+│  ├─ concepts.html   점검에서 틀린 개념: 키워드·간략 설명·쓰인 Step. 이해 표시·제거는 사람이 직접
 │  └─ notes/          본인이 쓴 개념 노트, 시각 자료(helper html)
 │
 ├─ reports/           스크립트가 만든 출력 (표, 그래프). 판정은 쓰지 않는다
@@ -48,7 +48,7 @@ Turret/
 | 코드가 바뀌면 같이 바뀌어야 하는가? | `docs/` |
 | 두 번 이상 실행할 절차인가? | `docs/run.md` |
 | 여러 선택지 중 하나를 고른 것인가? | `decisions.md` |
-| 둘 이상의 Step이 쓰는 개념인가? | `learning/concepts.md` (ID와 판정만) |
+| 점검에서 틀린 개념인가? | `learning/concepts.html` (키워드·간략 설명·쓰인 Step) |
 | 반복 실험에서 무슨 일이 있었나? (날짜, 결과, 해석) | `Steps/logs/StepN.md` |
 | 그 Step의 질문, 기준, 판정, 할 일인가? | `Steps/StepN.md` |
 | 프로젝트 전체의 목표·제약인가? | `problem.md` |
@@ -69,7 +69,7 @@ Turret/
 5. **docs/는 코드와 같은 커밋에서 고친다.** 코드가 원본이고 docs/는 참고표다.
 6. **Step 결과의 숫자에는 근거 링크(reports/ 파일)를 단다.** reports/에는 판정을 쓰지 않는다.
 7. **통과 기준은 실험 전에 확정하고 날짜를 적는다.** 결과를 본 뒤 바꾸면 decisions.md에 이유를 남긴다.
-8. **AI가 쓴 개념 설명은 Step·docs·decisions에 남기지 않는다.** 개념은 `learning/concepts.md`에 ID로 올리고 문항으로 확인한다. AI가 만드는 교재는 `learning/background.html` 한 곳에만 두고, 만들 때마다 대상 개념의 수준을 먼저 확인한다 (질의 또는 시험 결과, `learning/GUIDE.md` 교재 절). `notes/`에는 본인이 쓴 것만 둔다.
+8. **AI가 쓴 개념 설명·교재는 남기지 않는다.** 트리거 점검(`learning/GUIDE.md` 4절)에서 틀린 개념만 `learning/concepts.html`에 키워드·간략 설명·쓰인 Step으로 올린다. 문항과 답은 파일로 남기지 않는다. `notes/`에는 본인이 쓴 것만 둔다.
 9. **Step ID는 바꾸지 않는다.** 사이에 끼울 때는 `Step5b`처럼 붙인다. 순서는 `depends_on`이 정한다.
 10. **상태는 Step frontmatter에만 적는다.** 본문이나 다른 파일에 상태 단어(대기·진행·미통과·통과)를 따로 쓰지 않는다. `질문과 답`의 답은 상태가 아니라 질문에 대한 답(예 / 아니오 / 아직 모름 + 핵심 숫자)이다.
 11. **측정하지 않은 것은 "미측정"으로 둔다.** 부족한 것을 통과로 표시하지 않는다.
