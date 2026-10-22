@@ -10,12 +10,14 @@ static capture_trigger_cb_t on_trigger; // 캡처를 보낸 직후 부를 함수
 // 프레임 통계 계산
 static void frame_stats(
 		const dump_frame_t *f,	// 입력 프레임
-		float rms[DUMP_CH],			// RMS (트리거; 신호에서 소리가 크다는 것 == 진동의 폭이 크다)
+		float rms[DUMP_CH],		// RMS (트리거; 신호에서 소리가 크다는 것 == 진동의 폭이 크다)
 		uint16_t clip[DUMP_CH]) // 0, 4095 샘플수 -> 신호가 너무 큰지 경고 (flags에 CLIP 표시)
 {
 	for (uint32_t ch = 0; ch < DUMP_CH; ch++) /* 채널마다 따로 계산 */
 	{
 		const uint16_t *x = (*f)[ch]; /* 이 채널의 1024샘플 */
+
+		// 표준편차(rms) = sqrt( (N·Σv² - (Σv)²) ) / N
 		uint32_t s = 0;								/* 합 Σv */
 		uint64_t s2 = 0;							/* 제곱의 합 Σv² (커질 수 있어 64비트) */
 		uint16_t num_clip = 0;				/* 클리핑 샘플 개수 */
@@ -23,11 +25,12 @@ static void frame_stats(
 		{
 			uint32_t v = x[i];
 			s += v;
-			s2 += (uint64_t)(v * v);															/* 4095² ≈ 1.7천만이라 32비트 곱은 안전 */
+			s2 += (uint64_t)(v * v);
+
+			// CLIP 수 까지 동시에 측정
 			num_clip += (v <= CLIP_LO || v >= CLIP_HI) ? 1u : 0u; /* 양 끝에 붙었으면 +1 */
 		}
 
-		// 표준편차 = sqrt( (N·Σv² - (Σv)²) ) / N
 		uint64_t num = (uint64_t)DUMP_N * s2 - (uint64_t)s * s;
 		rms[ch] = sqrtf((float)num) / (float)DUMP_N;
 		clip[ch] = num_clip;
@@ -89,8 +92,8 @@ bool capture_on_frame(
 	frame_stats(frame, rms, clip);
 
 	// 1) RMS(신호크기) 측정
-	float level = rms[0];
-	uint32_t clip_sum = 0; /* 3채널 클리핑 합 (flags 결정용) */
+	float level = rms[0];	// 3채널 중 최소 RMS 값
+	uint32_t clip_sum = 0; 	// 3채널 클리핑 합
 	for (uint32_t ch = 0; ch < DUMP_CH; ch++)
 	{
 		if (rms[ch] > level)
@@ -109,7 +112,7 @@ bool capture_on_frame(
 	// thr : 잡음 바닥의 k_on배. 단, 최소 min_rms 이상
 	float thr = conf.k_on * stat.floor;
 	if (thr < conf.min_rms)
-		thr = conf.min_rms;
+		thr = conf.min_rms;	// min 클리핑
 
 	const bool trig = (level > thr);
 	const bool manual = stat.manual; /* 이 함수 도중 값이 바뀌지 않도록 한 번만 읽어 복사 */

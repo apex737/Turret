@@ -24,7 +24,7 @@
 #define APP_MODE_STREAM 2
 #define APP_MODE_VERIFY 3
 #ifndef APP_MODE
-#define APP_MODE APP_MODE_STREAM
+#define APP_MODE APP_MODE_SNAP
 #endif
 
 _Static_assert(TDOA_CH == DUMP_CH && TDOA_FRAME == DUMP_N, "tdoa and dump frame shapes must match");
@@ -48,12 +48,14 @@ static void on_capture(
 	const tdoa_frame_t frames[2] = { prev ? *prev : *cur, *cur };   // 직전 프레임이 없으면 cur만 사용
 	tdoa_result_t r;
 
-	const uint32_t t0 = DWT->CYCCNT;
+	const uint32_t t0 = DWT->CYCCNT;			// 사이클 측정 시작
+
 	if (prev)
 		tdoa_process(frames, 2u, &r);
 	else
 		tdoa_process(&frames[1], 1u, &r);
-	const uint32_t cycles = DWT->CYCCNT - t0;
+
+	const uint32_t cycles = DWT->CYCCNT - t0;  // 사이클 측정 종료
 
 	dump_result_t out = {
 		.tau       = { r.tau[0], r.tau[1], r.tau[2] },
@@ -64,8 +66,10 @@ static void on_capture(
 		.win_start = r.win_start,
 		.proc_us   = cycles / (SystemCoreClock / 1000000u),
 	};
+
 	if (r.valid)
 		flags |= DUMP_FLAG_VALID;   // MCU의 신뢰 판정을 PC에 알림. 터렛 제어도 r.valid일 때만 r.angle_deg를 써야 한다
+
 	dump_queue_result(&out, frame_seq, flags);
 }
 #endif
