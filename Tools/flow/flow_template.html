@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__ · Step 흐름</title>
+<style>
+:root {
+  --bg: #f6f5f1; --surface: #ffffff; --ink: #1d1d1b; --muted: #6b6a64; --line: #d9d7cf;
+  --edge: #8f8d85; --fail: #c2412d;
+  --ok: #2f7d4f; --ok-bg: #e3f1e8; --run: #2b5fb4; --run-bg: #e3ebf8;
+  --bad: #c2412d; --bad-bg: #f8e4df; --wait: #8a8880; --wait-bg: #eceae4;
+  --g: #6b4bb8; --g-bg: #ece6f7; --p: #9a6a12; --p-bg: #f5ecd9; --i: #1f7a7a; --i-bg: #ddf0ef;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161614; --surface: #20201d; --ink: #ecebe6; --muted: #a09e96; --line: #3a3934;
+    --edge: #77756d; --fail: #ec7a63;
+    --ok: #7fcf9c; --ok-bg: #1f3428; --run: #8db3f0; --run-bg: #1f2a3d;
+    --bad: #ec7a63; --bad-bg: #3d2420; --wait: #a09e96; --wait-bg: #2c2b27;
+    --g: #b8a2ec; --g-bg: #2e2640; --p: #e0b45e; --p-bg: #3a2f1a; --i: #74c8c8; --i-bg: #1c3434;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.55 "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+header { padding: 20px 24px 8px; }
+h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -.01em; }
+.sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.legend .label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+.chip { display: inline-flex; gap: 4px; align-items: center; border: 1px solid transparent;
+  border-radius: 999px; padding: 2px 9px; font-size: 12px; cursor: pointer; background: none; color: inherit; font-family: inherit; }
+.chip b { font-weight: 700; }
+.chip.G { background: var(--g-bg); color: var(--g); }
+.chip.P { background: var(--p-bg); color: var(--p); }
+.chip.I { background: var(--i-bg); color: var(--i); }
+.chip.on { border-color: currentColor; }
+.chip .warn { color: var(--bad); }
+.tools { display: flex; gap: 8px; margin: 12px 0 0; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px;
+  padding: 5px 11px; font: inherit; font-size: 13px; cursor: pointer; }
+.keys { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.keys span { display: inline-flex; align-items: center; gap: 6px; }
+.keys i { display: inline-block; width: 22px; height: 0; border-top: 2px solid var(--edge); }
+.keys i.f { border-top: 2px dashed var(--fail); }
+
+#board { position: relative; overflow: auto; padding: 0 24px 32px; }
+#edges { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+#lanes { position: relative; display: flex; gap: 52px; padding: 64px 0 64px; width: max-content; min-width: 100%; }
+.lane { display: flex; flex-direction: column; gap: 18px; justify-content: center; }
+
+.card { width: 220px; text-align: left; background: var(--surface); color: inherit; border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 13px; box-shadow: var(--shadow); cursor: pointer; font: inherit;
+  transition: opacity .15s, transform .15s, border-color .15s; position: relative; z-index: 1; }
+.card:hover { transform: translateY(-1px); border-color: var(--edge); }
+.card:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
+.card.dim { opacity: .28; }
+.card.sel { border-color: var(--ink); }
+.card .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card .id { font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.card .title { font-size: 15px; font-weight: 650; margin: 2px 0 6px; line-height: 1.35; }
+.card .exit { font-size: 12.5px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 8px; margin-bottom: 8px; }
+.card .refs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 9px; }
+.card .refs .chip { cursor: default; padding: 0 7px; font-size: 11px; }
+.status { display: flex; gap: 8px; align-items: center; font-size: 12px; }
+.pill { border-radius: 6px; padding: 1px 7px; font-weight: 600; }
+.pill.통과 { background: var(--ok-bg); color: var(--ok); }
+.pill.진행 { background: var(--run-bg); color: var(--run); }
+.pill.미통과 { background: var(--bad-bg); color: var(--bad); }
+.pill.대기 { background: var(--wait-bg); color: var(--wait); }
+.ex { display: flex; align-items: center; gap: 6px; color: var(--muted); flex: 1; white-space: nowrap; }
+.bar { flex: 1; height: 5px; background: var(--wait-bg); border-radius: 3px; overflow: hidden; min-width: 30px; }
+.bar > div { height: 100%; background: var(--ok); }
+.ex.low .bar > div { background: var(--bad); }
+
+path.e { fill: none; stroke: var(--edge); stroke-width: 1.6; transition: opacity .15s; }
+path.f { fill: none; stroke: var(--fail); stroke-width: 1.4; stroke-dasharray: 5 4; transition: opacity .15s; }
+text.fl { fill: var(--fail); font-size: 11px; }
+.dimE { opacity: .15; }
+
+#panel { position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 100%); background: var(--surface);
+  border-left: 1px solid var(--line); box-shadow: -8px 0 30px rgba(0,0,0,.12); transform: translateX(105%);
+  transition: transform .22s ease, visibility 0s .22s; visibility: hidden; z-index: 10; display: flex; flex-direction: column; }
+#panel.open { transform: none; visibility: visible; transition: transform .22s ease; }
+#panel .ph { display: flex; justify-content: space-between; align-items: start; gap: 12px; padding: 16px 18px 10px; border-bottom: 1px solid var(--line); }
+#panel .ph h2 { margin: 0; font-size: 17px; }
+#panel .ph .id { font-size: 12px; color: var(--muted); font-weight: 700; }
+#panel .pb { overflow: auto; padding: 12px 18px 28px; }
+#panel .meta { display: grid; grid-template-columns: 74px 1fr; gap: 5px 10px; font-size: 13px; margin-bottom: 10px; }
+#panel .meta dt { color: var(--muted); }
+#panel .meta dd { margin: 0; }
+#panel .src { font-size: 12.5px; color: var(--muted); }
+#panel .src a { color: var(--run); }
+#panel .md h2 { font-size: 15px; margin: 18px 0 6px; }
+#panel .md h3 { font-size: 14px; margin: 16px 0 4px; }
+#panel .md table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 6px 0; display: block; overflow-x: auto; }
+#panel .md th, #panel .md td { border: 1px solid var(--line); padding: 4px 6px; text-align: left; vertical-align: top; }
+#panel .md th { background: var(--bg); }
+#panel .md blockquote { margin: 8px 0; padding: 6px 10px; border-left: 3px solid var(--edge); color: var(--muted); background: var(--bg); }
+#panel .md code { font-size: 12px; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+#panel .md p, #panel .md li { font-size: 13.5px; }
+.x { border: 0; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--muted); padding: 0 4px; }
+#scrim { position: fixed; inset: 0; background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 9; }
+#scrim.open { opacity: 1; pointer-events: auto; }
+
+/* 좁은 화면: 위→아래 흐름, 패널은 아래에서 올라오는 시트 */
+@media (max-width: 760px) {
+  header { padding: 16px 16px 6px; }
+  #board { padding: 0 16px 28px; }
+  #lanes { flex-direction: column; gap: 40px; padding: 12px 34px 8px 44px; width: auto; }
+  .lane { flex-direction: row; gap: 10px; }
+  .card { width: 100%; }
+  .lane.multi .card { flex: 1 1 0; min-width: 0; padding: 10px; }
+  .lane.multi .card .title { font-size: 14px; }
+  .lane.multi .card .exit { font-size: 11.5px; }
+  .lane.multi .status { flex-wrap: wrap; row-gap: 6px; }
+  #panel { top: auto; bottom: 0; height: 82vh; width: 100%; border-left: 0; border-top: 1px solid var(--line);
+    border-radius: 16px 16px 0 0; transform: translateY(105%); }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="ttl"></h1>
+  <p class="sub">원본은 <code>Steps/*.md</code>와 <code>problem.md</code>. 이 파일은 <code>tools/gen_flow.py</code>가 만든다. 카드를 누르면 Step 문서가 열린다.</p>
+  <div class="legend" id="legend"></div>
+  <div class="tools"><button class="btn" id="openProblem">problem.md 보기</button></div>
+  <div class="keys"><span><i></i>선행 Step</span><span><i class="f"></i>기준 미달 시 돌아갈 곳</span><span>막대 = 의존 개념 ✅ 비율 (설명 가능도)</span></div>
+</header>
+<div id="board"><svg id="edges"></svg><div id="lanes"></div></div>
+<div id="scrim"></div>
+<aside id="panel" aria-hidden="true">
+  <div class="ph"><div><div class="id" id="pId"></div><h2 id="pTitle"></h2></div><button class="x" id="close" aria-label="닫기">×</button></div>
+  <div class="pb" id="pBody"></div>
+</aside>
+<script type="application/json" id="data">__DATA__</script>
+<script>
+(() => {
+const D = JSON.parse(document.getElementById('data').textContent);
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const byId = Object.fromEntries(D.steps.map(s => [s.id, s]));
+let focus = null, selected = null;
+
+$('#ttl').textContent = D.project + ' · Step 흐름';
+
+// 범례: 목표·우선순위·불변조건 칩. 누르면 그 항목에 기여하는 Step만 강조.
+const legend = $('#legend');
+legend.innerHTML = '<span class="label">기여 필터</span>';
+for (const [k, v] of Object.entries(D.refs)) {
+  const n = D.steps.filter(s => s.goal_ref.includes(k)).length;
+  const b = document.createElement('button');
+  b.className = 'chip ' + k[0];
+  b.title = v.text;
+  b.innerHTML = `<b>${esc(k)}</b> ${esc(v.text)} ${n ? `· ${n}` : ('GI'.includes(k[0]) ? '<span class="warn">· 0 ⚠ 검증 Step 없음</span>' : '· 0')}`;
+  b.onclick = () => { focus = focus === k ? null : k; apply(); };
+  b.dataset.ref = k;
+  legend.appendChild(b);
+}
+
+// 카드
+const lanes = $('#lanes');
+const maxL = Math.max(...D.steps.map(s => s.level));
+for (let l = 0; l <= maxL; l++) {
+  const lane = document.createElement('div');
+  const items = D.steps.filter(s => s.level === l);
+  lane.className = 'lane' + (items.length > 1 ? ' multi' : '');
+  for (const s of items) {
+    const [a, b] = String(s.status.explain || '0/0').split('/').map(Number);
+    const pct = b ? Math.round(100 * a / b) : 0;
+    const c = document.createElement('button');
+    c.className = 'card';
+    c.id = 'c-' + s.id;
+    c.innerHTML = `
+      <div class="top"><span class="id">${esc(s.id)}</span></div>
+      <div class="title">${esc(s.title)}</div>
+      <div class="exit">${esc(s.exit)}</div>
+      <div class="refs">${s.goal_ref.map(r => `<span class="chip ${r[0]}" title="${esc(D.refs[r].text)}">${esc(r)}</span>`).join('')}</div>
+      <div class="status"><span class="pill ${esc(s.status.impl)}">구현 ${esc(s.status.impl)}</span>
+        <span class="ex ${pct < 50 ? 'low' : ''}">설명 ${esc(s.status.explain)}<span class="bar"><div style="width:${pct}%"></div></span></span></div>`;
+    c.onclick = () => openStep(s.id);
+    lane.appendChild(c);
+  }
+  lanes.appendChild(lane);
+}
+
+// 화살표
+const svg = $('#edges'), board = $('#board');
+const NS = 'http://www.w3.org/2000/svg';
+const vertical = () => matchMedia('(max-width: 760px)').matches;
+function box(id) {
+  const r = document.getElementById('c-' + id).getBoundingClientRect(), b = board.getBoundingClientRect();
+  const x = r.left - b.left + board.scrollLeft, y = r.top - b.top + board.scrollTop;
+  return { l: x, r: x + r.width, t: y, b: y + r.height, cx: x + r.width / 2, cy: y + r.height / 2 };
+}
+function draw() {
+  svg.setAttribute('width', board.scrollWidth);
+  svg.setAttribute('height', board.scrollHeight);
+  svg.innerHTML = `<defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--edge)"/></marker>
+    <marker id="af" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--fail)"/></marker></defs>`;
+  const v = vertical();
+  let failIdx = 0;
+  for (const s of D.steps) {
+    const B = box(s.id);
+    for (const d of s.depends_on) {
+      const A = box(d);
+      let p;
+      if (v) { const k = (B.t - A.b) / 2; p = `M${A.cx},${A.b} C${A.cx},${A.b + k} ${B.cx},${B.t - k} ${B.cx},${B.t - 2}`; }
+      else   { const k = (B.l - A.r) / 2; p = `M${A.r},${A.cy} C${A.r + k},${A.cy} ${B.l - k},${B.cy} ${B.l - 2},${B.cy}`; }
+      add('e', p, 'ah', [d, s.id]);
+    }
+    if (s.on_fail) {
+      const A = box(s.on_fail);
+      const tEl = document.getElementById('c-' + s.on_fail);
+      const firstInLane = tEl === tEl.parentElement.firstElementChild;
+      const lastInLane = tEl === tEl.parentElement.lastElementChild;
+      let p, lx, ly;
+      if (v && !firstInLane && lastInLane) {
+        const x = Math.max(A.r, B.r) + 12 + 9 * (failIdx++ % 2);
+        p = `M${B.r},${B.cy} C${x},${B.cy} ${x},${A.cy} ${A.r + 2},${A.cy}`;
+      } else if (v) {
+        const x = Math.min(A.l, B.l) - 12 - 9 * (failIdx++ % 3);
+        p = `M${B.l},${B.cy} C${x},${B.cy} ${x},${A.cy} ${A.l - 2},${A.cy}`;
+      } else if (firstInLane) {
+        const y = Math.min(A.t, B.t) - 44;
+        p = `M${B.cx},${B.t} C${B.cx},${y} ${A.cx},${y} ${A.cx},${A.t - 2}`;
+        lx = (A.cx + B.cx) / 2; ly = y + 8;
+      } else {
+        const y = Math.max(A.b, B.b) + 44;
+        p = `M${B.cx},${B.b} C${B.cx},${y} ${A.cx},${y} ${A.cx},${A.b + 2}`;
+        lx = (A.cx + B.cx) / 2; ly = y - 2;
+      }
+      add('f', p, 'af', [s.id, s.on_fail]);
+      if (v) continue;
+      const t = document.createElementNS(NS, 'text');
+      t.setAttribute('class', 'fl'); t.setAttribute('x', lx); t.setAttribute('y', ly);
+      t.setAttribute('text-anchor', 'middle');
+      t.textContent = '미달 시';
+      t.dataset.ends = s.id + ',' + s.on_fail;
+      svg.appendChild(t);
+    }
+  }
+  apply();
+}
+function add(cls, d, marker, ends) {
+  const p = document.createElementNS(NS, 'path');
+  p.setAttribute('class', cls); p.setAttribute('d', d); p.setAttribute('marker-end', `url(#${marker})`);
+  p.dataset.ends = ends.join(',');
+  svg.appendChild(p);
+}
+
+// 강조 상태
+function apply() {
+  const hit = id => !focus || byId[id].goal_ref.includes(focus);
+  for (const s of D.steps) {
+    const c = document.getElementById('c-' + s.id);
+    c.classList.toggle('dim', !hit(s.id));
+    c.classList.toggle('sel', selected === s.id);
+  }
+  svg.querySelectorAll('[data-ends]').forEach(e => {
+    const [a, b] = e.dataset.ends.split(',');
+    e.classList.toggle('dimE', !(hit(a) && hit(b)));
+  });
+  legend.querySelectorAll('[data-ref]').forEach(b => b.classList.toggle('on', b.dataset.ref === focus));
+}
+
+// 패널
+const panel = $('#panel'), scrim = $('#scrim');
+function show(id, title, html) {
+  $('#pId').textContent = id; $('#pTitle').textContent = title; $('#pBody').innerHTML = html;
+  $('#pBody').scrollTop = 0;
+  panel.classList.add('open'); scrim.classList.add('open'); panel.setAttribute('aria-hidden', 'false');
+}
+function hide() {
+  panel.classList.remove('open'); scrim.classList.remove('open'); panel.setAttribute('aria-hidden', 'true');
+  selected = null; apply();
+}
+const link = id => `<a href="#" data-go="${esc(id)}">${esc(id)}</a>`;
+function openStep(id) {
+  const s = byId[id]; selected = id; apply();
+  const refs = s.goal_ref.map(r => `<span class="chip ${r[0]}" style="cursor:default">${esc(r)} ${esc(D.refs[r].text)}</span>`).join(' ');
+  const after = D.steps.filter(x => x.depends_on.includes(id)).map(x => link(x.id)).join(', ') || '—';
+  show(s.id, s.title, `
+    <dl class="meta">
+      <dt>통과 기준</dt><dd>${esc(s.exit)}</dd>
+      <dt>기여</dt><dd>${refs}</dd>
+      <dt>선행</dt><dd>${s.depends_on.map(link).join(', ') || '—'}</dd>
+      <dt>다음</dt><dd>${after}</dd>
+      <dt>미달 시</dt><dd>${s.on_fail ? link(s.on_fail) : '—'}</dd>
+      <dt>상태</dt><dd>구현 ${esc(s.status.impl)} · 설명 ${esc(s.status.explain)}</dd>
+    </dl>
+    <div class="src">원본 문서: <a href="${esc(s.file)}">${esc(s.file)}</a></div>
+    <div class="md">${s.body}</div>`);
+}
+$('#pBody').addEventListener('click', e => {
+  const a = e.target.closest('[data-go]');
+  if (a) { e.preventDefault(); openStep(a.dataset.go); document.getElementById('c-' + a.dataset.go).scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); }
+});
+$('#openProblem').onclick = () => {
+  const rows = Object.entries(D.refs).map(([k, v]) => {
+    const who = D.steps.filter(s => s.goal_ref.includes(k)).map(s => link(s.id)).join(', ') || '<span style="color:var(--bad)">없음 ⚠</span>';
+    return `<tr><td><b>${esc(k)}</b></td><td>${esc(v.text)}</td><td>${who}</td></tr>`;
+  }).join('');
+  show('problem.md', '문제 정의', `
+    <div class="md"><table><thead><tr><th>ID</th><th>내용</th><th>기여 Step</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="src">원본 문서: <a href="problem.md">problem.md</a></div>
+    <div class="md">${D.problem_body}</div>`);
+};
+$('#close').onclick = hide; scrim.onclick = hide;
+addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+
+let raf;
+const redraw = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); };
+addEventListener('resize', redraw);
+new ResizeObserver(redraw).observe(lanes);
+if (document.fonts) document.fonts.ready.then(redraw);
+draw();
+})();
+</script>
+</body>
+</html>
