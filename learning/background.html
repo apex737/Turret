@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turret 보완 교재</title>
+<style>
+:root {
+  --bg: #fbfaf7; --panel: #ffffff; --ink: #1f2328; --muted: #5f6670; --line: #d9dde3;
+  --accent: #2563eb; --accent-soft: #e8efff; --ok: #1a7f4b; --ok-soft: #e6f4ec;
+  --warn: #b45309; --warn-soft: #fdf1e2; --bad: #b42318; --bad-soft: #fdecea;
+  --plot-a: #2563eb; --plot-b: #d9480f; --plot-dot: #1f2328;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171a; --panel: #1d2024; --ink: #e6e8eb; --muted: #9aa3ad; --line: #343a41;
+    --accent: #7aa2ff; --accent-soft: #1e2a44; --ok: #5fd39a; --ok-soft: #173326;
+    --warn: #f5b25a; --warn-soft: #3a2c17; --bad: #ff8a80; --bad-soft: #3d1f1d;
+    --plot-a: #7aa2ff; --plot-b: #ff9b6a; --plot-dot: #e6e8eb;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171a; --panel: #1d2024; --ink: #e6e8eb; --muted: #9aa3ad; --line: #343a41;
+  --accent: #7aa2ff; --accent-soft: #1e2a44; --ok: #5fd39a; --ok-soft: #173326;
+  --warn: #f5b25a; --warn-soft: #3a2c17; --bad: #ff8a80; --bad-soft: #3d1f1d;
+  --plot-a: #7aa2ff; --plot-b: #ff9b6a; --plot-dot: #e6e8eb;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.7 "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 24px 16px 80px; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; }
+h2 { font-size: 1.3rem; margin: 0 0 12px; }
+h3 { font-size: 1.05rem; margin: 22px 0 8px; }
+p, li { max-width: 72ch; }
+code { font-family: ui-monospace, Consolas, monospace; font-size: .92em; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+.sub { color: var(--muted); margin: 0 0 20px; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 28px; }
+nav.toc a { text-decoration: none; color: var(--ink); border: 1px solid var(--line); background: var(--panel);
+  border-radius: 999px; padding: 3px 12px; font-size: .9rem; }
+nav.toc a:hover { border-color: var(--accent); }
+section.concept { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin: 0 0 28px; }
+.level { border-left: 4px solid var(--warn); background: var(--warn-soft); border-radius: 6px; padding: 10px 14px; margin: 0 0 16px; font-size: .95rem; }
+.level.bad { border-color: var(--bad); background: var(--bad-soft); }
+.level b { font-weight: 700; }
+.level .quote { display: block; color: var(--muted); font-style: italic; margin: 4px 0; }
+.redo { border: 1px dashed var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; margin: 18px 0 10px; }
+.redo .tag { font-weight: 700; color: var(--accent); }
+details { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 10px 0; }
+details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
+details[open] summary { margin-bottom: 6px; }
+.confirm { font-size: .95rem; color: var(--muted); margin-top: 8px; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: .95rem; }
+th, td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); }
+.tw { overflow-x: auto; }
+.formula { font-family: ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 8px 12px; margin: 8px 0; white-space: pre-wrap; }
+svg { display: block; width: 100%; height: auto; }
+.svg-label { fill: var(--muted); font-size: 12px; }
+.ctrl { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-size: .92rem; margin: 6px 0; }
+.ctrl input[type=range] { width: 180px; }
+.legend { font-size: .88rem; color: var(--muted); }
+.legend span { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin: 0 4px 0 10px; }
+.head-box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
+.ok { color: var(--ok); } .bad { color: var(--bad); }
+.theme-btn { float: right; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+<button class="theme-btn" id="themeBtn" type="button">테마</button>
+<h1>Turret 보완 교재</h1>
+<p class="sub">AI 작성 (Claude, 2026-10-22) · 범위: 0단계 ⚠ 확신 오류 + 트랙 A (Step9A·10을 막는 개념)</p>
+
+<div class="head-box">
+  <b>맞춘 수준 (전체)</b>
+  <ul>
+    <li><b>근거:</b> <code>learning/quiz.md</code> Q1~Q28의 내 답안과 2026-10-21 채점 (사용자 선택). 각 절 머리에 그 문항의 판정·맞은 것·빠진 것을 다시 적었다.</li>
+    <li><b>설명 순서:</b> <code>profile.md</code>의 설명 선호대로 그림·표 → (필요하면) 식 → (요청하면) 코드.</li>
+    <li><b>쓰는 법:</b> 절을 읽는다 → quiz.md의 해당 문항 <code>재답:</code>에 다시 푼다 → 그다음에 접힌 "채점 기준"을 펼쳐 맞춰 본다 → 마지막으로 Part 3의 확정 문항을 푼다. 같은 문항을 다시 맞힌 것은 Pass(1)이고, 확정 문항까지 맞혀야 ✅다.</li>
+    <li><b>수준이 안 맞으면:</b> 절마다 "너무 쉬움 / 맞음 / 어려움"을 quiz.md 그 문항의 <code>이의:</code> 줄이나 대화로 알려 준다. 그 말로 이 교재와 <code>profile.md</code>를 고친다.</li>
+  </ul>
+</div>
+
+<nav class="toc" aria-label="목차">
+  <a href="#s1">S1 접힘</a><a href="#f2">F2 지연↔위상</a><a href="#r6">R6 공유 변수</a><a href="#r3">R3 클럭</a><a href="#m1">M1 누수</a>
+  <a href="#i1">I1 공통 시간축</a><a href="#i2">I2 오래된 관측</a><a href="#r4">R4 마감</a><a href="#r5">R5 고장·복귀</a>
+</nav>
+
+<!-- ───────────────────────── S1 ───────────────────────── -->
+<section class="concept" id="s1">
+<h2>S1 · 샘플링과 앨리어싱 — 넘친 주파수는 "사라지지" 않고 둔갑한다</h2>
+<div class="level bad">
+  <b>맞춘 수준 — Q1 ❌⚠ (확신 상)</b>
+  <span class="quote">내 답: "후자는 구분할 수 없고, 전자는 구분 가능하다. fs ≥ 2·fmax여야 앨리어싱이 일어나지 않기 때문."</span>
+  맞은 것: 나이퀴스트 조건 · 빠진 것: 나이퀴스트를 넘는 성분이 샘플에서 <b>어떤 주파수와 똑같아지는지</b>.
+  출발점: 조건(fs ≥ 2f)은 안다 → 조건을 어겼을 때 실제로 무슨 일이 생기는지부터.
+</div>
+
+<h3>그림으로: 같은 점을 지나는 두 사인파</h3>
+<p>ADC는 일정한 간격으로 점만 찍는다. 점 사이에서 신호가 무엇을 했는지는 모른다. 아래에서 높은 주파수(파랑)와 낮은 주파수(주황)는 <b>점마다 값이 완전히 같다</b>. 점만 받은 쪽은 둘을 구분할 방법이 없고, 분석하면 항상 낮은 쪽(0 ~ fs/2 안의 것)으로 보인다.</p>
+<div class="ctrl">
+  <label>fs <input type="range" id="s1fs" min="4" max="20" step="1" value="10"> <b id="s1fsv">10</b> kHz</label>
+  <label>실제 f <input type="range" id="s1f" min="0.5" max="19.5" step="0.5" value="7"> <b id="s1fv">7</b> kHz</label>
+</div>
+<svg id="s1plot" viewBox="0 0 800 220" role="img" aria-label="샘플링 접힘 그림"></svg>
+<p class="legend"><span style="background:var(--plot-a)"></span>실제 신호 <span style="background:var(--plot-b)"></span>점만 보고 복원되는 신호 · ● 샘플 <b id="s1msg"></b></p>
+
+<h3>표로: fs = 10 kHz일 때 무엇으로 보이나</h3>
+<div class="tw"><table>
+<tr><th>실제 주파수</th><th>2 kHz</th><th>4 kHz</th><th>6 kHz</th><th>7 kHz</th><th>9 kHz</th><th>11 kHz</th><th>13 kHz</th></tr>
+<tr><td>샘플에서 보이는 주파수</td><td>2</td><td>4</td><td><b>4</b></td><td><b>3</b></td><td><b>1</b></td><td><b>1</b></td><td><b>3</b></td></tr>
+</table></div>
+<p>규칙: 보이는 주파수 = <b>실제 주파수에서 fs의 정수배를 빼거나 더해서 0 ~ fs/2 안에 들어오는 값</b>. fs/2를 거울로 접는 모양이라 "접힘"이라고 부른다.</p>
+<div class="formula">보이는 주파수 = | f − k·fs |   (k는 결과가 0 ~ fs/2 안에 들어오게 고른 정수)
+예: fs = 10 kHz, f = 7 kHz → |7 − 10| = 3 kHz</div>
+
+<h3>그래서 프로젝트는</h3>
+<ul>
+  <li>둔갑한 성분은 이미 대역 안의 진짜 성분과 섞여 있어서 <b>어떤 디지털 필터로도 골라낼 수 없다</b>. 그래서 "어느 주파수를 쓸 것인가"가 아니라 "ADC 핀에 실제로 들어오는 가장 높은 주파수"를 따진다.</li>
+  <li>마이크 앰프는 약 20 kHz까지 내보내므로 50 kHz로 잰다 (fs/2 = 25 kHz). 12.5 kHz로 줄일 때는 줄이기 <b>전에</b> FIR로 접힐 대역을 지운다 (Step4·5, D4-2).</li>
+</ul>
+
+<div class="redo"><span class="tag">다시 풀기 · Q1</span> 50 kHz로 샘플링한다. 18 kHz 사인파와 32 kHz 사인파를 각각 녹음하면 샘플 값만 보고 둘을 구분할 수 있는가? 이유는? → quiz.md Q1 <code>재답:</code></div>
+<details><summary>채점 기준 (다시 푼 뒤에 펼치기)</summary>
+나이퀴스트를 넘는 주파수는 사라지는 것이 아니라 다른 주파수로 둔갑한다. 32 kHz는 50 − 32 = 18 kHz와 샘플이 완전히 같다. 그래서 둘을 구분할 수 없다 (사인파라면 부호만 뒤집힌 같은 모양).
+</details>
+<p class="confirm">확정 문항: quiz.md Part 3 <b>Q29</b> (재답 뒤에)</p>
+</section>
+
+<!-- ───────────────────────── F2 ───────────────────────── -->
+<section class="concept" id="f2">
+<h2>F2 · 시간 지연 ↔ 위상 — 늦게 들으면 주파수마다 다른 각도만큼 돈다</h2>
+<div class="level bad">
+  <b>맞춘 수준 — Q6 ❌△⚠ (확신 상)</b>
+  <span class="quote">내 답: "(a) X1 * conj(X2)  (b) 2*pi*f*tau; 위상에 나타난다"</span>
+  맞은 것: 위상이 2πfτ 꼴이라는 것 · 빠진 것: X₂와 X₁의 <b>관계식</b> (교차 스펙트럼은 관계식이 아니라 우리가 계산하는 값), 위상이 f에 대해 <b>어떤 모양</b>이고 τ가 그 모양의 어디에 있는지.
+  출발점: 위상과 2πfτ는 안다 → 사인파 하나에서 시작해 식을 세운다.
+</div>
+
+<h3>사인파 하나로: τ초 늦음 = 몇 도 늦음</h3>
+<p>주파수 f인 사인파는 1초에 f바퀴 돈다. τ초 늦으면 f·τ바퀴, 각도로는 360°·f·τ만큼 뒤처진다. 같은 τ라도 <b>주파수가 높을수록 더 많이 뒤처진다</b>.</p>
+<div class="tw"><table>
+<tr><th>τ = 50 µs일 때</th><th>500 Hz</th><th>1 kHz</th><th>2 kHz</th><th>4 kHz</th></tr>
+<tr><td>뒤처진 바퀴 (f·τ)</td><td>0.025</td><td>0.05</td><td>0.1</td><td>0.2</td></tr>
+<tr><td>뒤처진 각도</td><td>−9°</td><td>−18°</td><td>−36°</td><td>−72°</td></tr>
+</table></div>
+<svg id="f2plot" viewBox="0 0 800 240" role="img" aria-label="주파수별 위상 차이 그래프"></svg>
+<p class="legend">점 = 각 주파수에서 잰 위상 차이 · 선 = 그 점들이 놓이는 직선</p>
+<p>점들은 <b>원점을 지나는 직선</b> 위에 있다. 기울기가 −2πτ (도 단위로는 −360°·τ)이므로, 기울기만 읽으면 τ가 나온다. GCC-PHAT은 이 직선의 기울기를 잡음 속에서 가장 잘 맞추는 방법이다.</p>
+
+<h3>식으로: 모든 주파수에 한꺼번에</h3>
+<div class="formula">사인파 하나:   cos(2πf·(t − τ)) = cos(2πf·t − 2πf·τ)     → 위상이 −2πfτ만큼 돈다
+모든 주파수:   X₂(f) = X₁(f) · e^(−j2πfτ)                   ← 관계식 (크기는 같고 위상만 회전)
+우리가 계산:   X₂(f) · X₁*(f) = |X₁(f)|² · e^(−j2πfτ)       ← 교차 스펙트럼. 크기는 버리고 위상만 보면 −2πfτ</div>
+<p>⚠ 고칠 점: <code>X1·conj(X2)</code>는 두 스펙트럼으로 <b>만드는 값</b>(교차 스펙트럼)이다. 둘 사이의 <b>관계식</b>은 위의 둘째 줄이다. 관계식이 있기 때문에 교차 스펙트럼의 위상이 −2πfτ라는 것이 나온다.</p>
+
+<div class="redo"><span class="tag">다시 풀기 · Q6</span> x₂(t) = x₁(t − τ)이다. (a) X₂(f)와 X₁(f)의 관계를 식으로 쓰라. (b) 교차 스펙트럼 X₂(f)·X₁*(f)의 위상은 f에 대해 어떤 모양인가? 그 모양에서 τ는 어디에 나타나나? → quiz.md Q6 <code>재답:</code></div>
+<details><summary>채점 기준 (다시 푼 뒤에 펼치기)</summary>
+(a) X₂(f) = X₁(f)·e^(−j2πfτ) (시간 이동 = 위상 회전). <br>(b) 위상은 f에 대한 직선(원점 통과)이고, 기울기가 −2πτ다.
+</details>
+<p class="confirm">확정 문항: quiz.md Part 3 <b>Q30</b></p>
+</section>
+
+<!-- ───────────────────────── R6 ───────────────────────── -->
+<section class="concept" id="r6">
+<h2>R6 · ISR과 main의 공유 변수 — 짝인 값은 한 번에 읽어야 한다</h2>
+<div class="level bad">
+  <b>맞춘 수준 — Q2(c) ❌⚠ (확신 상)</b> · 같은 문항 (a)(b) R1은 ✅
+  <span class="quote">내 답: "버퍼가 앞쪽인지 뒷쪽인지 알 수 없기 때문에, 어떤 버퍼를 TDoA에 넘기고 어떤 버퍼에 새 값을 쓸지 알 수 없다."</span>
+  맞은 것: (R1) DMA가 덮어쓴다는 감각 · 빠진 것: 문제는 "앞인지 뒤인지 모른다"가 아니라 <b>두 값을 따로 읽는 사이에 ISR이 끼어들 때</b> 생긴다.
+  출발점: 핑퐁 타이밍(R1)은 이미 맞혔다 → 그 위에 "두 변수의 짝"만 더한다.
+</div>
+
+<h3>비유: 시계를 시와 분으로 나눠 읽기</h3>
+<p>디지털 시계를 "시"를 먼저 읽고 잠깐 뒤에 "분"을 읽는다고 하자. 9:59에 시를 읽고(9), 그 사이 10:00이 되어 분을 읽으면(00) <b>9:00</b>이 된다. 각 숫자는 틀리지 않았는데 <b>서로 다른 순간의 값이 짝지어져</b> 한 시간이 틀렸다.</p>
+<svg viewBox="0 0 800 170" role="img" aria-label="두 변수를 따로 읽는 사이 ISR이 끼어드는 시간 흐름">
+  <line x1="40" y1="60" x2="760" y2="60" stroke="var(--line)" stroke-width="2"/>
+  <text x="40" y="40" class="svg-label">main</text>
+  <rect x="120" y="48" width="150" height="24" rx="4" fill="var(--accent-soft)" stroke="var(--accent)"/>
+  <text x="128" y="65" fill="var(--ink)" font-size="13">변수 A 읽기 (옛 값)</text>
+  <rect x="470" y="48" width="160" height="24" rx="4" fill="var(--accent-soft)" stroke="var(--accent)"/>
+  <text x="478" y="65" fill="var(--ink)" font-size="13">변수 B 읽기 (새 값)</text>
+  <line x1="40" y1="130" x2="760" y2="130" stroke="var(--line)" stroke-width="2"/>
+  <text x="40" y="155" class="svg-label">ISR</text>
+  <rect x="310" y="118" width="130" height="24" rx="4" fill="var(--warn-soft)" stroke="var(--warn)"/>
+  <text x="318" y="135" fill="var(--ink)" font-size="13">A와 B를 함께 갱신</text>
+  <line x1="375" y1="118" x2="375" y2="76" stroke="var(--warn)" stroke-dasharray="4 3"/>
+  <text x="250" y="100" fill="var(--warn)" font-size="13">← 여기서 끼어듦 → A는 옛것, B는 새것</text>
+</svg>
+
+<h3>프로젝트에서</h3>
+<div class="tw"><table>
+<tr><th>시계</th><th>adc.c</th></tr>
+<tr><td>시, 분</td><td><code>readyHalf</code>(어느 반버퍼), <code>readySeq</code>(그 프레임 번호) — ISR이 둘을 <b>함께</b> 바꾼다</td></tr>
+<tr><td>시를 읽고 분을 읽는 사이 분이 넘어감</td><td>main이 하나를 읽은 직후 다음 반버퍼 콜백(ISR)이 실행됨</td></tr>
+<tr><td>9:00 (한 시간 틀림)</td><td>?? — 다시 풀 때 직접 채운다: 어떤 짝이 생기고, PC에서는 어떻게 보일까</td></tr>
+<tr><td>시와 분을 한 번에 읽기</td><td><code>__disable_irq()</code> … <code>__enable_irq()</code> 사이에서 둘을 함께 꺼낸다 (임계 구역)</td></tr>
+</table></div>
+
+<div class="redo"><span class="tag">다시 풀기 · Q2(c)</span> <code>adc_get_frame</code>은 <code>readyHalf</code>와 <code>readySeq</code>를 인터럽트를 끈 상태에서 함께 읽는다. 인터럽트를 끄지 않고 하나씩 읽으면 어떤 잘못된 경우가 생길 수 있나? → quiz.md Q2 <code>재답:</code></div>
+<details><summary>채점 기준 (다시 푼 뒤에 펼치기)</summary>
+문제는 앞쪽이냐 뒤쪽이냐가 아니다. 두 변수를 따로 읽는 사이에 ISR이 끼어들면 <b>새 포인터 + 옛 번호</b>(또는 반대)처럼 서로 다른 프레임의 값이 짝지어진다. 데이터와 번호가 어긋나 시간축과 유실 판정이 틀린다.
+</details>
+<p class="confirm">확정 문항: quiz.md Part 3 <b>Q31</b></p>
+</section>
+
+<!-- ───────────────────────── R3 ───────────────────────── -->
+<section class="concept" id="r3">
+<h2>R3 · 클럭원과 정확도 — HSI는 칩 안의 RC 발진기다</h2>
+<div class="level bad">
+  <b>맞춘 수준 — Q15 ❌⚠</b>
+  <span class="quote">내 답: "HSI 자체가 소프트웨어 기반으로 동작하는 클럭이라서 오차가 큰 편이다. 방향각 오차를 만드는 건 당연하고 주파수 분석은 잘 모르겠음."</span>
+  맞은 것: 방향 오차가 생긴다는 것 · 빠진 것: HSI가 <b>무엇인지</b>(소프트웨어가 아님), 샘플이 <b>더 많이 온</b> 이유, 주파수 분석에 주는 영향.
+  출발점: 오차가 각도에 영향을 준다는 감은 있다 → 클럭이 무엇이고, 빨라지면 숫자가 어떻게 바뀌는지.
+</div>
+
+<h3>표로: 두 클럭원</h3>
+<div class="tw"><table>
+<tr><th></th><th>HSI (내부)</th><th>HSE (외부)</th></tr>
+<tr><td>정체</td><td>칩 안에 만든 <b>RC 발진기</b> — 저항과 커패시터로 만든 하드웨어 회로</td><td>칩 밖의 <b>수정 진동자</b> (이 보드는 ST-LINK가 주는 8 MHz)</td></tr>
+<tr><td>주파수를 정하는 것</td><td>R·C 값 → 공정 편차와 온도에 따라 변한다</td><td>수정 결정의 기계적 진동 → 매우 안정</td></tr>
+<tr><td>오차 크기</td><td><b>% 단위</b> (이 보드에서 +1.7%)</td><td><b>ppm 단위</b> (백만분의 몇)</td></tr>
+</table></div>
+
+<h3>빨라지면 무엇이 바뀌나 (예: 클럭이 2% 빠를 때)</h3>
+<p>ADC를 트리거하는 타이머가 2% 빨리 돈다 → 1초에 실제로 51,000개의 샘플이 찍힌다. 코드는 "1초에 50,000개"라고 믿는다.</p>
+<div class="tw"><table>
+<tr><th>무엇을</th><th>실제</th><th>코드가 믿는 값</th><th>결과</th></tr>
+<tr><td>PC 시계 100 s 녹음의 샘플 수</td><td>5,100,000개</td><td>÷ 50,000 = 102 s 분량</td><td>시간이 2% <b>길게</b> 계산됨</td></tr>
+<tr><td>1 kHz 소리의 한 주기</td><td>51샘플</td><td>51 ÷ 50,000 = 1.02 ms → 980 Hz</td><td>주파수가 2% <b>낮게</b> 보임</td></tr>
+<tr><td>지연 100 µs</td><td>5.1샘플</td><td>5.1 ÷ 50,000 = 102 µs</td><td>지연이 2% <b>크게</b> → 각도가 틀어짐</td></tr>
+</table></div>
+<p>모든 오차가 같은 비율에서 나온다: <b>샘플 수 ÷ (믿는 fs)</b>로 시간을 계산하기 때문이다. 해결은 계산을 고치는 것이 아니라 클럭원을 정확한 것으로 바꾸는 것이다 (D5-1, HSE BYPASS).</p>
+
+<div class="redo"><span class="tag">다시 풀기 · Q15</span> HSI 때문에 실제 샘플레이트가 50.86 kHz(+1.7%)였다. (a) PC 시계로 600초 녹음했는데 샘플 수로는 610초 분량이 왔다. 왜인가? (b) 이 오차가 방향 각도와 주파수 분석에 각각 어떤 영향을 주나? → quiz.md Q15 <code>재답:</code></div>
+<details><summary>채점 기준 (다시 푼 뒤에 펼치기)</summary>
+HSI는 소프트웨어가 아니라 칩 안의 RC 발진기(하드웨어)다. 공정 편차와 온도로 수 % 틀어진다. 초당 샘플이 더 많아서 50 kHz로 환산하면 시간이 길어진다. 각도 환산(지연)과 주파수 축이 모두 1.7% 틀어진다. HSE는 외부 수정(또는 ST-LINK의 정확한 클럭)이라 오차가 ppm 수준이다.
+</details>
+<p class="confirm">확정 문항: quiz.md Part 3 <b>Q32</b></p>
+</section>
+
+<!-- ───────────────────────── M1 ───────────────────────── -->
+<section class="concept" id="m1">
+<h2>M1 · 데이터 누수와 그룹 split — 같은 소리가 양쪽에 들어가면 성적이 부풀려진다</h2>
+<div class="level bad">
+  <b>맞춘 수준 — Q16 ❌⚠ (확신 중)</b>
+  <span class="quote">내 답: "(a) 데이터셋 내에 드론 종류가 너무 적어서 일반화 성능이 떨어짐; (b) 모름"</span>
+  빠진 것: 마이크 단위 split의 진짜 문제는 다양성이 아니라 <b>누수</b>, 기체 fold가 <b>재는 것</b>.
+  출발점: 지름길 학습(M2)은 ✅ — "모델이 엉뚱한 단서로 맞힐 수 있다"는 감은 있다. 누수는 그 단서가 <b>시험지 안에</b> 있는 경우다.
+</div>
+
+<h3>두 문제는 다르다</h3>
+<div class="tw"><table>
+<tr><th></th><th>다양성 부족</th><th>누수</th></tr>
+<tr><td>무엇이 문제</td><td>학습 데이터가 세상을 덜 닮음</td><td>시험 데이터가 학습 데이터를 닮음 (같은 소리가 양쪽에)</td></tr>
+<tr><td>시험 성적</td><td>정직하게 낮게 나온다</td><td><b>실제보다 높게</b> 나온다 — 그래서 더 위험하다</td></tr>
+<tr><td>비유</td><td>연습문제가 적다</td><td>시험 문제를 연습문제에서 그대로 냈다</td></tr>
+</table></div>
+
+<h3>그림으로: 무엇을 단위로 나누나</h3>
+<svg viewBox="0 0 800 210" role="img" aria-label="창 단위 split과 사건 단위 split 비교">
+  <text x="20" y="22" class="svg-label">비행 하나(사건) = 같은 순간을 여러 마이크가 녹음 → 1 s 창으로 자름</text>
+  <g id="m1grid"></g>
+  <text x="20" y="200" class="svg-label">파랑 = 학습, 주황 = 시험. 왼쪽: 창을 무작위로 나눔 · 오른쪽: 사건 통째로 나눔</text>
+</svg>
+<p>왼쪽처럼 창을 무작위로 나누면 <b>같은 순간·같은 비행</b>의 거의 같은 창이 학습과 시험에 동시에 들어간다. 모델은 "이 비행의 이 소리"를 외워서 시험을 맞힌다. 오른쪽처럼 사건(비행) 단위로 먼저 나누고 창을 잘라야 시험이 "처음 듣는 소리"가 된다 (Step6 규칙).</p>
+<p>한 단계 더: 기체 하나를 통째로 시험에 빼 두면, 시험은 "처음 듣는 <b>기체</b>"가 된다. 이것은 누수를 막는 것을 넘어서 무엇을 재는 걸까? — 다시 풀 때 (b)로 답한다.</p>
+
+<div class="redo"><span class="tag">다시 풀기 · Q16</span> Salford 데이터는 같은 비행 하나를 마이크 9개가 동시에 녹음했다. (a) 마이크(파일) 단위로 무작위 train/test를 나누면 무엇이 잘못되나? (b) 왜 "기체 하나씩 빼는" fold를 쓰나? 이것이 재는 것은? → quiz.md Q16 <code>재답:</code></div>
+<details><summary>채점 기준 (다시 푼 뒤에 펼치기)</summary>
+(a) 마이크 단위 split의 문제는 다양성이 아니라 누수다. 같은 비행의 같은 소리가 학습과 시험에 동시에 들어가 성적이 부풀려진다. <br>(b) 기체 fold는 처음 보는 기체에 대한 일반화를 잰다.
+</details>
+<p class="confirm">확정 문항: quiz.md Part 3 <b>Q33</b></p>
+</section>
+
+<!-- ───────────────────────── I1 ───────────────────────── -->
+<section class="concept" id="i1">
+<h2>I1 · 공통 시간축 — 모두가 믿을 수 있는 시계는 ADC 샘플 번호뿐</h2>
+<div class="level bad">
+  <b>맞춘 수준 — Q25 ❌ (모름)</b>
+  빠진 것: PC가 받은 시각에 무엇이 섞이는지, 공통 시계가 왜 샘플 번호뿐인지.
+  출발점: R2 처리량(✅)과 R1 핑퐁(✅)은 안다 → 데이터가 MCU에서 PC로 가는 동안 생기는 <b>지연</b>을 따라간다.
+</div>
+
+<h3>그림으로: 같은 소리, 다른 도착 시각</h3>
+<svg viewBox="0 0 800 230" role="img" aria-label="샘플 번호 축과 PC 도착 시각 축">
+  <line x1="60" y1="60" x2="760" y2="60" stroke="var(--ink)" stroke-width="1.5"/>
+  <text x="60" y="40" class="svg-label">소리가 난 시각 = ADC 샘플 번호 ÷ 12,500 (s)</text>
+  <g font-size="12" fill="var(--muted)">
+    <text x="55" y="80">0</text><text x="225" y="80">1 s</text><text x="395" y="80">2 s</text><text x="565" y="80">3 s</text><text x="730" y="80">4 s</text>
+  </g>
+  <rect x="400" y="50" width="85" height="20" fill="var(--plot-a)" opacity=".35"/><text x="402" y="47" font-size="12" fill="var(--plot-a)">방향 창 2.0~2.5 s</text>
+  <rect x="315" y="50" width="170" height="20" fill="var(--plot-b)" opacity=".25"/>
+  <line x1="60" y1="170" x2="760" y2="170" stroke="var(--ink)" stroke-width="1.5"/>
+  <text x="60" y="150" class="svg-label">PC가 결과를 받은 시각</text>
+  <line x1="485" y1="70" x2="500" y2="160" stroke="var(--plot-a)" stroke-dasharray="4 3"/>
+  <circle cx="500" cy="170" r="5" fill="var(--plot-a)"/><text x="470" y="195" font-size="12" fill="var(--plot-a)">방향: UART 몇 ms</text>
+  <line x1="485" y1="70" x2="640" y2="160" stroke="var(--plot-b)" stroke-dasharray="4 3"/>
+  <circle cx="640" cy="170" r="5" fill="var(--plot-b)"/><text x="600" y="195" font-size="12" fill="var(--plot-b)">분류: 전송 + 대기 + 추론 (매번 다름)</text>
+  <text x="318" y="47" font-size="12" fill="var(--plot-b)">분류 창 1.5~2.5 s</text>
+</svg>
+<p>위 축은 소리가 실제로 난 시각이고, ADC 샘플 번호로 정확히 알 수 있다 (12.5 kHz면 번호 ÷ 12,500 = 초). 아래 축은 PC에 결과가 <b>도착한</b> 시각이다. 두 결과는 같은 소리(2.0~2.5 s)를 봤는데도 도착 시각이 다르고, 그 차이는 매번 흔들린다.</p>
+
+<h3>표로: 도착 시각에 섞이는 것</h3>
+<div class="tw"><table>
+<tr><th>구간</th><th>방향 (MCU 계산)</th><th>분류 (PC 계산)</th></tr>
+<tr><td>창이 다 찰 때까지</td><td>0.5 s 창</td><td>1 s 창</td></tr>
+<tr><td>계산</td><td>MCU 창 마무리 수 ms</td><td>PC 추론 — OS가 다른 일을 하면 늦어짐</td></tr>
+<tr><td>전송·대기</td><td>UART 큐</td><td>UART 큐 + PC 수신 버퍼 + 파이썬 처리 순서</td></tr>
+</table></div>
+<p>방법: 결과마다 "어느 샘플부터 어느 샘플까지를 봤는지"(방향 패킷의 <code>s0</code>, 분류 창의 시작·끝 샘플)를 붙이고, <b>그 구간이 겹치는 것끼리</b> 짝짓는다. 예: <code>s0</code> = 25,000이면 25,000 ÷ 12,500 = 2.0 s부터 0.5 s 동안이다.</p>
+
+<div class="redo"><span class="tag">다시 풀기 · Q25</span> 분류(PC)는 1초 창 / 0.5초 이동이고 PC에서 지연이 생긴다. 방향(MCU)은 0.5초 창 / 0.25초 이동이다. 둘을 "같은 시각"끼리 묶을 때 PC가 받은 시각이 아니라 ADC 샘플 번호를 쓰는 이유는? → quiz.md Q25 <code>재답:</code></div>
+<details><summary>채점 기준 (다시 푼 뒤에 펼치기)</summary>
+공통 시계는 ADC 샘플 번호뿐이다. PC 수신 시각에는 UART, OS, 추론 지연과 흔들림이 섞인다.
+</details>
+<p class="confirm">확정 문항: quiz.md Part 3 <b>Q34</b></p>
+</section>
+
+<!-- ───────────────────────── I2 ───────────────────────── -->
+<section class="concept" id="i2">
+<h2>I2 · 오래된 관측과 상태 기계 — 관측에는 값·구간·유효가 함께 붙어 다닌다</h2>
+<div class="level bad">
+  <b>맞춘 수준 — Q26 ❌ (모름)</b>
+  빠진 것: "최근 판정 + 최근 방위"를 그냥 붙일 때 생기는 문제와 그것을 막는 규칙.
+  출발점: I1(구간으로 짝짓기)을 방금 읽었다 → 그 위에 "얼마나 오래됐나", "믿을 만한가"를 더한다.
+</div>
+
+<h3>관측 하나가 들고 다녀야 하는 세 가지</h3>
+<div class="tw"><table>
+<tr><th>속성</th><th>분류 결과</th><th>방향 결과</th><th>없으면</th></tr>
+<tr><td><b>값</b></td><td>드론 / 아님</td><td>θ°</td><td>—</td></tr>
+<tr><td><b>구간</b> (샘플 번호)</td><td>창 시작~끝</td><td><code>s0</code> ~ +0.5 s</td><td>서로 다른 순간의 값끼리 붙는다</td></tr>
+<tr><td><b>유효</b></td><td>점수·지속 확인</td><td>VALID 플래그 (peak·닫힘·norm)</td><td>믿을 수 없는 값을 쓴다</td></tr>
+</table></div>
+<p>여기에 "지금"과 구간의 거리, 즉 <b>나이</b>가 따라온다. 결합 규칙은 이 셋과 나이를 보고 0.25 s마다 셋 중 하나를 낸다.</p>
+
+<svg viewBox="0 0 800 200" role="img" aria-label="결합 출력의 세 상태">
+  <g font-size="14" fill="var(--ink)">
+    <rect x="40" y="70" width="150" height="56" rx="10" fill="var(--panel)" stroke="var(--line)"/><text x="88" y="103">없음</text>
+    <rect x="325" y="70" width="150" height="56" rx="10" fill="var(--ok-soft)" stroke="var(--ok)"/><text x="365" y="103">드론, θ°</text>
+    <rect x="610" y="70" width="150" height="56" rx="10" fill="var(--warn-soft)" stroke="var(--warn)"/><text x="648" y="103">판단 불가</text>
+  </g>
+  <g font-size="12" fill="var(--muted)">
+    <text x="210" y="62">드론 판정 + 방향 유효</text><text x="230" y="78">+ 구간 겹침 + 나이 OK</text>
+    <text x="470" y="150">어느 하나라도 빠지면</text>
+    <text x="40" y="160">드론 아님 (유효한 판정)</text>
+  </g>
+  <line x1="190" y1="98" x2="322" y2="98" stroke="var(--muted)" marker-end="url(#arr)"/>
+  <line x1="475" y1="98" x2="607" y2="98" stroke="var(--muted)" marker-end="url(#arr)"/>
+  <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--muted)"/></marker></defs>
+</svg>
+
+<h3>예 하나: 방향이 무효일 때</h3>
+<p>분류는 "드론"(구간 4.0~5.0 s, 방금 도착), 방향은 4.5~5.0 s 창인데 VALID가 꺼져 있다(피크가 낮음). 값과 구간은 맞지만 <b>유효</b>가 빠졌다 → 출력은 "판단 불가". 직전에 유효했던 θ를 대신 쓰면, 그 θ는 다른 순간의 다른 소리일 수 있다.</p>
+<p>그냥 붙이면 생기는 문제는 이것 말고도 있다. 표의 세 속성과 "나이"를 하나씩 빼 보며 다시 풀 때 두 가지 이상 찾는다.</p>
+
+<div class="redo"><span class="tag">다시 풀기 · Q26</span> "가장 최근 판정 + 가장 최근 방위"를 그냥 붙여 카메라를 돌리면 생기는 문제를 두 가지 이상 들어라. 각각 어떤 규칙으로 막을 수 있나? → quiz.md Q26 <code>재답:</code></div>
+<details><summary>채점 기준 (다시 푼 뒤에 펼치기)</summary>
+지난 판정 + 지금 다른 소리의 방향이 붙는다, 무효 방위를 쓴다, PC가 멈춰도 판정이 남는다. 대책은 구간 겹침 확인, 나이 한도(유효기간), 무효면 "판단 불가".
+</details>
+<p class="confirm">확정 문항: quiz.md Part 3 <b>Q35</b></p>
+</section>
+
+<!-- ───────────────────────── R4 ───────────────────────── -->
+<section class="concept" id="r4">
+<h2>R4 · 실시간 마감과 최악 시간 — 평균이 아니라 가장 느린 프레임이 판정한다</h2>
+<div class="level bad">
+  <b>맞춘 수준 — Q27 ❌ (모름)</b>
+  빠진 것: 평균이 아니라 무엇으로 판정하는지, 마감을 넘긴 프레임에서 생기는 일, 큐 누적을 확인하는 법.
+  출발점: <span class="ok">Q2(b) ✅</span> — "처리에 25 ms가 걸리면 덮어쓴다"를 이미 맞혔다. 그것이 바로 마감이다.
+</div>
+
+<h3>그림으로: 프레임마다의 처리 시간 (가상의 예)</h3>
+<svg id="r4plot" viewBox="0 0 800 240" role="img" aria-label="프레임별 처리 시간과 마감선"></svg>
+<p class="legend">막대 = 프레임마다 걸린 처리 시간 · 빨간 선 = 마감 20.48 ms (다음 반버퍼가 찰 때까지)</p>
+<p>이 예에서 평균은 약 7.4 ms(36%)로 넉넉해 보인다. 하지만 12번째 프레임은 23 ms가 걸렸다. Q2(b)에서 맞힌 대로, 그 프레임을 처리하는 동안 다음 반버퍼가 이미 차고 DMA가 그다음 것을 쓰기 시작한다. <b>평균은 이 한 번을 숨긴다.</b> 마감은 "평균적으로"가 아니라 "매 프레임" 지켜야 한다.</p>
+
+<h3>표로: 무엇을 재나</h3>
+<div class="tw"><table>
+<tr><th>재는 것</th><th>왜</th><th>이 프로젝트에서</th></tr>
+<tr><td>프레임별 <b>최대</b> 처리 시간</td><td>마감은 가장 느린 한 번이 깬다</td><td>PCM 패킷의 <code>cpu</code>, DOA 패킷의 <code>proc_us</code> (DWT)</td></tr>
+<tr><td>드물게 겹치는 일</td><td>창 끝 + 배경 학습처럼 무거운 일이 같은 프레임에 겹치면 최악이 된다</td><td>장시간(30분) 기록해야 겹치는 순간이 잡힌다</td></tr>
+<tr><td>큐 깊이 · 버린 수</td><td>송신이 생산보다 조금씩 느리면 큐가 서서히 찬다</td><td>송신 큐 4칸, <code>qdrop</code>, <code>drop</code> 카운터</td></tr>
+</table></div>
+<p>큐는 물통과 같다. 들어오는 양(초당 패킷)이 나가는 양(UART)보다 평균적으로 작아도, 잠깐씩 넘치면 물이 쌓인다. 쌓인 것이 다시 빠지는지는 <b>최대 깊이와 버린 수를 오래 기록</b>해야 안다.</p>
+
+<div class="redo"><span class="tag">다시 풀기 · Q27</span> 방향 처리의 CPU 평균은 34%, 창이 끝나는 프레임은 48%, 개선 전에는 배경 학습과 겹치는 프레임에서 107%까지 갔다. (a) 평균이 낮아도 통과로 볼 수 없는 이유는? 107% 프레임에서는 무슨 일이 생기나? (b) 송신 큐(4칸)가 "누적되지 않는다"는 것은 어떻게 확인하나? → quiz.md Q27 <code>재답:</code></div>
+<details><summary>채점 기준 (다시 푼 뒤에 펼치기)</summary>
+마감은 매 프레임 지켜야 한다. 107%면 다음 반버퍼를 제때 못 가져가 유실된다. 큐 깊이, qdrop, 최대 처리 시간을 장시간 기록해 확인한다.
+</details>
+<p class="confirm">확정 문항: quiz.md Part 3 <b>Q36</b></p>
+</section>
+
+<!-- ───────────────────────── R5 ───────────────────────── -->
+<section class="concept" id="r5">
+<h2>R5 · 고장 감지·무효화·복귀 — 고장 경로는 일부러 밟아 봐야 한다</h2>
+<div class="level bad">
+  <b>맞춘 수준 — Q28 ❌ (모름)</b>
+  빠진 것: 정상 운용 시험만으로 부족한 이유, 고장 때 해야 할 일의 순서.
+  출발점: R6·R4를 읽었다 → "평소에는 안 일어나는 일"을 다루는 코드로 넘어간다.
+</div>
+
+<h3>비유: 화재경보기</h3>
+<p>불이 나지 않은 1년 동안 경보기는 한 번도 울리지 않는다. 그 1년은 "경보기가 고장 났는지"에 대해 아무것도 알려 주지 않는다. 그래서 시험 버튼을 누르고 소방훈련을 한다.</p>
+
+<h3>프로젝트의 고장 경로</h3>
+<div class="tw"><table>
+<tr><th>고장</th><th>감지하는 것</th><th>그 뒤 처리 (코드)</th></tr>
+<tr><td>ADC 프레임 유실·overrun</td><td>프레임 번호가 건너뜀, OVR 카운터</td><td>FIR 상태 0 + <code>RESYNC</code>·<code>GAP</code>, 방향 창 버림 (<code>app.c</code> <code>on_stream_frame</code>, <code>doa.c</code>)</td></tr>
+<tr><td>송신 큐 넘침</td><td><code>qdrop</code>, 빈 <code>seq</code></td><td><code>GAP</code>만 (MCU 입력은 연속)</td></tr>
+<tr><td>전송 중 깨짐</td><td>CRC 불일치</td><td>PC가 패킷을 버리고 다음 sync부터 재동기</td></tr>
+</table></div>
+<p>정상 10분 녹음에서 위 표의 오른쪽 칸 코드는 <b>한 번도 실행되지 않았다</b> (유실 0이었으니까). 그 코드가 맞는지는 아직 아무도 모른다.</p>
+<p>고장 처리의 일반적인 흐름은 네 단계다. 감지 → ? → ? → 복귀. 가운데 두 단계는 위 표와 I2(판단 불가)를 보고 다시 풀 때 채운다.</p>
+
+<div class="redo"><span class="tag">다시 풀기 · Q28</span> Step10은 정상 30분 운용과 별도로 "통신 단절, CRC 오류, 클리핑을 일부러 넣는" 시험을 요구한다. (a) 정상 운용 시험만으로는 왜 부족한가? (b) 고장이 났을 때 시스템이 해야 하는 일을 순서대로 쓰라. → quiz.md Q28 <code>재답:</code></div>
+<details><summary>채점 기준 (다시 푼 뒤에 펼치기)</summary>
+고장 경로는 정상 운용에서 실행되지 않는다. 감지 → 관측 무효화 → 안전 상태(판단 불가) → 정상 창 확보 후 복귀.
+</details>
+<p class="confirm">확정 문항: quiz.md Part 3 <b>Q37</b></p>
+</section>
+
+<p class="sub">이 교재의 범위 밖 개념(트랙 B)은 <code>learning/concepts.md</code> 4절 순서대로, 같은 절차(수준 확인 → 절 추가)로 이어 붙인다.</p>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function txt(x, y, s, parent, cls) {
+    var t = el("text", { x: x, y: y, "font-size": 12, fill: "var(--muted)" }, parent);
+    t.textContent = s; return t;
+  }
+
+  // 테마 전환
+  try {
+    var saved = localStorage.getItem("bg-theme");
+    if (saved) document.documentElement.setAttribute("data-theme", saved);
+  } catch (e) {}
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme");
+    var dark = cur ? cur === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var next = dark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("bg-theme", next); } catch (e) {}
+  });
+
+  // S1: 접힘 그림
+  var s1 = document.getElementById("s1plot");
+  var fsIn = document.getElementById("s1fs"), fIn = document.getElementById("s1f");
+  function alias(f, fs) {
+    var r = ((f % fs) + fs) % fs;
+    return r > fs / 2 ? fs - r : r;
+  }
+  function drawS1() {
+    var fs = +fsIn.value, f = +fIn.value;
+    document.getElementById("s1fsv").textContent = fs;
+    document.getElementById("s1fv").textContent = f;
+    while (s1.firstChild) s1.removeChild(s1.firstChild);
+    var W = 800, H = 220, x0 = 30, x1 = 780, y0 = 110, A = 80;
+    var nS = 12, T = nS / fs;               // ms 단위 (kHz × ms = 사이클)
+    function X(t) { return x0 + (x1 - x0) * t / T; }
+    el("line", { x1: x0, y1: y0, x2: x1, y2: y0, stroke: "var(--line)" }, s1);
+    var fa = alias(f, fs);
+    var sign = 1;                            // cos는 접혀도 같은 모양
+    function path(freq, color, w, dash) {
+      var d = "";
+      for (var i = 0; i <= 600; i++) {
+        var t = T * i / 600, y = y0 - A * Math.cos(2 * Math.PI * freq * t) * sign;
+        d += (i ? "L" : "M") + X(t).toFixed(1) + "," + y.toFixed(1);
+      }
+      var p = el("path", { d: d, fill: "none", stroke: color, "stroke-width": w }, s1);
+      if (dash) p.setAttribute("stroke-dasharray", dash);
+    }
+    path(f, "var(--plot-a)", 1.4);
+    path(fa, "var(--plot-b)", 2.6, f === fa ? "6 4" : null);
+    for (var n = 0; n <= nS; n++) {
+      var t = n / fs;
+      el("circle", { cx: X(t), cy: y0 - A * Math.cos(2 * Math.PI * f * t), r: 4.5, fill: "var(--plot-dot)" }, s1);
+    }
+    txt(x0, 18, "가로: " + T.toFixed(2) + " ms (샘플 " + nS + "개)", s1);
+    var msg = document.getElementById("s1msg");
+    if (f <= fs / 2) msg.textContent = " → " + f + " kHz ≤ fs/2 = " + fs / 2 + " kHz: 그대로 보인다";
+    else msg.textContent = " → " + f + " kHz > fs/2 = " + fs / 2 + " kHz: " + fa + " kHz로 둔갑";
+  }
+  fsIn.addEventListener("input", drawS1); fIn.addEventListener("input", drawS1); drawS1();
+
+  // F2: 위상 직선 (τ = 50 µs)
+  var f2 = document.getElementById("f2plot");
+  (function () {
+    var x0 = 70, x1 = 770, y0 = 30, y1 = 200;   // 0 ~ 4 kHz, 0 ~ −80°
+    function X(f) { return x0 + (x1 - x0) * f / 4000; }
+    function Y(deg) { return y0 + (y1 - y0) * (-deg) / 80; }
+    el("line", { x1: x0, y1: y0, x2: x1, y2: y0, stroke: "var(--line)" }, f2);
+    el("line", { x1: x0, y1: y0, x2: x0, y2: y1, stroke: "var(--line)" }, f2);
+    for (var g = 0; g <= 4000; g += 1000) { txt(X(g) - 10, y0 - 8, (g / 1000) + " kHz", f2); }
+    [0, -20, -40, -60, -80].forEach(function (d) { txt(x0 - 44, Y(d) + 4, d + "°", f2); });
+    var tau = 50e-6;
+    el("line", { x1: X(0), y1: Y(0), x2: X(4000), y2: Y(-360 * 4000 * tau), stroke: "var(--plot-a)", "stroke-width": 2 }, f2);
+    [500, 1000, 2000, 4000].forEach(function (f) {
+      var d = -360 * f * tau;
+      el("circle", { cx: X(f), cy: Y(d), r: 5, fill: "var(--plot-b)" }, f2);
+      txt(X(f) + 8, Y(d) - 6, d + "°", f2);
+    });
+    txt(X(2300), Y(-55), "기울기 = −360°·τ  (τ = 50 µs)", f2);
+  })();
+
+  // M1: split 그림
+  var g = document.getElementById("m1grid");
+  (function () {
+    var rows = 3, cols = 6, cw = 26, ch = 22;
+    function grid(ox, label, colorOf) {
+      for (var e = 0; e < 2; e++) {
+        var oy = 40 + e * 76;
+        txt(ox, oy - 4, label + " 비행 " + (e + 1), g);
+        for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+          el("rect", { x: ox + c * (cw + 3), y: oy + r * (ch / 1.6 + 3) + 2, width: cw, height: ch / 1.6,
+            rx: 2, fill: colorOf(e, r, c), opacity: .85 }, g);
+        }
+      }
+    }
+    var rnd = [1,0,0,1,0,0,0,1,0,0,0,1,1,0,0,0,1,0, 0,0,1,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0];
+    grid(20, "창 무작위:", function (e, r, c) { return rnd[e * 18 + r * 6 + c] ? "var(--plot-b)" : "var(--plot-a)"; });
+    grid(430, "사건 단위:", function (e) { return e === 1 ? "var(--plot-b)" : "var(--plot-a)"; });
+    txt(20 + 6 * 29 + 8, 60, "← 같은 순간(세로)의 창이", g);
+    txt(20 + 6 * 29 + 8, 76, "   학습·시험에 갈라짐", g);
+  })();
+
+  // R4: 프레임별 처리 시간
+  var r4 = document.getElementById("r4plot");
+  (function () {
+    var t = [6,6,6,6,6,6,6,6,6,6,6,23,6,6,6,6,6,6,6,6,6,6,6,23];
+    var x0 = 60, x1 = 780, y0 = 210, top = 20, max = 26;
+    function Y(ms) { return y0 - (y0 - top) * ms / max; }
+    var bw = (x1 - x0) / t.length;
+    t.forEach(function (ms, i) {
+      el("rect", { x: x0 + i * bw + 2, y: Y(ms), width: bw - 4, height: y0 - Y(ms),
+        fill: ms > 20.48 ? "var(--bad)" : "var(--plot-a)", opacity: .8 }, r4);
+    });
+    el("line", { x1: x0, y1: Y(20.48), x2: x1, y2: Y(20.48), stroke: "var(--bad)", "stroke-width": 2, "stroke-dasharray": "6 4" }, r4);
+    txt(x0, Y(20.48) - 6, "마감 20.48 ms", r4);
+    var avg = t.reduce(function (a, b) { return a + b; }, 0) / t.length;
+    el("line", { x1: x0, y1: Y(avg), x2: x1, y2: Y(avg), stroke: "var(--ok)", "stroke-width": 1.5 }, r4);
+    txt(x1 - 150, Y(avg) - 6, "평균 " + avg.toFixed(1) + " ms", r4);
+    el("line", { x1: x0, y1: y0, x2: x1, y2: y0, stroke: "var(--line)" }, r4);
+    txt(x0, y0 + 20, "프레임 →", r4);
+  })();
+})();
+</script>
+</body>
+</html>

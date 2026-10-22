@@ -86,15 +86,16 @@
 
 ## 4. 보완 순서
 
-트랙 A(다음 작업 Step9A·10을 막는 개념)와 트랙 B(Step3~8의 기초)를 나란히 간다. 문항별 채점과 고칠 점은 [quiz.md](quiz.md) 끝의 채점 절.
+트랙 A(다음 작업 Step9A·10을 막는 개념)와 트랙 B(Step3~8의 기초)를 나란히 간다. 문항별 판정은 [quiz.md](quiz.md)의 각 답안 밑, 정답과 설명은 [background.html](background.html) (0단계·트랙 A). 순서: 교재 절 읽기 → quiz.md `재답:` → 접힌 채점 기준 확인 → Part 3 확정 문항 (Q29~Q37).
 
 ### 0단계 — ⚠ 확신 오류부터 (30분)
-Q1 S1, Q2c R6, Q6a F2, Q15 R3, Q16 M1. 고칠 점 한 줄씩은 quiz.md 채점 절에 있다. 해당 문항을 다시 푼다.
+Q1 S1, Q2c R6, Q6a F2, Q15 R3, Q16 M1 → [background.html](background.html) `#s1` `#r6` `#f2` `#r3` `#m1` 절. 다시 푼 뒤 확정 문항 Q29~Q33.
 
 ### 트랙 A — Step9A·10용 (반나절)
 
 | 순서 | 개념 | 볼 곳 | 다시 풀 문항 |
 |---|---|---|---|
+| A0 | (교재) | [background.html](background.html) `#i1` `#i2` `#r6` `#r4` `#r5` 절 — 아래 저장소 위치는 더 깊이 볼 때 | 확정 Q34~Q37 |
 | A1 | I1 공통 시간축 | [docs/protocol.md](../docs/protocol.md) v3 "시간축", [Step9A](../Steps/Step9A.md) | Q25 |
 | A2 | I2 오래된 관측, 상태 | [Step9A](../Steps/Step9A.md) "최종 목표와의 연결" 세 가지 | Q26 |
 | A3 | R6 공유 변수 | [adc.c](../Core/app/src/adc.c) `adc_get_frame`, [docs/firmware.md](../docs/firmware.md) STREAM 코드 블록 표 | Q2c |
