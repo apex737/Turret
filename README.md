@@ -13,11 +13,11 @@ Turret/
 ├─ problem.md         전역 목표(G)·우선순위(P)·불변조건(I). 1페이지. 세션 시작 시 가장 먼저 읽는다
 ├─ decisions.md       결정 로그. 결정마다 4문 레코드 (4절)
 ├─ flow.html          Step 흐름도. 생성물이므로 직접 고치지 않는다 (5절)
-├─ migration.md       2026-10-22 구조 개편 때 이전 문서의 각 절이 어디로 갔는지 (1회성 기록)
 │
 ├─ Steps/             Step마다 파일 하나 = 관문 기록 (질문과 답, 기준, 결과, 할 일)
 │  ├─ Step1.md … Step4.md, Step5pre.md, Step5.md … Step8.md, Step9A.md, Step10.md, Step9B.md, Step11.md
 │  └─ logs/           반복 실험의 경과. 필요한 Step만 (예: logs/Step8.md)
+│                     (Step 파일의 "이전 판 N절"은 `FPV_Target` 브랜치의 원본 Step 문서를 가리킨다)
 │
 ├─ docs/              코드와 함께 바뀌는 것
 │  ├─ interfaces.html MCU ↔ PC 경계의 약속: 패킷 형식(바이트 배치)·의미(스케일·시간축·플래그)·규칙(파서·끊김), 같이 고칠 짝
