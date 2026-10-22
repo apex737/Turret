@@ -16,8 +16,15 @@ import re
 import sys
 from pathlib import Path
 
-import markdown
-import yaml
+# Windows 콘솔(cp949)에서도 한글·기호 출력이 깨지거나 멈추지 않게 한다
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+try:
+    import markdown
+    import yaml
+except ImportError as e:
+    sys.exit(f"[오류] {e.name}가 없다. Tools/.venv의 파이썬으로 실행하거나 pip install pyyaml markdown")
 
 ROOT = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 TEMPLATE = Path(__file__).with_name("flow_template.html")
