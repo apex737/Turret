@@ -15,7 +15,7 @@ Turret/
 ├─ flow.html          Step 흐름도. 생성물이므로 직접 고치지 않는다 (5절)
 ├─ migration.md       2026-10-22 구조 개편 때 이전 문서의 각 절이 어디로 갔는지 (1회성 기록)
 │
-├─ Steps/             Step마다 파일 하나 = 관문 기록 (질문, 기준, 판정, 할 일)
+├─ Steps/             Step마다 파일 하나 = 관문 기록 (질문과 답, 기준, 결과, 할 일)
 │  ├─ Step1.md … Step4.md, Step5pre.md, Step5.md … Step8.md, Step9A.md, Step10.md, Step9B.md, Step11.md
 │  └─ logs/           반복 실험의 경과. 필요한 Step만 (예: logs/Step8.md)
 │
@@ -27,6 +27,7 @@ Turret/
 ├─ learning/          학습 기록
 │  ├─ GUIDE.md        학습형 개발 지침
 │  ├─ profile.md  concepts.md  quiz.md
+│  ├─ background.html 보완 교재. 수준 확인을 거쳐 AI가 만든다 (GUIDE.md 교재 절)
 │  └─ notes/          본인이 쓴 개념 노트, 시각 자료(helper html)
 │
 ├─ reports/           스크립트가 만든 출력 (표, 그래프). 판정은 쓰지 않는다
@@ -68,9 +69,9 @@ Turret/
 5. **docs/는 코드와 같은 커밋에서 고친다.** 코드가 원본이고 docs/는 참고표다.
 6. **Step 결과의 숫자에는 근거 링크(reports/ 파일)를 단다.** reports/에는 판정을 쓰지 않는다.
 7. **통과 기준은 실험 전에 확정하고 날짜를 적는다.** 결과를 본 뒤 바꾸면 decisions.md에 이유를 남긴다.
-8. **AI가 쓴 개념 설명은 남기지 않는다.** 개념은 `learning/concepts.md`에 ID로 올리고 문항으로 확인한다. `notes/`에는 본인이 쓴 것만 둔다.
+8. **AI가 쓴 개념 설명은 Step·docs·decisions에 남기지 않는다.** 개념은 `learning/concepts.md`에 ID로 올리고 문항으로 확인한다. AI가 만드는 교재는 `learning/background.html` 한 곳에만 두고, 만들 때마다 대상 개념의 수준을 먼저 확인한다 (질의 또는 시험 결과, `learning/GUIDE.md` 교재 절). `notes/`에는 본인이 쓴 것만 둔다.
 9. **Step ID는 바꾸지 않는다.** 사이에 끼울 때는 `Step5b`처럼 붙인다. 순서는 `depends_on`이 정한다.
-10. **상태는 Step frontmatter에만 적는다.** 본문이나 다른 파일에 상태를 따로 쓰지 않는다.
+10. **상태는 Step frontmatter에만 적는다.** 본문이나 다른 파일에 상태 단어(대기·진행·미통과·통과)를 따로 쓰지 않는다. `질문과 답`의 답은 상태가 아니라 질문에 대한 답(예 / 아니오 / 아직 모름 + 핵심 숫자)이다.
 11. **측정하지 않은 것은 "미측정"으로 둔다.** 부족한 것을 통과로 표시하지 않는다.
 
 ---
@@ -112,8 +113,10 @@ on_fail: null                  # 기준 미달 시 돌아갈 Step
 status: {impl: 통과, explain: 0/3}   # impl: 대기 | 진행 | 미통과 | 통과
 ---
 
-## 질문
-(이 Step이 답할 질문 한 줄 = 중간 목표)
+## 질문과 답
+**Q.** (이 Step이 답할 질문 한 줄 = 중간 목표)
+
+**A. (한 줄 결론: 예 / 아니오 / 아직 모름 / 고른 답).** (핵심 숫자와 기준 1~2문장. 숫자는 아래 결과 표에 근거가 있어야 한다)
 
 ## 최종 목표와의 연결
 - G2: (어떻게 기여하는지 한 줄)
