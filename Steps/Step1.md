@@ -5,7 +5,7 @@ depends_on: []
 goal_ref: [G1, G4]
 exit: "(사후 정리) 3개 마이크를 동시 샘플링해 DMA 핑퐁 버퍼로 끊김 없이 받고, STM32CubeMonitor로 각 마이크의 정상 출력을 확인"
 on_fail: null
-status: {impl: 통과, explain: 1/4}
+status: {impl: 통과}
 ---
 
 ## 질문과 답
@@ -40,14 +40,6 @@ status: {impl: 통과, explain: 1/4}
 | ADC 변환 | 28 + 12 cycles ≈ 1.78 µs | [docs/firmware.md](../docs/firmware.md) |
 
 설정표 전체는 [docs/firmware.md](../docs/firmware.md)에 있다.
-
-## 의존 개념
-| ID | 개념 | 판정 |
-|---|---|---|
-| S1 | 샘플링과 앨리어싱 | ❌ ⚠ |
-| R1 | DMA 핑퐁 타이밍과 덮어쓰기 | ✅ |
-| R6 | ISR과 main의 공유 변수 | ❌ ⚠ |
-| T0 | TDoA 원리 (지연 = d·sinθ/c) | 미진단 |
 
 ## 남은 일
 - 없음. 미측정 항목은 [D4.5-5](../decisions.md)(하드웨어 점검 Step 생략)로 넘어갔고, 프레임 주기 흔들림은 [Step10](Step10.md)에서 잰다.

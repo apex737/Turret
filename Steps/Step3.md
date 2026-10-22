@@ -5,7 +5,7 @@ depends_on: [Step2]
 goal_ref: [G1, I3]
 exit: "(사후 정리) 덤프 원파형으로 쌍별 TDOA와 방향을 Python으로 구하고, 같은 계산을 MCU(CMSIS-DSP)로 옮겨 같은 캡처에서 두 결과를 자동 비교, MCU 계산 시간이 프레임 주기 안"
 on_fail: null
-status: { impl: 통과, explain: 0/8 }
+status: {impl: 통과}
 ---
 
 ## 질문과 답
@@ -49,19 +49,6 @@ status: { impl: 통과, explain: 0/8 }
 | 신뢰 판정                 | peak ≥ 0.5, 0.3 ≤ norm ≤ 1.2        | [D3-5](../decisions.md)        |
 
 MCU·Python 상수 대응표는 [docs/firmware.md](../docs/firmware.md), 실행 명령은 [docs/run.md](../docs/run.md).
-
-## 의존 개념
-
-| ID  | 개념                                 | 판정   |
-| --- | ------------------------------------ | ------ |
-| F1  | DFT bin, 주파수 해상도, zero-padding | ❌ △   |
-| F2  | 시간 지연 ↔ 위상                     | ❌ △ ⚠ |
-| F3  | 상관 정리, GCC-PHAT                  | ❌ △   |
-| T1  | 배열 기하, 최대 지연, 공간 앨리어싱  | ❌ △   |
-| T2  | 평면파 가정과 최소제곱, norm         | ❌     |
-| E3  | 닫힘(closure) 일관성                 | ❌     |
-| F4  | 정밀도 식 (β·√K)                     | 미진단 |
-| F5  | 서브샘플 포물선 보간                 | 미진단 |
 
 ## 남은 일 (스냅 경로 — [D4.5-4](../decisions.md)에 따라 비교 기준이 아니라 회귀 확인용)
 

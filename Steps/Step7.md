@@ -5,7 +5,7 @@ depends_on: [Step5, Step6]
 goal_ref: [G1, I3]
 exit: "사전 지정 단일 음원 조건에서 유효 방위 절대오차 중앙값 ≤ 5°, p95 ≤ 10°, 평가 구간 유효율 ≥ 80%. 회전 부호·채널 순서 확인"
 on_fail: null
-status: {impl: 통과, explain: 0/9}
+status: {impl: 통과}
 ---
 
 ## 질문과 답
@@ -46,19 +46,6 @@ status: {impl: 통과, explain: 0/9}
 | 배경 (MCU) | 10 s, 부팅 시 + B1 버튼 | MCU 설계는 [docs/firmware.md](../docs/firmware.md) |
 
 배치·녹음·분석 절차는 [docs/run.md](../docs/run.md), 결과 패킷(type 0x04)은 [docs/protocol.md](../docs/protocol.md).
-
-## 의존 개념
-| ID | 개념 | 판정 |
-|---|---|---|
-| F3 | 상관 정리, GCC-PHAT | ❌ △ |
-| T1 | 공간 앨리어싱 | ❌ △ |
-| T2 | 평면파 최소제곱, norm | ❌ |
-| T3 | 공통 잡음과 배경 빼기 | ❌ |
-| E2 | 블록 평균과 SNR | ❌ △ |
-| E3 | 닫힘 일관성 | ❌ |
-| C4 | 공통 필터의 지연 상쇄 | ❌ |
-| S2 | dB, RMS, 전력 | ❌ △ |
-| R3 | 클럭원과 정확도 | ❌ ⚠ |
 
 ## 남은 일
 - [ ] 지연 크기가 70 mm 기대보다 약 22% 작음 (고도 중앙 24–49°) → 캡슐 간 거리 실측. 방위 무관, 고도·norm 판정에만 영향

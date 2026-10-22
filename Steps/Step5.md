@@ -5,7 +5,7 @@ depends_on: [Step5pre]
 goal_ref: [G4, I1, I3]
 exit: "지정 정상 입력 10분 기록에서 유실·OVR·CRC 오류·클리핑 0, 채널 대응 일치, 샘플 번호로 구간·누락 복원, 동일 입력 PC/MCU 최종 PCM 최대 차이 ≤ 2 LSB"
 on_fail: null
-status: {impl: 통과, explain: 2/8}
+status: {impl: 통과}
 ---
 
 ## 질문과 답
@@ -47,18 +47,6 @@ status: {impl: 통과, explain: 2/8}
 | 마이크 전원 RC | 220 Ω, 100 µF (f_c 7.2 Hz) | 프레임 동기 간섭 대응, logs/Step5.md |
 
 규약(PCM v3, 시간축, 끊김 처리)은 [docs/protocol.md](../docs/protocol.md), 코드 블록 구조와 모드는 [docs/firmware.md](../docs/firmware.md), 보드 시험 명령은 [docs/run.md](../docs/run.md).
-
-## 의존 개념
-| ID | 개념 | 판정 |
-|---|---|---|
-| R1 | DMA 핑퐁 타이밍 | ✅ |
-| R2 | 통신 처리량 예산 | ✅ |
-| R6 | ISR과 main의 공유 변수 | ❌ ⚠ |
-| C1 | FIR 설계 | ❌ |
-| C2 | 데시메이션 앨리어싱 | ❌ |
-| C3 | 블록 처리와 필터 상태 | ❌ △ |
-| N1 | 수치 표현, 반올림, 비트 재현성 | ❌ |
-| R3 | 클럭원과 정확도 | ❌ ⚠ |
 
 ## 남은 일
 - [ ] ch3 고역 잡음 원인 가리기 (모듈 교체 뒤에도 1.6–5 kHz 약 +5 dB, 5–10 kHz 약 +9 dB) — 배선 또는 ADC 핀 추정, 미확정

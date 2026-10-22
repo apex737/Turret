@@ -5,7 +5,7 @@ depends_on: [Step1]
 goal_ref: [G1, G4]
 exit: "(사후 정리) 샘플 단위(20 µs) 원파형을 PC로 가져와 3채널을 겹쳐 보고 클리핑·게인 균형·도달 시간차를 확인, GCC-PHAT 입력(npz) 확보"
 on_fail: null
-status: { impl: 통과, explain: 1/6 }
+status: {impl: 통과}
 ---
 
 ## 질문과 답
@@ -46,17 +46,6 @@ status: { impl: 통과, explain: 1/6 }
 | `floor_alpha`    | 0.05                         | D2-3. 조용한 프레임에서만 갱신         |
 
 값은 이론이 아니라 실험으로 정했다. 패킷 형식은 [docs/protocol.md](../docs/protocol.md), UART 설정은 [docs/firmware.md](../docs/firmware.md).
-
-## 의존 개념
-
-| ID  | 개념                                         | 판정   |
-| --- | -------------------------------------------- | ------ |
-| R2  | 통신 처리량 예산                             | ✅     |
-| S2  | dB, RMS, 전력                                | ❌ △   |
-| E1  | EMA, 적응 문턱                               | ❌     |
-| S3  | ADC 눈금 LSB와 dBFS                          | 미진단 |
-| L1  | C 배열 typedef·packed 구조체·\_Static_assert | 미진단 |
-| L2  | CRC 무결성 검사                              | 미진단 |
 
 ## 남은 일
 

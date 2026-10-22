@@ -5,7 +5,7 @@ depends_on: [Step4]
 goal_ref: [G2, I5]
 exit: "공개 원음의 고조파 구조로 쓸 대역 f_use와 ↓4/↓2를 정하고, 노트북 스피커 재생 → 장치 녹음에서 FPV 고조파가 남는지 확인"
 on_fail: null
-status: {impl: 통과, explain: 0/2}
+status: {impl: 통과}
 ---
 
 ## 질문과 답
@@ -39,12 +39,6 @@ status: {impl: 통과, explain: 0/2}
 | 원음 | Salford DroneNoise(전체), Western Sydney DJI Air 3 → `DataSet/` (git 제외) | [D5pre-1](../decisions.md) |
 
 원음 후보 표와 FPV 추가 출처 조사는 [logs/Step5pre.md](logs/Step5pre.md).
-
-## 의존 개념
-| ID | 개념 | 판정 |
-|---|---|---|
-| S2 | dB, RMS, 전력 | ❌ △ |
-| E4 | 고조파 점수와 f0/Δf | 미진단 |
 
 ## 남은 일
 - 없음. 장치 음압 보정 측정은 [problem.md](../problem.md) 열린 결정에 있다.

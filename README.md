@@ -110,7 +110,7 @@ depends_on: [Step5, Step6]
 goal_ref: [G2]                 # problem.md의 ID. G를 하나 이상 반드시 포함
 exit: "유효 방위 오차 중앙 ≤ 5°, p95 ≤ 10°, 유효율 ≥ 80%"
 on_fail: null                  # 기준 미달 시 돌아갈 Step
-status: {impl: 통과, explain: 0/3}   # impl: 대기 | 진행 | 미통과 | 통과
+status: {impl: 통과}   # impl: 대기 | 진행 | 미통과 | 통과
 ---
 
 ## 질문과 답
@@ -133,18 +133,12 @@ status: {impl: 통과, explain: 0/3}   # impl: 대기 | 진행 | 미통과 | 통
 | 이름 | 현재 값 | 근거 |
 |---|---|---|
 
-## 의존 개념
-| ID | 개념 | 판정 |
-|---|---|---|
-
 ## 남은 일
 - [ ] …
 
 ## 관련 결정
 - D7-1 (decisions.md)
 ```
-
-`explain`은 의존 개념 중 ✅ 개수 / 전체다. 진단 전이면 `0/N`.
 
 ### decisions.md
 

@@ -71,10 +71,6 @@ h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -.01em; }
 .pill.진행 { background: var(--run-bg); color: var(--run); }
 .pill.미통과 { background: var(--bad-bg); color: var(--bad); }
 .pill.대기 { background: var(--wait-bg); color: var(--wait); }
-.ex { display: flex; align-items: center; gap: 6px; color: var(--muted); flex: 1; white-space: nowrap; }
-.bar { flex: 1; height: 5px; background: var(--wait-bg); border-radius: 3px; overflow: hidden; min-width: 30px; }
-.bar > div { height: 100%; background: var(--ok); }
-.ex.low .bar > div { background: var(--bad); }
 
 path.e { fill: none; stroke: var(--edge); stroke-width: 1.6; transition: opacity .15s; }
 path.f { fill: none; stroke: var(--fail); stroke-width: 1.4; stroke-dasharray: 5 4; transition: opacity .15s; }
@@ -128,7 +124,7 @@ text.fl { fill: var(--fail); font-size: 11px; }
   <p class="sub">원본은 <code>Steps/*.md</code>와 <code>problem.md</code>. 이 파일은 <code>tools/gen_flow.py</code>가 만든다. 카드를 누르면 Step 문서가 열린다.</p>
   <div class="legend" id="legend"></div>
   <div class="tools"><button class="btn" id="openProblem">problem.md 보기</button></div>
-  <div class="keys"><span><i></i>선행 Step</span><span><i class="f"></i>기준 미달 시 돌아갈 곳</span><span>막대 = 의존 개념 ✅ 비율 (설명 가능도)</span></div>
+  <div class="keys"><span><i></i>선행 Step</span><span><i class="f"></i>기준 미달 시 돌아갈 곳</span></div>
 </header>
 <div id="board"><svg id="edges"></svg><div id="lanes"></div></div>
 <div id="scrim"></div>
@@ -169,8 +165,6 @@ for (let l = 0; l <= maxL; l++) {
   const items = D.steps.filter(s => s.level === l);
   lane.className = 'lane' + (items.length > 1 ? ' multi' : '');
   for (const s of items) {
-    const [a, b] = String(s.status.explain || '0/0').split('/').map(Number);
-    const pct = b ? Math.round(100 * a / b) : 0;
     const c = document.createElement('button');
     c.className = 'card';
     c.id = 'c-' + s.id;
@@ -179,8 +173,7 @@ for (let l = 0; l <= maxL; l++) {
       <div class="title">${esc(s.title)}</div>
       <div class="exit">${esc(s.exit)}</div>
       <div class="refs">${s.goal_ref.map(r => `<span class="chip ${r[0]}" title="${esc(D.refs[r].text)}">${esc(r)}</span>`).join('')}</div>
-      <div class="status"><span class="pill ${esc(s.status.impl)}">구현 ${esc(s.status.impl)}</span>
-        <span class="ex ${pct < 50 ? 'low' : ''}">설명 ${esc(s.status.explain)}<span class="bar"><div style="width:${pct}%"></div></span></span></div>`;
+      <div class="status"><span class="pill ${esc(s.status.impl)}">구현 ${esc(s.status.impl)}</span></div>`;
     c.onclick = () => openStep(s.id);
     lane.appendChild(c);
   }
@@ -291,7 +284,7 @@ function openStep(id) {
       <dt>선행</dt><dd>${s.depends_on.map(link).join(', ') || '—'}</dd>
       <dt>다음</dt><dd>${after}</dd>
       <dt>미달 시</dt><dd>${s.on_fail ? link(s.on_fail) : '—'}</dd>
-      <dt>상태</dt><dd>구현 ${esc(s.status.impl)} · 설명 ${esc(s.status.explain)}</dd>
+      <dt>상태</dt><dd>구현 ${esc(s.status.impl)}</dd>
     </dl>
     <div class="src">원본 문서: <a href="${esc(s.file)}">${esc(s.file)}</a></div>
     <div class="md">${s.body}</div>`);
