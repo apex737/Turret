@@ -3,7 +3,7 @@
 > 프로젝트의 방향이나 성패를 좌우한 결정만 적는다. 기존 번호를 유지했다 (Step1~3은 이전 `Steps/decisions.md`, Step4 이후는 이전 `Steps/decision.html`의 카드 번호, D4.5-4~7은 Roadmap 4.5의 2절).
 > **설명할 수 있다의 기준**: 문서를 닫고 AI 없이 네 가지에 답한다 — 버린 선택지와 이유, 근거 숫자 하나, 대가, 다시 결정해야 하는 조건.
 > **근거 표시**: `실측` 보드에서 잰 값 / `시뮬레이션` PC 계산 / `계산` 손계산 / `논리` 숫자 없이 따진 것 / `기록 없음`.
-> 기준선은 git 태그 `baseline-v1`. 개념 판정은 [learning/concepts.md](learning/concepts.md).
+> 기준선은 git 태그 `baseline-v1`. 각 레코드의 "기대는 개념" 판정은 2026-10-21 진단 기준이다. 지금 모르는 개념 목록은 [learning/concepts.html](learning/concepts.html).
 
 ## Step1 — ADC-DMA
 

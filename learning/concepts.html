@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turret 모르는 개념</title>
+<!--
+  저장 방식
+  - 원본은 같은 폴더의 concepts.json. AI는 이 파일에만 항목을 추가한다 (GUIDE.md 7절).
+  - 이 페이지는 concepts.json을 읽어 보여 준다. 화면에서 추가·수정·삭제·이해 표시를 하면
+    브라우저에 임시 저장되고, "JSON 내보내기"로 concepts.json을 받아 learning/에 덮어써야 저장소에 반영된다.
+  - 로컬 서버(VS Code Live Preview, python -m http.server)로 열면 자동으로 읽는다.
+    파일로 바로 열면 브라우저가 막으므로 "JSON 불러오기"로 한 번 고른다.
+-->
+<style>
+:root {
+  --bg: #f7f6f2; --panel: #ffffff; --ink: #1f2328; --muted: #646b74; --line: #dcdfe4;
+  --accent: #2459d6; --accent-soft: #e9efff;
+  --warn: #b45309; --warn-soft: #fff1df; --bad: #c0362c; --bad-soft: #fdeceb; --near: #8a6d00; --near-soft: #fbf4d6;
+  --ok: #1a7f4b; --ok-soft: #e5f4ec; --shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141619; --panel: #1c1f23; --ink: #e5e7ea; --muted: #9aa2ac; --line: #30353b;
+    --accent: #7ea3ff; --accent-soft: #1f2a43;
+    --warn: #f3b25e; --warn-soft: #3a2b16; --bad: #ff8a80; --bad-soft: #3b1f1d; --near: #e8cf62; --near-soft: #343015;
+    --ok: #63d49c; --ok-soft: #173326; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141619; --panel: #1c1f23; --ink: #e5e7ea; --muted: #9aa2ac; --line: #30353b;
+  --accent: #7ea3ff; --accent-soft: #1f2a43;
+  --warn: #f3b25e; --warn-soft: #3a2b16; --bad: #ff8a80; --bad-soft: #3b1f1d; --near: #e8cf62; --near-soft: #343015;
+  --ok: #63d49c; --ok-soft: #173326; --shadow: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.6 "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; }
+main { max-width: 900px; margin: 0 auto; padding: 20px 16px 72px; }
+header h1 { font-size: 1.45rem; margin: 0; }
+header p { margin: 2px 0 0; color: var(--muted); font-size: .9rem; }
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.stats { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 10px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; min-width: 84px; box-shadow: var(--shadow); }
+.stat b { display: block; font-size: 1.25rem; line-height: 1.2; }
+.stat span { font-size: .8rem; color: var(--muted); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 14px; }
+input, select, textarea, button { font: inherit; color: var(--ink); }
+input[type=search], select, input[type=text], textarea {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+input[type=search] { flex: 1 1 180px; min-width: 0; }
+button { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger { color: var(--bad); }
+button.ghost { border-color: transparent; background: transparent; padding: 4px 8px; }
+label.chk { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; color: var(--muted); cursor: pointer; }
+.banner { border-radius: 10px; padding: 10px 14px; margin: 10px 0; font-size: .92rem; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.banner.warn { background: var(--warn-soft); border: 1px solid var(--warn); }
+.banner.info { background: var(--accent-soft); border: 1px solid var(--accent); }
+.banner .grow { flex: 1 1 240px; }
+.drop { border: 2px dashed var(--line); border-radius: 12px; padding: 28px 16px; text-align: center; color: var(--muted); margin: 16px 0; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.list { display: grid; gap: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--line); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow); }
+.card.v-warn { border-left-color: var(--warn); } .card.v-bad { border-left-color: var(--bad); } .card.v-near { border-left-color: var(--near); }
+.card.done { opacity: .6; }
+.card.done .kw { text-decoration: line-through; text-decoration-color: var(--muted); }
+.row1 { display: flex; align-items: flex-start; gap: 10px; }
+.row1 .kw { font-size: 1.08rem; font-weight: 700; flex: 1; }
+.badge { display: inline-block; font-size: .78rem; border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+.badge.v-warn { background: var(--warn-soft); color: var(--warn); }
+.badge.v-bad { background: var(--bad-soft); color: var(--bad); }
+.badge.v-near { background: var(--near-soft); color: var(--near); }
+.badge.kind { background: var(--accent-soft); color: var(--accent); }
+.desc { margin: 6px 0 8px; max-width: 75ch; }
+.ctx { margin: 0 0 10px; padding: 8px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); font-size: .92rem; max-width: 75ch; }
+.ctx b { display: block; font-size: .78rem; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .85rem; color: var(--muted); }
+.step { text-decoration: none; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 0 7px; }
+.actions { display: flex; gap: 4px; align-items: center; margin-left: auto; }
+.empty { text-align: center; color: var(--muted); padding: 32px 0; }
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 0; width: min(560px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(0,0,0,.35); }
+dialog form { padding: 18px; display: grid; gap: 10px; }
+dialog h2 { margin: 0 0 4px; font-size: 1.1rem; }
+dialog label.f { display: grid; gap: 4px; font-size: .88rem; color: var(--muted); }
+dialog textarea { min-height: 84px; resize: vertical; }
+.stepbox { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.stepbox label { font-size: .88rem; color: var(--ink); display: inline-flex; gap: 4px; align-items: center; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint { font-size: .8rem; color: var(--muted); }
+.formbtns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+@media (max-width: 520px) { .two { grid-template-columns: 1fr; } .row1 { flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <header>
+      <h1>모르는 개념</h1>
+      <p>트리거 점검에서 틀린 개념 · 이해했으면 체크, 필요 없으면 삭제 · 원본 <code>learning/concepts.json</code></p>
+    </header>
+    <button id="themeBtn" type="button" class="ghost" aria-label="밝게/어둡게">◐ 테마</button>
+  </div>
+
+  <div id="banners"></div>
+
+  <div id="dropzone" class="drop" hidden>
+    <p><b>concepts.json</b>을 여기로 끌어다 놓거나</p>
+    <button type="button" class="primary" id="pickBtn2">JSON 불러오기</button>
+    <p class="hint">파일로 바로 열면 브라우저가 같은 폴더의 파일을 자동으로 읽지 못합니다. 한 번 고르면 이 브라우저가 기억합니다.</p>
+  </div>
+
+  <section id="app" hidden>
+    <div class="stats" id="stats"></div>
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="키워드·설명 검색">
+      <select id="fStep" aria-label="Step으로 거르기"><option value="">모든 Step</option></select>
+      <select id="fVerdict" aria-label="판정으로 거르기">
+        <option value="">모든 판정</option><option value="⚠">⚠ 확신 오류</option><option value="❌">❌ 틀림</option><option value="△">△ 근접</option>
+      </select>
+      <label class="chk"><input type="checkbox" id="showDone"> 이해한 것도 보기</label>
+    </div>
+    <div class="toolbar">
+      <button type="button" class="primary" id="addBtn">+ 개념 추가</button>
+      <span style="flex:1"></span>
+      <button type="button" id="pickBtn">JSON 불러오기</button>
+      <button type="button" id="exportBtn">JSON 내보내기</button>
+    </div>
+    <div class="list" id="list"></div>
+  </section>
+</main>
+
+<input type="file" id="file" accept="application/json,.json" hidden>
+
+<dialog id="dlg">
+  <form method="dialog" id="form">
+    <h2 id="dlgTitle">개념 추가</h2>
+    <label class="f">핵심 키워드 <input type="text" name="keyword" required maxlength="80"></label>
+    <label class="f">간략한 설명 (1~2줄, 그 개념이 무엇인지)
+      <textarea name="desc" maxlength="400"></textarea></label>
+    <label class="f">프로젝트 맥락 (1~2줄, 어디서 왜 이 개념이 필요했나)
+      <textarea name="context" maxlength="500"></textarea></label>
+    <div class="f"><span class="hint">쓰인 Step</span><div class="stepbox" id="stepbox"></div></div>
+    <div class="two">
+      <label class="f">판정
+        <select name="verdict"><option value="⚠">⚠ 확신 오류</option><option value="❌">❌ 틀림</option><option value="△">△ 근접</option></select></label>
+      <label class="f">종류
+        <select name="kind"><option value="개념">개념</option><option value="대기">대기 항목</option></select></label>
+    </div>
+    <div class="two">
+      <label class="f">날짜 <input type="text" name="date" placeholder="YYYY-MM-DD"></label>
+      <label class="f">트리거 <input type="text" name="trigger" placeholder="예: T2 · Step7 대역 결정"></label>
+    </div>
+    <div class="formbtns">
+      <button type="button" id="cancelBtn">취소</button>
+      <button type="submit" class="primary" id="saveBtn">저장</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+  var KEY = "turret-concepts-draft";
+  var DEFAULT_STEPS = ["Step1","Step2","Step3","Step4","Step5pre","Step5","Step6","Step7","Step8","Step9A","Step10","Step9B","Step11"];
+  var state = { data: null, dirty: false, base: null };
+  var editing = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+  function h(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function today() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function vclass(v) { return v === "⚠" ? "v-warn" : v === "❌" ? "v-bad" : "v-near"; }
+
+  // ── 저장 (브라우저 임시) ──
+  function saveDraft() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function loadDraft() {
+    try { var s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+  }
+  function valid(d) { return d && Array.isArray(d.items); }
+  function normalize(d) {
+    d.steps = Array.isArray(d.steps) && d.steps.length ? d.steps : DEFAULT_STEPS.slice();
+    d.items.forEach(function (it) {
+      it.steps = Array.isArray(it.steps) ? it.steps : [];
+      it.kind = it.kind || "개념";
+      it.understood = !!it.understood;
+    });
+    return d;
+  }
+
+  // 파일에서 읽은 데이터를 받아들인다
+  function accept(fileData, source) {
+    if (!valid(fileData)) { banner("warn", "concepts.json 형식이 아닙니다 (items 배열이 없음)."); return; }
+    normalize(fileData);
+    var draft = loadDraft();
+    if (draft && valid(draft.data) && draft.dirty && draft.base !== fileData.updated) {
+      // 내보내지 않은 내 수정이 있는데, 파일도 바뀌었다 (AI가 항목을 추가했을 수 있음)
+      state = draft;
+      start();
+      conflictBanner(fileData);
+      return;
+    }
+    if (draft && valid(draft.data) && draft.dirty) { state = draft; }
+    else { state = { data: fileData, dirty: false, base: fileData.updated }; }
+    saveDraft();
+    start();
+    if (source === "pick") banner("info", "불러왔습니다. 이 브라우저가 기억합니다.", true);
+  }
+
+  function start() {
+    $("dropzone").hidden = true;
+    $("app").hidden = false;
+    fillStepOptions();
+    render();
+  }
+
+  // ── 그리기 ──
+  function render() {
+    var d = state.data, items = d.items;
+    var left = items.filter(function (i) { return !i.understood; });
+    var stats = $("stats"); stats.textContent = "";
+    [["남음", left.length], ["⚠ 확신 오류", left.filter(function (i) { return i.verdict === "⚠"; }).length],
+     ["대기 항목", left.filter(function (i) { return i.kind === "대기"; }).length],
+     ["이해함", items.length - left.length]].forEach(function (s) {
+      var b = h("div", "stat"); b.appendChild(h("b", null, String(s[1]))); b.appendChild(h("span", null, s[0])); stats.appendChild(b);
+    });
+
+    var q = $("q").value.trim().toLowerCase(), fs = $("fStep").value, fv = $("fVerdict").value, showDone = $("showDone").checked;
+    var shown = items.filter(function (i) {
+      if (!showDone && i.understood) return false;
+      if (fs && i.steps.indexOf(fs) < 0) return false;
+      if (fv && i.verdict !== fv) return false;
+      if (q && (i.keyword + " " + i.desc + " " + (i.context || "")).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+    var order = { "⚠": 0, "❌": 1, "△": 2 };
+    shown.sort(function (a, b) { return (a.understood - b.understood) || ((order[a.verdict] || 9) - (order[b.verdict] || 9)) || (b.date || "").localeCompare(a.date || ""); });
+
+    var list = $("list"); list.textContent = "";
+    if (!shown.length) { list.appendChild(h("p", "empty", items.length ? "조건에 맞는 개념이 없습니다." : "아직 틀린 개념이 없습니다.")); }
+    shown.forEach(function (it) { list.appendChild(card(it)); });
+    dirtyBanner();
+  }
+
+  function card(it) {
+    var c = h("article", "card " + vclass(it.verdict) + (it.understood ? " done" : ""));
+    var r1 = h("div", "row1");
+    var cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = it.understood; cb.title = "이해했음";
+    cb.setAttribute("aria-label", it.keyword + " 이해했음");
+    cb.addEventListener("change", function () { it.understood = cb.checked; changed(); });
+    r1.appendChild(cb);
+    r1.appendChild(h("div", "kw", it.keyword));
+    var acts = h("div", "actions");
+    var eb = h("button", "ghost", "수정"); eb.type = "button"; eb.addEventListener("click", function () { openForm(it); });
+    var db = h("button", "ghost danger", "삭제"); db.type = "button";
+    db.addEventListener("click", function () {
+      if (confirm("'" + it.keyword + "'을(를) 목록에서 지울까요?")) {
+        state.data.items = state.data.items.filter(function (x) { return x !== it; });
+        // 지운 id를 기억해 두면, 파일과 합칠 때 되살아나지 않는다
+        state.removed = (state.removed || []).concat([it.id]);
+        changed();
+      }
+    });
+    acts.appendChild(eb); acts.appendChild(db); r1.appendChild(acts);
+    c.appendChild(r1);
+    if (it.desc) c.appendChild(h("p", "desc", it.desc));
+    if (it.context) { var cx = h("div", "ctx"); cx.appendChild(h("b", null, "프로젝트에서")); cx.appendChild(document.createTextNode(it.context)); c.appendChild(cx); }
+    var meta = h("div", "meta");
+    meta.appendChild(h("span", "badge " + vclass(it.verdict), it.verdict + " " + (it.verdict === "⚠" ? "확신 오류" : it.verdict === "❌" ? "틀림" : "근접")));
+    if (it.kind === "대기") meta.appendChild(h("span", "badge kind", "대기 항목"));
+    it.steps.forEach(function (s) {
+      var a = h("a", "step", s); a.href = "../Steps/" + s + ".md"; a.target = "_blank"; a.rel = "noopener"; meta.appendChild(a);
+    });
+    var when = [it.date, it.trigger].filter(Boolean).join(" · ");
+    if (when) meta.appendChild(h("span", null, when));
+    c.appendChild(meta);
+    return c;
+  }
+
+  function fillStepOptions() {
+    var sel = $("fStep"), cur = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    state.data.steps.forEach(function (s) { var o = h("option", null, s); o.value = s; sel.appendChild(o); });
+    sel.value = cur;
+  }
+
+  // ── 알림 ──
+  function banner(kind, msg, autoClose) {
+    var b = h("div", "banner " + kind); b.appendChild(h("span", "grow", msg));
+    var x = h("button", "ghost", "닫기"); x.type = "button"; x.addEventListener("click", function () { b.remove(); });
+    b.appendChild(x); $("banners").appendChild(b);
+    if (autoClose) setTimeout(function () { b.remove(); }, 4000);
+    return b;
+  }
+  function dirtyBanner() {
+    var old = document.getElementById("dirtyBanner"); if (old) old.remove();
+    if (!state.dirty) return;
+    var b = banner("warn", "내보내지 않은 변경이 있습니다. 저장소에 남기려면 JSON 내보내기 → learning/concepts.json에 덮어쓰기.");
+    b.id = "dirtyBanner";
+    var e = h("button", "primary", "JSON 내보내기"); e.type = "button"; e.addEventListener("click", exportJson);
+    b.insertBefore(e, b.lastChild);
+  }
+  function conflictBanner(fileData) {
+    var b = banner("warn", "concepts.json이 마지막으로 불러온 뒤 바뀌었습니다 (AI가 항목을 추가했을 수 있음). 그런데 이 브라우저에 내보내지 않은 내 수정도 있습니다.");
+    var keepFile = h("button", null, "파일 내용으로 (내 수정 버림)"); keepFile.type = "button";
+    keepFile.addEventListener("click", function () { state = { data: fileData, dirty: false, base: fileData.updated }; saveDraft(); b.remove(); fillStepOptions(); render(); });
+    var merge = h("button", "primary", "합치기 (파일의 새 항목 + 내 수정)"); merge.type = "button";
+    merge.addEventListener("click", function () {
+      var mine = {}; state.data.items.forEach(function (i) { mine[i.id] = true; });
+      var removedByMe = state.removed || [];
+      fileData.items.forEach(function (i) { if (!mine[i.id] && removedByMe.indexOf(i.id) < 0) state.data.items.push(i); });
+      state.base = fileData.updated; state.dirty = true; saveDraft(); b.remove(); render();
+    });
+    b.insertBefore(merge, b.lastChild); b.insertBefore(keepFile, b.lastChild);
+  }
+
+  function changed() { state.dirty = true; saveDraft(); render(); }
+
+  // ── 추가·수정 ──
+  function openForm(it) {
+    editing = it || null;
+    var f = $("form");
+    $("dlgTitle").textContent = it ? "개념 수정" : "개념 추가";
+    f.keyword.value = it ? it.keyword : "";
+    f.desc.value = it ? it.desc : "";
+    f.context.value = it ? (it.context || "") : "";
+    f.verdict.value = it ? it.verdict : "❌";
+    f.kind.value = it ? it.kind : "개념";
+    f.date.value = it ? (it.date || "") : today();
+    f.trigger.value = it ? (it.trigger || "") : "";
+    var box = $("stepbox"); box.textContent = "";
+    state.data.steps.forEach(function (s) {
+      var l = h("label"), c = document.createElement("input");
+      c.type = "checkbox"; c.value = s; c.checked = !!(it && it.steps.indexOf(s) >= 0);
+      l.appendChild(c); l.appendChild(document.createTextNode(s)); box.appendChild(l);
+    });
+    $("dlg").showModal();
+    f.keyword.focus();
+  }
+  $("form").addEventListener("submit", function (ev) {
+    var f = $("form");
+    if (!f.keyword.value.trim()) { ev.preventDefault(); return; }
+    var steps = Array.prototype.map.call($("stepbox").querySelectorAll("input:checked"), function (c) { return c.value; });
+    var it = editing || { id: "c-" + Date.now().toString(36), understood: false };
+    it.keyword = f.keyword.value.trim(); it.desc = f.desc.value.trim(); it.context = f.context.value.trim(); it.steps = steps;
+    it.verdict = f.verdict.value; it.kind = f.kind.value; it.date = f.date.value.trim(); it.trigger = f.trigger.value.trim();
+    if (!editing) state.data.items.push(it);
+    changed();
+  });
+  $("cancelBtn").addEventListener("click", function () { $("dlg").close(); });
+  $("addBtn").addEventListener("click", function () { openForm(null); });
+
+  // ── 불러오기·내보내기 ──
+  function pick() { $("file").value = ""; $("file").click(); }
+  $("pickBtn").addEventListener("click", pick);
+  $("pickBtn2").addEventListener("click", pick);
+  $("file").addEventListener("change", function () { if (this.files[0]) readFile(this.files[0]); });
+  function readFile(file) {
+    var r = new FileReader();
+    r.onload = function () {
+      try { accept(JSON.parse(r.result), "pick"); } catch (e) { banner("warn", "JSON을 읽지 못했습니다: " + e.message); }
+    };
+    r.readAsText(file, "utf-8");
+  }
+  var dz = $("dropzone");
+  ["dragenter", "dragover"].forEach(function (t) { dz.addEventListener(t, function (e) { e.preventDefault(); dz.classList.add("over"); }); });
+  ["dragleave", "drop"].forEach(function (t) { dz.addEventListener(t, function (e) { e.preventDefault(); dz.classList.remove("over"); }); });
+  dz.addEventListener("drop", function (e) { var f = e.dataTransfer.files[0]; if (f) readFile(f); });
+
+  function exportJson() {
+    var d = state.data;
+    var now = new Date(), tz = -now.getTimezoneOffset(), sign = tz >= 0 ? "+" : "-";
+    var pad = function (n) { return String(Math.floor(Math.abs(n))).padStart(2, "0"); };
+    d.updated = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) + "T" + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds()) + sign + pad(tz / 60) + ":" + pad(tz % 60);
+    var blob = new Blob([JSON.stringify(d, null, 2) + "\n"], { type: "application/json" });
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "concepts.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    state.dirty = false; state.base = d.updated; state.removed = []; saveDraft(); render();
+    banner("info", "concepts.json을 내려받았습니다. learning/concepts.json에 덮어쓰면 저장소에 반영됩니다.", true);
+  }
+  $("exportBtn").addEventListener("click", exportJson);
+
+  // ── 거르기 ──
+  ["q", "fStep", "fVerdict", "showDone"].forEach(function (id) { $(id).addEventListener("input", render); });
+
+  // ── 테마 ──
+  try { var t = localStorage.getItem("turret-theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+  $("themeBtn").addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme");
+    var dark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    var next = dark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("turret-theme", next); } catch (e) {}
+  });
+
+  // ── 시작: 같은 폴더의 concepts.json → 실패하면 브라우저에 기억한 것 → 그것도 없으면 불러오기 화면 ──
+  fetch("concepts.json", { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (d) { accept(d, "fetch"); })
+    .catch(function () {
+      var draft = loadDraft();
+      if (draft && valid(draft.data)) {
+        state = draft; normalize(state.data); start();
+        banner("info", "파일로 열어서 concepts.json을 자동으로 읽지 못했습니다. 이 브라우저에 기억된 목록을 보여 줍니다. 파일이 바뀌었으면 JSON 불러오기로 다시 고르세요.");
+      } else {
+        $("dropzone").hidden = false;
+      }
+    });
+})();
+</script>
+</body>
+</html>
