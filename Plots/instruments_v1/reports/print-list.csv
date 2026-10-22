@@ -1,0 +1,12 @@
+﻿STL,quantity,X_mm,Y_mm,Z_mm,triangles
+1_1.stl,4,141.421,100.0,100.0,3058
+2_1.stl,2,141.421,96.464,108.0,5704
+2_2.stl,2,141.421,96.464,108.0,5080
+3_1.stl,2,141.421,100.0,104.718,8618
+3_2.stl,2,141.421,100.0,104.436,7674
+battery_01_adjustment_screw.stl,1,19.0,18.994,132.0,64324
+battery_02_threaded_moving_slide.stl,1,67.0,110.0,16.0,10296
+battery_03_insert_slider_base.stl,1,170.0,170.0,24.0,13108
+battery_04_opposite_corner.stl,1,47.0,116.0,50.0,2092
+battery_05_shaft_retaining_clip.stl,1,14.997,14.235,2.0,780
+board_XY_locator.stl,1,107.998,151.1,11.0,4088

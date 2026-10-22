@@ -10,6 +10,7 @@ typedef struct __attribute__((packed)) {
 	uint16_t n, len;
 	uint8_t  drop, ovr, qdrop, cpu;
 } stream_hdr_t;
+
 _Static_assert(sizeof(stream_hdr_t) == 24, "header must be 24 bytes");
 
 #define PAYLOAD  (PREPROC_CH * PREPROC_OUT * 2u)                 /* 1536 B */
@@ -22,11 +23,13 @@ typedef struct __attribute__((packed)) {
 	uint16_t proc_us;
 	uint32_t bg_s0, bg_n;
 } doa_payload_t;
+
 _Static_assert(sizeof(doa_payload_t) == 52, "DOA payload must be 52 bytes");
 #define DOA_PKT  (sizeof(stream_hdr_t) + sizeof(doa_payload_t) + 2u)   /* 78 B */
 
 /* 링버퍼: main이 head에 쓰고, UART 완료 ISR이 tail을 넘긴다 (생산자 1, 소비자 1) */
 static uint8_t s_slot[STREAM_SLOTS][PKT] __attribute__((aligned(4)));
+
 static volatile uint32_t s_head, s_tail;    /* 단조 증가 카운터. 칸 = 카운터 % STREAM_SLOTS */
 static volatile bool     s_tx;              /* DMA 송신 중 */
 static UART_HandleTypeDef *s_huart;

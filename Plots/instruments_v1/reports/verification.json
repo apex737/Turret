@@ -1,0 +1,413 @@
+{
+  "unit": "mm",
+  "errors": [],
+  "warnings": [
+    "Prototype housing and previously discussed holders only; camera/stepper supports and drive transmission are not designed.",
+    "Plain sliding ring is gravity seated, with no positive anti-lift latch. Friction, wear, lubrication compatibility and motor torque are not physically verified.",
+    "Sliding tracks cross four printed seams; surface steps must be removed before powered rotation.",
+    "FDM dimensions vary. Test the supplied sliding-ring coupons and M3 holes before printing all pieces.",
+    "STL has no unit metadata; import as mm. Support generation and slicer toolpath have not been verified.",
+    "All metal screws, nuts, washers, slip ring and electronics are purchased parts and not included in STL.",
+    "Board underside components and connector clearances remain unmeasured; locator fits nominal 100x79 and 80x50 rectangles.",
+    "Floor-fastener projections under the board locator must stay within 5 mm above floor; complete full 360 cable travel with a slip ring, not loose tethered wires."
+  ],
+  "corrections": [
+    "Rebuilt tier1 at wall4/floor4 and split into four identical quarters; older wall3 construction not used.",
+    "Battery base D192.8 did not fit ID192 or printer180. Trimmed only perimeter to 170x170 and R95.65; retained guide/screw features.",
+    "Battery base mounts via four outer R85 floor fasteners instead of obsolete three mounting bosses; inner R15 bolt reliefs added.",
+    "Integrated plain bearing: tier2 top flange R92..100, groove R94.6..97.4 at z96..100; tier3 tongue R95..97, height5. Axial housing gap1, side clearances0.4.",
+    "Floor lap nominal2+2 now includes 0.15 vertical and 0.2 edge/end clearance, to avoid exact interference fits.",
+    "Helical screw default CAD volume differed by about 0.53 percent from adaptive integration. Adaptive BREP integration is used for STL volume checks; high-resolution mesh agreed within about 0.0034 percent.",
+    "Eight locator corners had line-only contact between stop arms, producing 4-face STL edges. Added 2x2 corner fills to make continuous L corners."
+  ],
+  "parts": {
+    "1_1": {
+      "quantity": 4,
+      "dimensions_mm": [
+        141.42135620117188,
+        100.0,
+        100.0
+      ],
+      "triangles": 3058,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 89755.82933867541,
+      "adaptive_BREP_volume_mm3": 89799.86002500444,
+      "CAD_volume_integration_error_estimate": 2.8081607669967345e-15,
+      "STL_volume_difference_ratio": 0.0004903202111536857,
+      "normal_repair": false
+    },
+    "2_1": {
+      "quantity": 2,
+      "dimensions_mm": [
+        141.42135620117188,
+        96.4644660949707,
+        108.0
+      ],
+      "triangles": 5704,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 95644.58824329641,
+      "adaptive_BREP_volume_mm3": 95662.63534423521,
+      "CAD_volume_integration_error_estimate": 3.477621540379421e-13,
+      "STL_volume_difference_ratio": 0.0001886536041355873,
+      "normal_repair": false
+    },
+    "2_2": {
+      "quantity": 2,
+      "dimensions_mm": [
+        141.42135620117188,
+        96.4644660949707,
+        108.0
+      ],
+      "triangles": 5080,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 95957.28753037954,
+      "adaptive_BREP_volume_mm3": 95976.89697503793,
+      "CAD_volume_integration_error_estimate": 1.6757765580718606e-13,
+      "STL_volume_difference_ratio": 0.00020431421807154786,
+      "normal_repair": false
+    },
+    "3_1": {
+      "quantity": 2,
+      "dimensions_mm": [
+        141.42135620117188,
+        100.0,
+        104.71835327148438
+      ],
+      "triangles": 8618,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 90326.45461648592,
+      "adaptive_BREP_volume_mm3": 90353.31014489419,
+      "CAD_volume_integration_error_estimate": 6.935147230695568e-14,
+      "STL_volume_difference_ratio": 0.0002972279417898689,
+      "normal_repair": false
+    },
+    "3_2": {
+      "quantity": 2,
+      "dimensions_mm": [
+        141.42135620117188,
+        100.0,
+        104.43590545654297
+      ],
+      "triangles": 7674,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 81785.8204891605,
+      "adaptive_BREP_volume_mm3": 81808.21218553928,
+      "CAD_volume_integration_error_estimate": 1.3309718733620516e-14,
+      "STL_volume_difference_ratio": 0.0002737096408853669,
+      "normal_repair": false
+    },
+    "battery_01_adjustment_screw": {
+      "quantity": 1,
+      "dimensions_mm": [
+        19.0,
+        18.994094848632812,
+        132.0
+      ],
+      "triangles": 64324,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 10192.814936799496,
+      "adaptive_BREP_volume_mm3": 10196.266271229406,
+      "CAD_volume_integration_error_estimate": 5.9049039275389004e-08,
+      "STL_volume_difference_ratio": 0.00033849002547617205,
+      "normal_repair": false
+    },
+    "battery_02_threaded_moving_slide": {
+      "quantity": 1,
+      "dimensions_mm": [
+        67.0,
+        110.0,
+        15.999999899999978
+      ],
+      "triangles": 10296,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 41729.659926592816,
+      "adaptive_BREP_volume_mm3": 41729.344371586565,
+      "CAD_volume_integration_error_estimate": 5.613526931461388e-08,
+      "STL_volume_difference_ratio": 7.56194498147805e-06,
+      "normal_repair": false
+    },
+    "battery_03_insert_slider_base": {
+      "quantity": 1,
+      "dimensions_mm": [
+        170.0,
+        170.0,
+        24.0
+      ],
+      "triangles": 13108,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 207500.18318605656,
+      "adaptive_BREP_volume_mm3": 207514.40515715652,
+      "CAD_volume_integration_error_estimate": 8.308387739333213e-16,
+      "STL_volume_difference_ratio": 6.853486190123867e-05,
+      "normal_repair": false
+    },
+    "battery_04_opposite_corner": {
+      "quantity": 1,
+      "dimensions_mm": [
+        47.0,
+        116.0,
+        50.0
+      ],
+      "triangles": 2092,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 45384.98378622189,
+      "adaptive_BREP_volume_mm3": 45384.890548756965,
+      "CAD_volume_integration_error_estimate": 6.234077429296566e-16,
+      "STL_volume_difference_ratio": 2.054372364899829e-06,
+      "normal_repair": false
+    },
+    "battery_05_shaft_retaining_clip": {
+      "quantity": 1,
+      "dimensions_mm": [
+        14.996723175048828,
+        14.234983444213867,
+        2.000000000000001
+      ],
+      "triangles": 780,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 206.46150323046868,
+      "adaptive_BREP_volume_mm3": 206.55948775616721,
+      "CAD_volume_integration_error_estimate": 2.4420448929006875e-16,
+      "STL_volume_difference_ratio": 0.00047436468187896227,
+      "normal_repair": false
+    },
+    "board_XY_locator": {
+      "quantity": 1,
+      "dimensions_mm": [
+        107.99768829345703,
+        151.10000610351562,
+        11.0
+      ],
+      "triangles": 4088,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 21586.722308874596,
+      "adaptive_BREP_volume_mm3": 21587.04221663927,
+      "CAD_volume_integration_error_estimate": 4.386348314125755e-16,
+      "STL_volume_difference_ratio": 1.481943480095776e-05,
+      "normal_repair": false
+    },
+    "fit_lower_groove": {
+      "quantity": 1,
+      "dimensions_mm": [
+        34.729637145996094,
+        9.397686958312988,
+        8.0
+      ],
+      "triangles": 168,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 1769.5486310931094,
+      "adaptive_BREP_volume_mm3": 1769.3449825017708,
+      "CAD_volume_integration_error_estimate": 1.1102230246251524e-15,
+      "STL_volume_difference_ratio": 0.00011509829533110968,
+      "normal_repair": false
+    },
+    "fit_upper_tongue": {
+      "quantity": 1,
+      "dimensions_mm": [
+        34.729637145996094,
+        9.397686958312988,
+        7.0
+      ],
+      "triangles": 168,
+      "watertight": true,
+      "winding_consistent": true,
+      "components": 1,
+      "volume_mm3": 871.2321914908484,
+      "adaptive_BREP_volume_mm3": 871.2683625955693,
+      "CAD_volume_integration_error_estimate": 1.4628821030354914e-15,
+      "STL_volume_difference_ratio": 4.151545754873567e-05,
+      "normal_repair": false
+    }
+  },
+  "checks": {
+    "tier1_quarter_overlaps": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "tier2_quarter_overlaps": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "tier3_quarter_overlaps": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "bayonet_path": [
+      {
+        "z": 110,
+        "angle": 0,
+        "interference": 0.0
+      },
+      {
+        "z": 108,
+        "angle": 0,
+        "interference": 0.0
+      },
+      {
+        "z": 106,
+        "angle": 0,
+        "interference": 0.0
+      },
+      {
+        "z": 104,
+        "angle": 0,
+        "interference": 0.0
+      },
+      {
+        "z": 102,
+        "angle": 0,
+        "interference": 0.0
+      },
+      {
+        "z": 100.8,
+        "angle": 0,
+        "interference": 0.0
+      },
+      {
+        "z": 100.8,
+        "angle": 0,
+        "interference": 0.0
+      },
+      {
+        "z": 100.8,
+        "angle": 5,
+        "interference": 0.0
+      },
+      {
+        "z": 100.8,
+        "angle": 10,
+        "interference": 0.0
+      },
+      {
+        "z": 100.8,
+        "angle": 15,
+        "interference": 0.0
+      },
+      {
+        "z": 100.8,
+        "angle": 20,
+        "interference": 0.0
+      },
+      {
+        "z": 100.8,
+        "angle": 20,
+        "interference": 0.0
+      },
+      {
+        "z": 100.4,
+        "angle": 20,
+        "interference": 0.0
+      },
+      {
+        "z": 100,
+        "angle": 20,
+        "interference": 0.0
+      }
+    ],
+    "tier3_yaw_samples": [
+      {
+        "angle": 0,
+        "interference": 0.0
+      },
+      {
+        "angle": 15,
+        "interference": 0.0
+      },
+      {
+        "angle": 30,
+        "interference": 0.0
+      },
+      {
+        "angle": 45,
+        "interference": 0.0
+      },
+      {
+        "angle": 60,
+        "interference": 0.0
+      },
+      {
+        "angle": 90,
+        "interference": 0.0
+      },
+      {
+        "angle": 135,
+        "interference": 0.0
+      },
+      {
+        "angle": 180,
+        "interference": 0.0
+      },
+      {
+        "angle": 270,
+        "interference": 0.0
+      },
+      {
+        "angle": 360,
+        "interference": 0.0
+      }
+    ],
+    "battery_pair_overlaps": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "board_locator_housing_overlap": 0.0,
+    "four_D8_power_paths": "clear of tier2 and locator"
+  },
+  "counts": {
+    "unique_main_STL_files": 11,
+    "main_printed_pieces": 18,
+    "optional_fit_test_pieces": 2
+  },
+  "hardware": {
+    "tier1_floor_bolt_positions": 8,
+    "tier2_floor_bolt_positions": 8,
+    "tier3_floor_bolt_positions": 4,
+    "floor_fastener": "M3 with D3.6 clearance, washers and nuts; bolt lengths must suit actual stack",
+    "battery_base": "Uses tier1 outer four R85 fastening positions, no extra floor holes",
+    "printed_battery_thread": "custom D10 P2, not ISO M10"
+  }
+}
