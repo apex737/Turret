@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project": "Turret",
-  "updated": "2026-10-23T10:00:00+09:00",
+  "updated": "2026-10-23T11:21:57+09:00",
   "steps": [
     "Step1",
     "Step2",
@@ -29,8 +29,8 @@
         "Step5"
       ],
       "verdict": "⚠",
-      "date": "2026-10-21",
-      "trigger": "진단 Q1",
+      "date": "2026-10-23",
+      "trigger": "진단 Q1 · 브리핑 Q6 ❌",
       "kind": "개념",
       "understood": false
     },
@@ -48,7 +48,7 @@
       "date": "2026-10-21",
       "trigger": "진단 Q2(c)",
       "kind": "개념",
-      "understood": false
+      "understood": true
     },
     {
       "id": "c-db",
@@ -124,8 +124,8 @@
         "Step9B"
       ],
       "verdict": "△",
-      "date": "2026-10-21",
-      "trigger": "진단 Q8",
+      "date": "2026-10-23",
+      "trigger": "진단 Q8 · 브리핑 Q10 △",
       "kind": "개념",
       "understood": false
     },
@@ -136,13 +136,14 @@
       "context": "tdoa.c는 tdoa_init()에서 2×3 풀이 행렬을 미리 계산하고 atan2로 각도를 낸다 (Step3). 신뢰 판정의 norm 범위(Step3 0.3~1.2, Step7 0.5~1.3)와 Step7 합성 시험의 '고도 60°에서 유효율 54%'가 이 norm에서 나온다.",
       "steps": [
         "Step3",
-        "Step7"
+        "Step7",
+        "Step9A"
       ],
       "verdict": "❌",
-      "date": "2026-10-21",
-      "trigger": "진단 Q9",
+      "date": "2026-10-23",
+      "trigger": "진단 Q9 · 브리핑 Q12 ❌ · Q15 △",
       "kind": "개념",
-      "understood": false
+      "understood": true
     },
     {
       "id": "c-bg-sub",
@@ -214,8 +215,8 @@
         "Step8"
       ],
       "verdict": "❌",
-      "date": "2026-10-21",
-      "trigger": "진단 Q11",
+      "date": "2026-10-23",
+      "trigger": "진단 Q11 · 브리핑 Q5 △",
       "kind": "개념",
       "understood": false
     },
@@ -230,8 +231,8 @@
         "Step8"
       ],
       "verdict": "❌",
-      "date": "2026-10-21",
-      "trigger": "진단 Q10",
+      "date": "2026-10-23",
+      "trigger": "진단 Q10 · 브리핑 Q5 △",
       "kind": "개념",
       "understood": false
     },
@@ -267,21 +268,6 @@
       "understood": false
     },
     {
-      "id": "c-numeric",
-      "keyword": "수치 표현 · 반올림 · 비트 재현성",
-      "desc": "실수 결과를 정수로 보낼 때는 스케일·반올림 규칙·포화를 고정해야 양쪽이 같은 값을 낸다. 같은 식이라도 연산 순서(SIMD, -Ofast 최적화)나 FMA 사용 여부로 마지막 비트가 달라질 수 있어, 비교 기준은 '최대 몇 LSB 차이'로 정한다.",
-      "context": "Step5 PCM 규약(×16 → nearest-even 반올림 → int16 포화, PC np.rint와 같은 규칙)과 통과 기준 'MCU·PC 차이 ≤ 2 LSB'가 이 개념이다 (실측 최대 1 LSB). Step10에서 통합 결과를 PC 기준과 비교할 때도 같은 기준을 쓴다.",
-      "steps": [
-        "Step5",
-        "Step10"
-      ],
-      "verdict": "❌",
-      "date": "2026-10-21",
-      "trigger": "진단 Q14",
-      "kind": "개념",
-      "understood": false
-    },
-    {
       "id": "c-clock",
       "keyword": "클럭원과 정확도 (HSI · HSE)",
       "desc": "HSI는 칩 안의 RC 발진기(하드웨어)라 공정·온도로 % 단위 오차가 있고, HSE는 외부 수정 기반이라 ppm 단위다. 샘플링 타이머가 이 클럭에서 나오므로 클럭이 빠르면 초당 샘플이 더 오고, '샘플 수 ÷ 가정한 fs'로 계산한 시간·주파수·지연이 모두 같은 비율로 틀어진다.",
@@ -291,10 +277,10 @@
         "Step7"
       ],
       "verdict": "⚠",
-      "date": "2026-10-21",
-      "trigger": "진단 Q15",
+      "date": "2026-10-23",
+      "trigger": "진단 Q15 · 브리핑 Q9 △",
       "kind": "개념",
-      "understood": false
+      "understood": true
     },
     {
       "id": "c-deadline",
@@ -324,7 +310,7 @@
       "date": "2026-10-21",
       "trigger": "진단 Q28",
       "kind": "개념",
-      "understood": false
+      "understood": true
     },
     {
       "id": "c-leak",
@@ -398,9 +384,9 @@
       ],
       "verdict": "△",
       "date": "2026-10-23",
-      "trigger": "진단 Q24 · T1 △ (Step8 v5 지름길)",
+      "trigger": "진단 Q24 · T1 △ (Step8 v5 지름길) · 브리핑 Q1 △",
       "kind": "개념",
-      "understood": false
+      "understood": true
     },
     {
       "id": "c-timebase",
@@ -428,8 +414,101 @@
         "Step10"
       ],
       "verdict": "⚠",
-      "date": "2026-10-22",
-      "trigger": "진단 Q26 ❌ → T1 ⚠ · T3 △ (Step9A 결합 규칙)",
+      "date": "2026-10-23",
+      "trigger": "진단 Q26 ❌ → T1 ⚠ · T3 △ (Step9A 결합 규칙) · 브리핑 Q17 ❌",
+      "kind": "개념",
+      "understood": false
+    },
+    {
+      "id": "c-event-metric",
+      "keyword": "창 단위 · 사건 단위 평가",
+      "desc": "창 단위는 드론 구간을 1 s 창으로 잘라 맞힌 창의 비율을 센다. 사건 단위는 드론 한 번의 비행(사건) 안에서 확정 판정이 한 번이라도 나면 1건 검출로 센다. 긴 사건은 창이 많아 일부만 맞아도 검출되므로 사건 단위가 후하게 나오고, 얼마나 늦게 잡았는지는 확정 지연으로 따로 잰다.",
+      "context": "Step8 채택 운용점(v3m)은 FPV 창 재현율 0.22인데 FPV 사건은 3/3이다. 대신 확실한 양성 구간 시작부터 4 ~ 6 s 뒤에 잡았다. v0 기록에도 '사건 19/21은 과대평가 (호버 사건은 길어 창 몇 개만 맞아도 1건)'라고 남겼다. 평가 규칙은 Step6.",
+      "steps": [
+        "Step6",
+        "Step8"
+      ],
+      "verdict": "△",
+      "date": "2026-10-23",
+      "trigger": "브리핑 Q2 △",
+      "kind": "개념",
+      "understood": false
+    },
+    {
+      "id": "c-confirm-latency",
+      "keyword": "확정 지연 (창 길이 · 이동 · N개 중 K개 확인)",
+      "desc": "판정 하나는 창 길이만큼 소리가 쌓여야 나오고, 그 뒤로는 이동 간격마다 하나씩 나온다. K개 확인을 요구하면 확정까지 최소 '창 길이 + (K − 1) × 이동'이 걸리고 전송·추론 지연이 더해진다. 출력을 내보내는 주기(갱신 주기)와 확정 지연은 다른 양이다.",
+      "context": "Step8 분류는 1 s 창 / 0.5 s 이동 / 3창 중 2창이라 정의상 최소 1.5 s로 기준 ≤ 1 s와 충돌한다 (DO-2). 0.25 s는 Step7 방향(0.5 s 창 / 0.25 s 이동)과 Step9A 결합 출력의 갱신 주기다. 분류 도착 지연은 0.3 s로 가정했고 실측은 Step10이다.",
+      "steps": [
+        "Step7",
+        "Step8",
+        "Step9A",
+        "Step10"
+      ],
+      "verdict": "❌",
+      "date": "2026-10-23",
+      "trigger": "브리핑 Q3 ❌",
+      "kind": "개념",
+      "understood": false
+    },
+    {
+      "id": "c-range",
+      "keyword": "탐지 거리 추정 (거리 감쇠 · dBFS ↔ dB SPL 보정)",
+      "desc": "점 음원의 음압은 자유 공간에서 거리가 2배가 될 때마다 약 6 dB 줄어든다. 장치가 잰 dBFS를 실제 음압(dB SPL)으로 바꾸는 보정값이 있어야 '몇 m에서 배경보다 몇 dB 큰가'로 탐지 거리를 추정할 수 있다.",
+      "context": "열린 결정 DO-1: Salford DJI FPV 1 m 환산 약 80 dBA, 교외 낮 배경 50 dBA로 계산해 방향 약 18 m, 분류 약 10 m로 추정했다. 장치 음압 보정(휴대폰 소음계로 한 번)이 가장 큰 미지수다. Step7 평가 대상 'SNR ≥ 6 dB', Step11 실기 시험과 이어진다.",
+      "steps": [
+        "Step7",
+        "Step8",
+        "Step11"
+      ],
+      "verdict": "△",
+      "date": "2026-10-23",
+      "trigger": "브리핑 Q4 △",
+      "kind": "개념",
+      "understood": false
+    },
+    {
+      "id": "c-supply-noise",
+      "keyword": "전원·접지 결합 잡음 · 전원 RC 필터",
+      "desc": "디지털 회로가 주기적으로 전류를 끌면 공유하는 전원선·접지의 저항과 인덕턴스에서 전압이 흔들려 아날로그(마이크 앰프) 신호에 섞인다. 주기적이라 그 주기의 배수 주파수에 빗살(comb)로 보인다. 대책은 전원 분리(RC·LC 필터, 별도 레귤레이터), 접지 경로 분리, 짧은 배선이다.",
+      "context": "Step5에서 20.48 ms 프레임 처리마다 약 −27 LSB 펄스가 생겨 48.8 Hz 배수 빗이 됐다. 마이크 VCC에 220 Ω + 100 µF(f_c 7.2 Hz)를 달아 잡음 바닥이 14 ~ 16 dB 내려갔다. 그래도 340 ~ 490 Hz(FPV 기본음 대역)에 2.5 ~ 4.3 dB가 남았고, 이것이 Step8 v5 장치 경로 오탐(82회/시간)의 추정 원인이다 (D8-7, 미확인).",
+      "steps": [
+        "Step5",
+        "Step8"
+      ],
+      "verdict": "❌",
+      "date": "2026-10-23",
+      "trigger": "브리핑 Q7 ❌",
+      "kind": "개념",
+      "understood": false
+    },
+    {
+      "id": "c-ch-cal",
+      "keyword": "채널 지연 보정 · 마이크 좌표",
+      "desc": "방향은 마이크 사이 도달 시간차로 계산한다. 그래서 마이크 좌표의 오차와 채널마다 다른 전기적 지연(앰프·배선·ADC)이 그대로 각도 오차가 된다. 마이크 위치나 부품이 바뀌면 좌표와 지연을 다시 잰다.",
+      "context": "Step7은 보정 전 오차 중앙값 최대 24.5°였다. ch2가 ch1보다 23 µs, ch3보다 27 µs 먼저 들어오는 것을 config/geometry.json channel_delay_us로 보정하고, 공통 회전 +11.4°를 빼서 2.7°가 됐다 (D7-2). 지연 크기가 70 mm 기대보다 약 22% 작아 캡슐 간 거리 실측이 남아 있다. 외장(enclosure_v1)에 넣으면 좌표가 바뀐다.",
+      "steps": [
+        "Step7",
+        "Step10"
+      ],
+      "verdict": "❌",
+      "date": "2026-10-23",
+      "trigger": "브리핑 Q11 ❌",
+      "kind": "개념",
+      "understood": false
+    },
+    {
+      "id": "c-edge",
+      "keyword": "모델 크기 · 엣지 추론 예산",
+      "desc": "모델을 다른 장치로 옮길 때는 정확도 외에 메모리(파라미터 수·정밀도), 한 번 추론하는 시간, 전력을 그 장치의 예산과 비교한다. 옮긴 뒤에는 같은 입력에서 같은 출력이 나오는지 다시 검증한다.",
+      "context": "Step8 분류는 PC에서 CNN14(수백 MB)를 돌린다. 이 크기 때문에 MCU 단독 분류는 불가능하다 (D8-1의 대가, Step14는 int8 수십 KB 모델을 따로 검토). SBC(Orin) 이식은 선택 확장이다. 진입 조건은 PC 구성의 성능 확인과 독립 운용의 필요이고, 이식하면 같은 입력의 출력과 Step10 마감을 다시 검증한다 (problem.md, D4.5-3).",
+      "steps": [
+        "Step8",
+        "Step10"
+      ],
+      "verdict": "❌",
+      "date": "2026-10-23",
+      "trigger": "브리핑 Q16 ❌",
       "kind": "개념",
       "understood": false
     }

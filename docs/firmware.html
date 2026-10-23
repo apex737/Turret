@@ -88,6 +88,23 @@ svg { display: block; width: 100%; height: auto; }
 .ctrl { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
 .ctrl button { font: inherit; font-size: .85rem; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
 .qlog { font-size: .85rem; color: var(--muted); min-height: 1.5em; }
+
+/* 상태 변수 지도 */
+.who { display: inline-block; font-size: .74rem; line-height: 1.5; border-radius: 999px; padding: 0 7px; margin: 1px 2px 1px 0; border: 1px solid var(--line); background: var(--panel); white-space: nowrap; }
+.who.hw { border-color: var(--hw); background: var(--hw-soft); }
+.who.isr { border-color: var(--isr); background: var(--isr-soft); }
+.who.main { border-color: var(--accent); background: var(--accent-soft); }
+.who.boot { color: var(--muted); }
+td.v code { white-space: nowrap; }
+.statecap { font-size: .82rem; color: var(--muted); margin: 2px 0 10px; }
+
+/* 매크로 표 */
+details.mac { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); margin: 8px 0; padding: 0 12px; }
+details.mac > summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+details.mac > summary small { font-weight: 400; color: var(--muted); margin-left: 6px; }
+details.mac table { font-size: .88rem; }
+details.mac td:first-child code { white-space: nowrap; }
+td.pair { color: var(--muted); font-size: .84rem; }
 </style>
 </head>
 <body>
@@ -96,13 +113,13 @@ svg { display: block; width: 100%; height: auto; }
   <div>
     <h1>펌웨어 구조 — STM32F446RE 안에서 일어나는 일</h1>
     <p class="sub">모듈, 데이터 흐름, 클럭, DMA 핑퐁, 송신 큐, 방향 계산, 메모리·CPU, 빌드 · 코드가 원본이고 이 페이지는 참고표다 (코드와 같은 커밋에서 고친다)</p>
-    <nav class="docs"><a href="interfaces.html">인터페이스</a><a class="here" href="firmware.html">펌웨어 구조</a><a href="run.md">실행 절차</a><a href="../flow.html">Step 흐름도</a></nav>
+    <nav class="docs"><a href="interfaces.html">인터페이스</a><a class="here" href="firmware.html">펌웨어 구조</a><a href="parameter.html">파라미터</a><a href="run.md">실행 절차</a><a href="../flow.html">Step 흐름도</a></nav>
   </div>
   <button class="theme" id="themeBtn" type="button">◐ 테마</button>
 </div>
 <nav class="toc">
   <a href="#modules">모듈</a><a href="#flow">데이터 흐름</a><a href="#clock">클럭</a><a href="#pingpong">DMA 핑퐁</a><a href="#queue">송신 큐</a>
-  <a href="#doa">방향 계산</a><a href="#budget">메모리·CPU</a><a href="#modes">모드</a><a href="#blocks">코드 블록</a><a href="#tdoa">tdoa.c</a><a href="#build">빌드·CubeMX</a>
+  <a href="#doa">방향 계산</a><a href="#budget">메모리·CPU</a><a href="#modes">모드</a><a href="#blocks">코드 블록</a><a href="#state">상태 변수</a><a href="#macros">매크로 상수</a><a href="#tdoa">tdoa.c</a><a href="#build">빌드·CubeMX</a>
 </nav>
 
 <h2 id="modules">모듈 지도</h2>
@@ -182,6 +199,7 @@ svg { display: block; width: 100%; height: auto; }
 <div class="ctrl"><button type="button" id="qPush">main: 프레임 넣기 (stream_push)</button><button type="button" id="qPop">ISR: 송신 완료</button><button type="button" id="qReset">처음으로</button></div>
 <p class="qlog" id="qlog"></p>
 <p>큐가 가득 차면 새 패킷을 버리고 <code>qdrop</code>을 올린다. 버려도 <code>seq</code> 번호는 하나 소비하므로 PC가 빈 번호로 알 수 있다. DOA 결과는 별도 4칸 큐에 있고, UART가 비면 PCM보다 먼저 나간다.</p>
+<p><b>큐 손실이란:</b> 보내는 속도(패킷당 약 16.9 ms)가 만드는 속도(20.48 ms마다 하나)를 잠깐 못 따라가는 것은 칸 4개(약 80 ms분)가 받아 준다. 계속 못 따라가면 칸이 다 차고 새 패킷이 버려진다. 이때 MCU의 입력·FIR·방향 계산은 아무 영향이 없고, PC만 그 20.48 ms를 못 받는다. 그래서 FIR은 재시작하지 않고 다음 패킷에 GAP만 붙인다. PC에게 어떻게 보이는지는 <a href="interfaces.html#gap">인터페이스 — 끊김 규칙</a>.</p>
 
 <h2 id="doa">방향 계산 (doa.c)</h2>
 <p>PC 기준 구현(<code>Tools/doa/doa_stream.py</code>)과 같은 값을 내되, 메모리와 계산을 프레임마다 고르게 나누도록 바꿨다.</p>
@@ -232,6 +250,183 @@ svg { display: block; width: 100%; height: auto; }
 <tr><td><code>app.c</code> <code>on_stream_frame</code></td><td>끊긴 입력을 필터에 이어 넣으면 가짜 파형</td><td>번호 건너뜀·OVR → 필터 재시작 + RESYNC·GAP, 큐 유실은 GAP만 (<a href="interfaces.html#gap">끊김 규칙</a>)</td></tr>
 <tr><td><code>verify.c</code></td><td>"같은 디지털 입력"으로 비교해야 함</td><td>8프레임 원본과 PCM을 같이 보냄</td></tr>
 </table></div>
+
+<h2 id="state">상태 변수 지도 (STREAM 모드)</h2>
+<p>모듈마다 파일 안의 <code>static</code> 변수들이 몇 개씩 묶여 한 가지 일을 한다. 코드를 읽을 때 가장 헷갈리는 것은 "이 변수를 누가, 언제 바꾸나"라서, 묶음마다 쓰는 쪽과 초기화 시점을 정리했다. 변수 하나하나의 뜻은 코드 주석에 있다.</p>
+<div class="legend"><span class="who hw">DMA</span>하드웨어가 직접 씀 <span class="who isr">ISR</span>인터럽트 안에서 씀 <span class="who main">main</span>메인 루프에서 씀 <span class="who boot">부팅 1회</span>초기화 때만 씀</div>
+<p class="statecap">ISR과 main이 같이 쓰는 변수는 <code>volatile</code>로 두고, 여러 개를 한 번에 읽거나 바꿀 때는 <code>__disable_irq()</code> 구간 안에서 한다.</p>
+
+<h3>끊김 감지 — 샘플이 빠지는 세 길과 각 변수의 반응</h3>
+<div class="tw"><table>
+<tr><th>길</th><th>어디서 생기나</th><th>프레임 번호 <code>frameSeq</code></th><th>오르는 누계</th><th>잡는 변수 (<code>app.c on_stream_frame</code>)</th><th>MCU 처리</th></tr>
+<tr><td>① 프레임 유실</td><td>main이 늦어 ISR이 <code>readyHalf</code>를 덮어씀, 또는 복사 중 덮어써짐</td><td>계속 오름 → main이 받는 번호가 <b>건너뜀</b></td><td><code>dropCnt</code></td><td><code>last_seq</code> (seq ≠ last_seq + 1)</td><td>FIR 재시작, 방향 창 버림, RESYNC + GAP</td></tr>
+<tr><td>② overrun</td><td>ADC → DMA 하드웨어 오류. DMA가 멈춤</td><td>멈춘 동안 반버퍼가 안 차서 <b>안 오름</b> → 재시작 뒤 번호가 이어짐</td><td><code>ovrCnt</code></td><td><code>last_ovr</code> (번호로는 안 보이므로 누계 변화로)</td><td>같음</td></tr>
+<tr><td>③ 송신 큐 유실</td><td>stream.c PCM 큐 4칸이 다 참</td><td>영향 없음</td><td><code>s_qdrop</code></td><td><code>last_qdrop</code></td><td>FIR 유지, GAP만 (MCU 입력은 연속)</td></tr>
+</table></div>
+<p>프레임 번호는 ISR이 "반버퍼가 찰 때마다" 매기므로, 반버퍼가 찼는데 main이 못 가져간 ①은 번호에 드러나고, 반버퍼가 아예 안 찬 ②는 드러나지 않는다. 이것이 <code>last_seq</code>와 <code>last_ovr</code>가 둘 다 필요한 이유다.</p>
+
+<h3>adc.c — 수집</h3>
+<div class="tw"><table>
+<tr><th>묶음</th><th>변수</th><th>쓰는 쪽</th><th>초기화</th><th>하는 일</th></tr>
+<tr><td>DMA 버퍼</td><td class="v"><code>adc_buffer[6144]</code> (12 KB)</td><td><span class="who hw">DMA</span></td><td>안 함</td><td>핑퐁 원형 버퍼. 인터리브 <code>[a1 a2 a3 …]</code>, 절반 = 1 프레임</td></tr>
+<tr><td>준비 칸</td><td class="v"><code>readyHalf</code>, <code>readySeq</code></td><td><span class="who isr">ISR</span> 채움 · <span class="who main">main</span> 비움</td><td>overrun 재시작 때 비움</td><td>"이 절반이 준비됨 + 번호". 칸이 하나뿐이라 안 가져가면 다음 것이 덮어씀</td></tr>
+<tr><td>누계</td><td class="v"><code>frameSeq</code>, <code>dropCnt</code>, <code>ovrCnt</code></td><td><span class="who isr">ISR</span> (<code>dropCnt</code>는 복사 중 덮어쓰기 때 <span class="who main">main</span>도)</td><td>부팅 때 0, 이후 안 지움</td><td>만들어진 반버퍼 수 / 못 가져간 프레임 / overrun 횟수. app.c가 매 프레임 읽어 변화를 본다</td></tr>
+<tr><td>재시작 요청</td><td class="v"><code>ovrPending</code></td><td><span class="who isr">ISR</span> 세움 · <span class="who main">main</span> 내림</td><td>—</td><td>overrun을 ISR에서 표시만 하고, 실제 재시작은 <code>adc_service()</code>(main)가 한다</td></tr>
+<tr><td>핸들</td><td class="v"><code>s_mstr</code>, <code>s_slv1</code>, <code>s_slv2</code>, <code>s_tim</code></td><td><span class="who boot">부팅 1회</span></td><td><code>adc_init</code></td><td>재시작할 때 다시 쓰려고 보관한 HAL 핸들</td></tr>
+</table></div>
+
+<h3>app.c — 프레임 처리 (<code>on_stream_frame</code>의 static 지역 변수)</h3>
+<div class="tw"><table>
+<tr><th>묶음</th><th>변수</th><th>쓰는 쪽</th><th>초기화</th><th>하는 일</th></tr>
+<tr><td>입력 프레임</td><td class="v"><code>frame[3][1024]</code> (6 KB, 파일 전역)</td><td><span class="who main">main</span></td><td>—</td><td><code>adc_get_frame</code>이 채널별로 풀어 담은 프레임. 다음 프레임까지만 유효</td></tr>
+<tr><td>끊김 감지</td><td class="v"><code>first</code>, <code>last_seq</code>, <code>last_ovr</code>, <code>last_qdrop</code></td><td><span class="who main">main</span></td><td>부팅 (<code>first = true</code>)</td><td>직전 프레임 때 값을 기억했다가 이번 값과 비교 → 위 끊김 표</td></tr>
+<tr><td>측정</td><td class="v"><code>cpu_pct</code></td><td><span class="who main">main</span></td><td>0</td><td>직전 프레임 처리 시간 [%]. 이번 패킷에 실린다 (이번 시간은 끝나야 알 수 있으므로)</td></tr>
+<tr><td>출력 블록</td><td class="v"><code>pcm[3][256]</code> (1.5 KB)</td><td><span class="who main">main</span></td><td>—</td><td>전처리 결과. <code>stream_push</code>가 패킷으로, <code>doa_push</code>가 링버퍼로 복사한다. static이라 스택을 쓰지 않는다</td></tr>
+</table></div>
+
+<h3>preproc.c — FIR</h3>
+<div class="tw"><table>
+<tr><th>묶음</th><th>변수</th><th>쓰는 쪽</th><th>초기화</th><th>하는 일</th></tr>
+<tr><td>필터 상태</td><td class="v"><code>s_fir[3]</code>, <code>s_state[3][1098]</code> (13 KB)</td><td><span class="who main">main</span></td><td><code>preproc_reset()</code>: 부팅, RESYNC 때만</td><td>채널마다 직전 74샘플을 기억해 프레임 경계를 넘어 필터가 이어지게 한다. 프레임마다 지우면 48.8 Hz 빗이 생긴다</td></tr>
+<tr><td>작업 버퍼</td><td class="v"><code>s_in[1024]</code>, <code>s_out[256]</code></td><td><span class="who main">main</span></td><td>—</td><td>한 채널씩 차례로 쓰는 임시 공간 (세 채널이 돌려 씀)</td></tr>
+</table></div>
+
+<h3>stream.c — 송신 큐</h3>
+<div class="tw"><table>
+<tr><th>묶음</th><th>변수</th><th>쓰는 쪽</th><th>초기화</th><th>하는 일</th></tr>
+<tr><td>PCM 큐</td><td class="v"><code>s_slot[4][1562]</code>, <code>s_head</code>, <code>s_tail</code></td><td><code>s_head</code> <span class="who main">main</span> · <code>s_tail</code> <span class="who isr">ISR</span></td><td><code>stream_init</code></td><td>완성된 패킷 4개를 담는 링버퍼. head − tail = 쌓인 수. 한 변수를 한쪽만 바꿔서 잠금 없이 안전하다</td></tr>
+<tr><td>PCM 번호·유실</td><td class="v"><code>s_seq</code>, <code>s_qdrop</code></td><td><span class="who main">main</span></td><td><code>stream_init</code></td><td>다음 송신 번호 (버린 패킷도 소비) / 버린 패킷 수</td></tr>
+<tr><td>DOA 큐</td><td class="v"><code>s_doa[4][78]</code>, <code>s_dhead</code>, <code>s_dtail</code>, <code>s_dseq</code></td><td>PCM 큐와 같음</td><td><code>stream_init</code></td><td>방향 결과 패킷 큐. 유실 카운터 없음, 버리면 번호도 안 씀</td></tr>
+<tr><td>송신 상태</td><td class="v"><code>s_tx</code>, <code>s_tx_doa</code>, <code>s_huart</code></td><td><span class="who main">main</span> · <span class="who isr">ISR</span> (<code>kick_locked</code>, 인터럽트 끈 채로)</td><td><code>stream_init</code></td><td>지금 DMA로 나가는 중인가 / 나가는 것이 DOA인가 (완료 때 어느 tail을 올릴지)</td></tr>
+</table></div>
+
+<h3>doa.c — 방향 계산</h3>
+<div class="tw"><table>
+<tr><th>묶음</th><th>변수</th><th>쓰는 쪽</th><th>초기화</th><th>하는 일</th></tr>
+<tr><td>미리 만든 표</td><td class="v"><code>s_fft</code>, <code>s_hann</code>, <code>s_solve</code>, <code>s_delay</code>, <code>s_m</code>, <code>s_rot</code>, <code>s_rot0</code></td><td><span class="who boot">부팅 1회</span></td><td><code>doa_init</code></td><td>FFT 설정, Hann 창, 시간차 → 방향 행렬, 채널 지연 보정, 상관 지연 범위와 회전 인자. <b><code>doa_init</code>을 안 부르면 전부 0이라 동작하지 않는다</b></td></tr>
+<tr><td>입력 링</td><td class="v"><code>s_ring[3][1024]</code> (6 KB)</td><td><span class="who main">main</span></td><td>—</td><td>최근 PCM 1024샘플. 위치 = 샘플 번호 &amp; 1023</td></tr>
+<tr><td>블록 캐시</td><td class="v"><code>s_fin</code>, <code>s_fout</code>, <code>s_xb[3][221][2]</code>, <code>s_xb_start</code>, <code>s_xb_ok</code></td><td><span class="who main">main</span></td><td>프레임마다 <code>s_xb_ok = false</code></td><td>블록 하나의 FFT와 대역 스펙트럼. 배경과 창 2개가 같은 블록을 쓸 때 FFT를 한 번만 하려고 시작 번호와 함께 보관</td></tr>
+<tr><td>창</td><td class="v"><code>s_win[2]</code> (<code>win_t</code>: <code>used</code>, <code>s0</code>, <code>nblk</code>, <code>sum</code>) (16 KB)</td><td><span class="who main">main</span></td><td>재시작 때 지움</td><td>진행 중인 0.5 s 창 최대 2개. 블록 23개가 차면 <code>finalize</code></td></tr>
+<tr><td>배경</td><td class="v"><code>s_bg</code>, <code>s_learn</code> (각 8 KB), <code>s_bg_ready</code>, <code>s_learning</code>, <code>s_bg_s0</code>, <code>s_learn_s0</code>, <code>s_learn_blk</code></td><td><span class="who main">main</span></td><td><code>doa_init</code></td><td>쓰는 배경(평균) / 배우는 중인 배경(합) 두 벌. 다 배우면 평균을 내서 교체</td></tr>
+<tr><td>배경 요청</td><td class="v"><code>s_bg_req</code></td><td><span class="who isr">ISR</span> (B1 버튼) 세움 · <span class="who main">main</span> 내림</td><td><code>doa_init</code>에서 true (부팅 후 첫 배경)</td><td>다음 프레임부터 배경을 다시 배우라는 표시. ISR이 쓰지만 <code>volatile</code>이 아니다 — <code>doa_push</code>가 다른 파일(app.c)에서 프레임마다 불리고 링크 시간 최적화(LTO)를 쓰지 않아 매번 메모리에서 읽히므로 지금은 동작한다. 엄밀히는 <code>volatile</code>이 맞다</td></tr>
+<tr><td>시간축</td><td class="v"><code>s_started</code>, <code>s_next_s0</code></td><td><span class="who main">main</span></td><td>재시작 때 다시 정함</td><td>재시작 뒤 첫 프레임을 버리고 다음 프레임부터 창을 센다 / 다음 창의 시작 샘플</td></tr>
+<tr><td>계산 작업</td><td class="v"><code>s_ph</code>, <code>finalize</code>의 <code>r</code>, <code>phat_peaks</code>의 <code>cc</code></td><td><span class="who main">main</span></td><td>—</td><td>PHAT 스펙트럼과 상관 값. 창이 끝나는 프레임에서만 쓴다. static이라 스택을 쓰지 않는다</td></tr>
+</table></div>
+
+<h2 id="macros">매크로 상수 표</h2>
+<p>헤더(<code>.h</code>)와 소스 안의 <code>#define</code>을 파일별로 모았다. 헤더에 있는 것은 여러 파일이 같이 쓰고, <code>.c</code> 안에 있는 것은 그 파일 안에서만 쓴다. 마지막 칸은 값을 바꿀 때 <b>같이 바꿔야 하는 곳</b>이다. PC 쪽 짝이 있는 것은 같은 커밋에서 고친다 (I3). 패킷 칸의 의미는 <a href="interfaces.html">인터페이스</a>에 있다.</p>
+<p class="statecap">STREAM 경로 파일은 펼쳐 두고, SNAP·시험 모드 파일은 접어 두었다. 값 옆 괄호는 다른 매크로로 계산되는 값이다.</p>
+
+<details class="mac" open><summary>app.c <small>모드 선택, 처리 마감</small></summary><div class="tw"><table>
+<tr><th>이름</th><th>값</th><th>뜻</th><th>같이 바꿀 곳</th></tr>
+<tr><td><code>APP_MODE_SNAP</code> · <code>_BURST</code> · <code>_STREAM</code> · <code>_VERIFY</code></td><td class="num">0 · 1 · 2 · 3</td><td>동작 모드 번호 (<a href="#modes">모드</a>)</td><td class="pair">—</td></tr>
+<tr><td><code>APP_MODE</code></td><td class="num">APP_MODE_STREAM</td><td>이번 빌드의 모드. 컴파일러 옵션 <code>-DAPP_MODE=n</code>으로 바꿀 수 있다 (<code>#ifndef</code>라 옵션이 이긴다)</td><td class="pair">받는 PC 도구 (모드 표)</td></tr>
+<tr><td><code>FRAME_CYCLES</code></td><td class="num">3,686,400</td><td>프레임 하나의 처리 마감 [사이클] = 180 MHz × 20.48 ms. <code>cpu_pct</code>의 분모</td><td class="pair">SYSCLK, <code>ADC_SAMPLES_PER_HALF</code>, TIM2 주기</td></tr>
+</table></div></details>
+
+<details class="mac" open><summary>adc.h <small>수집 버퍼 크기</small></summary><div class="tw"><table>
+<tr><th>이름</th><th>값</th><th>뜻</th><th>같이 바꿀 곳</th></tr>
+<tr><td><code>ADC_CH_CNT</code></td><td class="num">3</td><td>동시에 재는 채널(마이크) 수</td><td class="pair">CubeMX 삼중 모드, <code>PREPROC_CH</code>, <code>DOA_CH</code>, <code>TDOA_CH</code>, <code>DUMP_CH</code></td></tr>
+<tr><td><code>ADC_SAMPLES_PER_HALF</code></td><td class="num">1024</td><td>반버퍼의 채널당 샘플 수 = <b>프레임 길이</b> (50 kHz에서 20.48 ms). 모든 모듈의 처리 단위</td><td class="pair"><code>PREPROC_IN</code>(정적 검사), <code>TDOA_FRAME</code>, <code>DUMP_N</code>, <code>FRAME_CYCLES</code>, PC의 블록 길이 256(= 1024 / 4)</td></tr>
+<tr><td><code>ADC_HALF_LENGTH</code></td><td class="num">(3,072)</td><td>반버퍼 전체 칸 수 = 채널 × 샘플. 뒤쪽 절반의 시작 위치</td><td class="pair">자동</td></tr>
+<tr><td><code>ADC_DMA_LENGTH</code></td><td class="num">(6,144)</td><td>DMA 버퍼 전체 칸 수 (12 KB). DMA에 넘기는 길이</td><td class="pair">자동</td></tr>
+</table></div></details>
+
+<details class="mac" open><summary>preproc.h · preproc.c · fir_coeffs.h <small>전처리</small></summary><div class="tw"><table>
+<tr><th>이름</th><th>값</th><th>뜻</th><th>같이 바꿀 곳</th></tr>
+<tr><td><code>PREPROC_CH</code></td><td class="num">3</td><td>전처리하는 채널 수</td><td class="pair"><code>ADC_CH_CNT</code>(정적 검사)</td></tr>
+<tr><td><code>PREPROC_IN</code></td><td class="num">1024</td><td>프레임당 입력 샘플 수 (50 kHz)</td><td class="pair"><code>ADC_SAMPLES_PER_HALF</code>(정적 검사)</td></tr>
+<tr><td><code>PREPROC_OUT</code></td><td class="num">(256)</td><td>프레임당 출력 샘플 수 (12.5 kHz) = IN / M. PCM 패킷의 <code>n</code></td><td class="pair"><code>DOA_FRAME</code>, PC <code>stream_capture.py</code> <code>N</code></td></tr>
+<tr><td><code>PREPROC_ADC_CENTER</code></td><td class="num">2048</td><td>12비트 ADC의 중심값. 빼서 0 중심으로</td><td class="pair">PC <code>frontend.py</code></td></tr>
+<tr><td><code>PREPROC_PCM_SCALE</code></td><td class="num">16.0f</td><td>FIR 출력에 곱하는 값. 12비트 범위 → int16 범위</td><td class="pair">PC <code>frontend.py</code>, <code>config/frontend_config.json</code></td></tr>
+<tr><td><code>PREPROC_TRANSIENT_OUT</code></td><td class="num">(19)</td><td>FIR 재시작 뒤 과도 구간 출력 샘플 수 = ⌈75 / 4⌉</td><td class="pair">PC <code>stream_capture.py</code> <code>TRANSIENT</code></td></tr>
+<tr><td><code>CLIP_LO</code> · <code>CLIP_HI</code> (preproc.c)</td><td class="num">8 · 4087</td><td>클리핑 판정 문턱. ADC 값이 양 끝 8 LSB 안이면 CLIP 플래그</td><td class="pair"><code>capture.h</code>에 같은 이름·값이 따로 있음 → 두 곳</td></tr>
+<tr><td><code>FIR_DECIM_M</code></td><td class="num">4</td><td>솎는 비율 (50 → 12.5 kHz)</td><td class="pair" rowspan="3"><b>직접 고치지 않는다.</b> <code>Tools/preproc/fir_design.py</code>가 이 파일을 만든다. 바꾸면 PCM 패킷 크기·대역폭도 바뀜</td></tr>
+<tr><td><code>FIR_NUM_TAPS</code></td><td class="num">75</td><td>FIR 계수 수 (탭). 상태 버퍼 크기와 과도 구간을 정한다</td></tr>
+<tr><td><code>FIR_GROUP_DELAY</code></td><td class="num">37</td><td>필터가 신호를 늦추는 양 [50 kHz 샘플] = (75 − 1) / 2. 세 채널에 똑같이 들어가 방향에는 영향 없음</td></tr>
+</table></div></details>
+
+<details class="mac" open><summary>stream.h · stream.c <small>PCM·DOA 패킷과 송신 큐</small></summary><div class="tw"><table>
+<tr><th>이름</th><th>값</th><th>뜻</th><th>같이 바꿀 곳</th></tr>
+<tr><td><code>STREAM_VER</code></td><td class="num">3</td><td>패킷 형식 버전. 형식이 바뀌면 올려서 PC가 구분한다 (v2 = dump)</td><td class="pair" rowspan="3">PC <code>dump_viewer.py</code> <code>PacketParser</code></td></tr>
+<tr><td><code>STREAM_TYPE_PCM</code></td><td class="num">0x03</td><td>패킷 종류: 12.5 kHz PCM 블록</td></tr>
+<tr><td><code>STREAM_TYPE_DOA</code></td><td class="num">0x04</td><td>패킷 종류: 방향 결과</td></tr>
+<tr><td><code>STREAM_FLAG_CLIP</code></td><td class="num">0x01</td><td>이 프레임 ADC 입력에 클리핑</td><td class="pair" rowspan="4">PC <code>stream_capture.py</code> <code>F_CLIP</code>·<code>F_RESYNC</code>·<code>F_VERIFY</code>·<code>F_GAP</code>. v2의 <code>DUMP_FLAG_*</code>와 값이 다르다 (VERIFY: v3 0x04, v2 0x20)</td></tr>
+<tr><td><code>STREAM_FLAG_RESYNC</code></td><td class="num">0x02</td><td>이 블록 직전에 FIR 재시작 → 첫 19샘플 과도</td></tr>
+<tr><td><code>STREAM_FLAG_VERIFY</code></td><td class="num">0x04</td><td>검증 모드: 같은 frame_seq의 원본과 짝</td></tr>
+<tr><td><code>STREAM_FLAG_GAP</code></td><td class="num">0x08</td><td>이 블록 앞에서 샘플이 빠짐</td></tr>
+<tr><td><code>STREAM_SLOTS</code></td><td class="num">4</td><td>PCM 송신 큐 칸 수 (칸 = 1프레임 = 1,562 B). 흔들림을 약 80 ms까지 받아 줌</td><td class="pair">RAM (칸당 1.5 KB)</td></tr>
+<tr><td><code>STREAM_DOA_SLOTS</code></td><td class="num">4</td><td>DOA 결과 큐 칸 수 (칸 = 78 B)</td><td class="pair">—</td></tr>
+<tr><td><code>PAYLOAD</code> (stream.c)</td><td class="num">(1,536)</td><td>PCM payload 바이트 = 3 × 256 × 2</td><td class="pair" rowspan="3">자동. PC 파서의 길이 검증과 같아야 함</td></tr>
+<tr><td><code>PKT</code> (stream.c)</td><td class="num">(1,562)</td><td>PCM 패킷 전체 = 헤더 24 + payload + CRC 2</td></tr>
+<tr><td><code>DOA_PKT</code> (stream.c)</td><td class="num">(78)</td><td>DOA 패킷 전체 = 24 + 52 + 2</td></tr>
+</table></div></details>
+
+<details class="mac" open><summary>doa.h · doa.c <small>방향 계산</small></summary><div class="tw"><table>
+<tr><th>이름</th><th>값</th><th>뜻</th><th>같이 바꿀 곳</th></tr>
+<tr><td><code>DOA_CH</code> · <code>DOA_PAIRS</code></td><td class="num">3 · 3</td><td>채널 수 / 마이크 쌍 수 (1,2) (1,3) (2,3)</td><td class="pair">—</td></tr>
+<tr><td><code>DOA_FRAME</code></td><td class="num">256</td><td>한 번에 들어오는 샘플 수 (= <code>PREPROC_OUT</code>). 블록 이동과 같아야 함 (정적 검사)</td><td class="pair"><code>PREPROC_OUT</code></td></tr>
+<tr><td><code>DOA_FS</code></td><td class="num">12500.0f</td><td>입력 샘플레이트 [Hz]. 시간차 → 거리 환산</td><td class="pair">TIM2 주기, <code>FIR_DECIM_M</code></td></tr>
+<tr><td><code>DOA_OBS</code></td><td class="num">6250</td><td>관측 창 길이 [샘플] = 0.5 s. 길수록 안정, 느림</td><td class="pair" rowspan="4">PC <code>doa_stream.py</code> <code>--obs</code>, <code>--hop</code>, <code>--block</code></td></tr>
+<tr><td><code>DOA_HOP</code></td><td class="num">3072</td><td>창 이동 [샘플] = 0.246 s = 결과 주기. 블록 이동(256)의 배수여야 창끼리 블록 FFT를 함께 씀</td></tr>
+<tr><td><code>DOA_BLOCK</code></td><td class="num">512</td><td>FFT 블록 길이. 50% 겹침으로 256씩 이동</td></tr>
+<tr><td><code>DOA_NFFT</code></td><td class="num">(1024)</td><td>FFT 크기 = 블록 × 2 (뒤 절반 0 채움). 빈 간격 12.2 Hz</td></tr>
+<tr><td><code>DOA_BAND_LO_HZ</code> · <code>_HI_HZ</code></td><td class="num">300 · 3000</td><td>쓰는 대역 [Hz]. <b>코드는 이 값이 아니라 doa.c의 <code>K_LO</code>·<code>K_HI</code>를 쓴다</b> (근거 표시용)</td><td class="pair">doa.c <code>K_LO</code>·<code>K_HI</code>, PC <code>--band</code></td></tr>
+<tr><td><code>DOA_UP</code></td><td class="num">16</td><td>상관을 1/16 샘플 간격으로 계산</td><td class="pair">PC <code>doa_stream.py</code> <code>estimate()</code>의 <code>up</code> 인자 (명령줄 옵션 아님)</td></tr>
+<tr><td><code>DOA_PHAT_EPS</code></td><td class="num">0.01f</td><td>PHAT 바닥값 (대역 최대 크기의 1%)</td><td class="pair">PC <code>estimate()</code>의 <code>eps</code> 인자</td></tr>
+<tr><td><code>DOA_SPACING_M</code></td><td class="num">0.07f</td><td>마이크 간격 [m] (정삼각형 한 변). 최소제곱 행렬과 지연 탐색 범위를 정한다</td><td class="pair" rowspan="3"><code>config/geometry.json</code>, PC <code>doa_stream.py</code>. 배열을 바꾸면 다시 잰다</td></tr>
+<tr><td><code>DOA_SOUND_SPEED</code></td><td class="num">343.0f</td><td>음속 [m/s]</td></tr>
+<tr><td><code>DOA_MIC_CW</code></td><td class="num">0</td><td>마이크 번호가 시계 방향으로 붙어 있으면 1 (각도 부호가 뒤집힘)</td></tr>
+<tr><td><code>DOA_DELAY_US_CH1</code> · <code>_CH2</code> · <code>_CH3</code></td><td class="num">0 · −23.1 · 4.3</td><td>채널 고유 지연 [µs] (ch1 기준, 음수 = 먼저 들어옴). 측정된 시간차에서 뺀다</td><td class="pair"><code>config/geometry.json</code> <code>channel_delay_us</code>. 마이크 모듈·게인을 바꾸면 다시 잰다</td></tr>
+<tr><td><code>DOA_MIN_PEAK</code></td><td class="num">0.15f</td><td>VALID 조건: 세 쌍 중 가장 낮은 상관 봉우리 이상</td><td class="pair" rowspan="5">PC <code>--min-peak</code>, <code>--max-closure</code>, <code>--min-norm</code>, <code>--max-norm</code>, <code>--min-snr</code></td></tr>
+<tr><td><code>DOA_MAX_CLOSURE</code></td><td class="num">0.3f</td><td>VALID 조건: |τ12 + τ23 − τ13| 이하 [샘플]</td></tr>
+<tr><td><code>DOA_MIN_NORM</code> · <code>DOA_MAX_NORM</code></td><td class="num">0.5f · 1.3f</td><td>VALID 조건: 방향 벡터 길이 범위 (0.5 = 고도 60°)</td></tr>
+<tr><td><code>DOA_MIN_SNR_DB</code></td><td class="num">6.0f</td><td>PRESENT 조건: 배경보다 대역 전력이 이만큼 커야 새 소리가 있다고 봄</td></tr>
+<tr><td><code>DOA_BG_SECONDS</code></td><td class="num">10</td><td>배경을 배우는 시간 [s] (PC 시험은 60 s)</td></tr>
+<tr><td><code>DOA_FLAG_VALID</code> · <code>_PRESENT</code> · <code>_BG</code> · <code>_LEARNING</code></td><td class="num">0x01 · 0x02 · 0x04 · 0x08</td><td>DOA payload <code>flags</code> 비트 (<a href="interfaces.html#flags">플래그</a>)</td><td class="pair">PC <code>stream_capture.py</code>, <code>fusion/combine.py</code>(valid, present)</td></tr>
+<tr><td><code>DOA_CPU_MHZ</code></td><td class="num">180</td><td>사이클 → µs 환산 (<code>proc_us</code>)</td><td class="pair">SYSCLK</td></tr>
+<tr><td><code>K_LO</code> · <code>K_HI</code> (doa.c)</td><td class="num">25 · 245</td><td>실제로 쓰는 FFT 빈 범위 (≈ 305 ~ 2991 Hz). 손으로 계산해 둔 값</td><td class="pair"><code>DOA_BAND_*</code>를 바꾸면 손으로 다시 계산. tdoa.c에도 같은 이름이 있지만 파일 안에서만 쓰는 별개 값</td></tr>
+<tr><td><code>NB</code> (doa.c)</td><td class="num">(221)</td><td>대역 안 빈 수. 모든 스펙트럼 배열의 크기</td><td class="pair" rowspan="6">자동 (정적 검사가 조건을 확인)</td></tr>
+<tr><td><code>BHOP</code> (doa.c)</td><td class="num">(256)</td><td>블록 이동 = 블록의 절반 = 프레임 크기</td></tr>
+<tr><td><code>NBLK</code> (doa.c)</td><td class="num">(23)</td><td>창 하나의 블록 수</td></tr>
+<tr><td><code>BG_N</code> · <code>BG_NBLK</code> (doa.c)</td><td class="num">(125,000 · 487)</td><td>배경 길이 [샘플] / 배경 블록 수</td></tr>
+<tr><td><code>RING</code> · <code>NWIN</code> (doa.c)</td><td class="num">1024 · 2</td><td>링버퍼 길이 [샘플/채널, 2의 거듭제곱] / 동시에 진행하는 창 수</td></tr>
+<tr><td><code>MAXM</code> (doa.c)</td><td class="num">64</td><td>상관 지연 칸 수 절반의 상한 (실제 57 → −57 ~ +57, 115칸)</td></tr>
+</table></div></details>
+
+<details class="mac"><summary>dump.h · dump.c <small>v2 원파형·결과 패킷 (SNAP·BURST·VERIFY)</small></summary><div class="tw"><table>
+<tr><th>이름</th><th>값</th><th>뜻</th><th>같이 바꿀 곳</th></tr>
+<tr><td><code>DUMP_SYNC</code> (dump.c)</td><td class="num">0xFFFFFFFF</td><td>패킷 시작 표시. v3 패킷도 같은 sync를 쓴다</td><td class="pair" rowspan="4">PC <code>dump_viewer.py</code> <code>HDR_FMT</code>, <code>RESULT_FMT</code></td></tr>
+<tr><td><code>DUMP_VER</code> (dump.c)</td><td class="num">2</td><td>v2 패킷 버전</td></tr>
+<tr><td><code>DUMP_TYPE_RAW</code> (dump.c)</td><td class="num">0x01</td><td>패킷 종류: 가공 안 한 ADC 원본</td></tr>
+<tr><td><code>DUMP_TYPE_RESULT</code> (dump.c)</td><td class="num">0x02</td><td>패킷 종류: 스냅 TDOA 결과</td></tr>
+<tr><td><code>DUMP_N</code> · <code>DUMP_CH</code></td><td class="num">1024 · 3</td><td>프레임당 채널별 샘플 수 / 채널 수</td><td class="pair"><code>ADC_SAMPLES_PER_HALF</code>, <code>TDOA_FRAME</code>(app.c 정적 검사)</td></tr>
+<tr><td><code>DUMP_MAX_FRAMES</code></td><td class="num">8</td><td>한 패킷에 담는 최대 프레임 수 (트리거 2, burst 8). 송신 버퍼 크기를 정함</td><td class="pair"><code>BURST_FRAMES</code></td></tr>
+<tr><td><code>DUMP_FLAG_CLIP</code> · <code>_MANUAL</code> · <code>_PRETRIG</code> · <code>_VALID</code> · <code>_BURST</code> · <code>_VERIFY</code></td><td class="num">0x01 · 0x02 · 0x04 · 0x08 · 0x10 · 0x20</td><td>v2 헤더 <code>flags</code> 비트 (<a href="interfaces.html#flags">플래그</a>)</td><td class="pair">PC <code>dump_viewer.py</code>, <code>burst_rx.py</code>, <code>verify_preproc.py</code></td></tr>
+<tr><td><code>FRAME_CH_BYTES</code> · <code>MAX_PAYLOAD</code> · <code>MAX_PKT</code> · <code>RES_PKT</code> (dump.c)</td><td class="num">(2,048 · 49,152 · 49,174 · 62)</td><td>프레임 한 채널 바이트 / 최대 payload / 최대 패킷 / 결과 패킷 크기. <code>MAX_PKT</code>는 DMA 길이(16비트) 이하여야 함</td><td class="pair">자동 (정적 검사)</td></tr>
+</table></div></details>
+
+<details class="mac"><summary>tdoa.h · tdoa.c <small>스냅 방향 (SNAP 모드, Step3)</small></summary><div class="tw"><table>
+<tr><th>이름</th><th>값</th><th>뜻</th><th>같이 바꿀 곳</th></tr>
+<tr><td><code>TDOA_CH</code> · <code>TDOA_PAIRS</code></td><td class="num">3 · 3</td><td>마이크 수 / 쌍 수</td><td class="pair" rowspan="2"><code>DUMP_CH</code>, <code>DUMP_N</code>(app.c 정적 검사)</td></tr>
+<tr><td><code>TDOA_FRAME</code> · <code>TDOA_FS</code></td><td class="num">1024 · 50000</td><td>프레임 샘플 수 / 샘플레이트 (전처리 전 50 kHz 원본을 씀)</td></tr>
+<tr><td><code>TDOA_WIN</code> · <code>TDOA_PRE</code></td><td class="num">250 · 50</td><td>분석 구간 5 ms / onset보다 1 ms 앞에서 시작</td><td class="pair" rowspan="6">PC <code>gcc_phat.py</code> <code>--win</code>, <code>--pre</code>, <code>--band</code>, <code>--max-lag</code>, <code>--eps</code>, <code>--spacing</code></td></tr>
+<tr><td><code>TDOA_NFFT</code></td><td class="num">512</td><td>FFT 크기 (구간 뒤를 0으로 채움)</td></tr>
+<tr><td><code>TDOA_BAND_LO_HZ</code> · <code>_HI_HZ</code></td><td class="num">150 · 2000</td><td>쓰는 대역 (D3-1). tdoa.c의 <code>K_LO</code>·<code>K_HI</code>는 이 값에서 자동 계산</td></tr>
+<tr><td><code>TDOA_MAX_LAG</code></td><td class="num">13</td><td>탐색 최대 지연 [샘플 @50 kHz]</td></tr>
+<tr><td><code>TDOA_PHAT_EPS</code></td><td class="num">0.01f</td><td>PHAT 바닥값</td></tr>
+<tr><td><code>TDOA_SPACING_M</code> · <code>TDOA_SOUND_SPEED</code> · <code>TDOA_MIC_CW</code></td><td class="num">0.07f · 343.0f · 0</td><td>배열 기하 (doa.h와 같은 값을 따로 가짐)</td></tr>
+<tr><td><code>TDOA_MIN_PEAK</code> · <code>TDOA_MIN_NORM</code> · <code>TDOA_MAX_NORM</code></td><td class="num">0.5f · 0.3f · 1.2f</td><td>신뢰 판정 (스냅은 소리가 커서 doa.h보다 엄격)</td><td class="pair">PC <code>--min-peak</code>, <code>--min-norm</code>, <code>--max-norm</code></td></tr>
+<tr><td><code>K_LO</code> · <code>K_HI</code> · <code>NBAND</code> · <code>NLAG</code> · <code>TAPER</code> (tdoa.c)</td><td class="num">(2 · 20 · 19 · 27 · 50)</td><td>대역 빈 범위 / 빈 수 / 지연 칸 수 / Tukey 창 양 끝 길이</td><td class="pair">자동</td></tr>
+</table></div></details>
+
+<details class="mac"><summary>capture.h · burst.h <small>소리 트리거·연속 원파형 (시험 모드)</small></summary><div class="tw"><table>
+<tr><th>이름</th><th>값</th><th>뜻</th><th>같이 바꿀 곳</th></tr>
+<tr><td><code>CAPTURE_SEND_RAW</code></td><td class="num">1</td><td>SNAP 모드에서 원파형도 보낼지 (1 = 검증용, 0 = 결과만)</td><td class="pair">PC <code>doa_live.py</code> 사용 방식</td></tr>
+<tr><td><code>CAPTURE_HOLDOFF_DEFAULT</code></td><td class="num">50 또는 10</td><td>트리거 뒤 다시 트리거하지 않는 시간 [프레임] (원파형을 보낼 때 약 1 s = 송신 134 ms + 잔향, 결과만 보낼 때 약 0.2 s = 잔향만). <code>-D</code> 옵션으로 바꿀 수 있음</td><td class="pair">—</td></tr>
+<tr><td><code>CLIP_LO</code> · <code>CLIP_HI</code></td><td class="num">8 · 4087</td><td>클리핑 문턱</td><td class="pair">preproc.c의 같은 이름 → 두 곳</td></tr>
+<tr><td><code>BURST_FRAMES</code></td><td class="num">8</td><td>burst 하나의 프레임 수 (164 ms)</td><td class="pair"><code>DUMP_MAX_FRAMES</code> 이하, PC <code>burst_rx.py</code></td></tr>
+</table></div></details>
 
 <h2 id="tdoa">tdoa.c (스냅, Step3)</h2>
 <div class="chain">

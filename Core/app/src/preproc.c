@@ -45,26 +45,31 @@ void preproc_reset(void)
 }
 
 /* 프레임 하나(채널당 1024샘플)를 처리한다
- *  in  : adc_get_frame()이 채운 채널별 원본 uint16[3][1024]
- *  out : 결과 int16[3][256] (stream_push / doa_push로 넘어감)
  *  반환: 세 채널 중 어디든 클리핑 샘플이 하나라도 있었으면 true → 호출자가 STREAM_FLAG_CLIP / DUMP_FLAG_CLIP을 세운다 */
-bool preproc_run(const uint16_t in[PREPROC_CH][PREPROC_IN], int16_t out[PREPROC_CH][PREPROC_OUT])
+bool preproc_run(
+	const uint16_t in[PREPROC_CH][PREPROC_IN],	// adc_get_frame()이 채운 채널별 원본 uint16[3][1024] (50 kHz, 0 ~ 4095)
+	int16_t out[PREPROC_CH][PREPROC_OUT]		// 결과 int16[3][256] (12.5 kHz PCM) → stream_push / doa_push로 넘어감
+)
 {
 	bool clip = false;                        /* 이 프레임에서 클리핑을 본 적이 있나 (세 채널 누적) */
 	for (uint32_t c = 0; c < PREPROC_CH; c++) {
-		/* 1) 정수 ADC 값 → 0 중심 float */
+		// 1) 정수 ADC 값 → 0 중심 float */
 		for (uint32_t i = 0; i < PREPROC_IN; i++) {
 			const uint32_t v = in[c][i];      /* v : ADC 원본 한 샘플 (0 ~ 4095) */
 			clip |= (v <= CLIP_LO) || (v >= CLIP_HI);
 			s_in[i] = (float32_t)((int32_t)v - PREPROC_ADC_CENTER);   /* −2048 ~ +2047 */
 		}
-		/* 2) FIR + ↓4. 마지막 인자는 입력 샘플 수(1024), 출력은 1024 / 4 = 256개 */
+
+		// 2) FIR: s_out[k] = b[0]·s_in[4k] + b[1]·s_in[4k−1] + … + b[74]·s_in[4k−74]   (b = fir_coeffs, 75개)
+		// fir_coeffs 는 "fir_design.py" 에서 f_use = 5kHz 이하의 주파수는 가중하고, 그 이상은 없애도록 설계됨
+
 		arm_fir_decimate_f32(&s_fir[c], s_in, s_out, PREPROC_IN);
-		/* 3) float → int16. ×16 하면 12비트 진폭(±2048)이 int16 진폭(±32768)에 맞는다 */
+
+		// 3) float → int16. ×16 하면 12비트 진폭(±2048)이 int16 진폭(±32768)에 맞는다
+		// WAV, 파이썬 오디오 라이브러리, 분류 모델 입력인 uint16_t 로 변환
 		for (uint32_t k = 0; k < PREPROC_OUT; k++) {
-			/* lrintf: 현재 FPU 반올림 모드(기본 nearest-even)로 정수화. PC 기준은 np.rint와 같음 */
-			const int32_t r = (int32_t)lrintf(s_out[k] * PREPROC_PCM_SCALE);   /* r : 포화 전 정수 결과 */
-			out[c][k] = (int16_t)__SSAT(r, 16);   /* __SSAT(r, 16): −32768 ~ 32767로 자른다 (FIR 오버슈트 대비) */
+			const int32_t r = (int32_t)lrintf(s_out[k] * PREPROC_PCM_SCALE);   // 반올림 + 정수화
+			out[c][k] = (int16_t)__SSAT(r, 16);   // 경계에 붙은거 ±32768 클램핑
 		}
 	}
 	return clip;

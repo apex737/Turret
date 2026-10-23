@@ -68,9 +68,9 @@ void tdoa_init(void)
 
 // 이어붙인 캡처의 i번째 샘플
 static inline uint32_t sample(
-	const tdoa_frame_t frames[], 
-	uint32_t ch, 
-	uint32_t i
+	const tdoa_frame_t frames[],	// 프레임 배열 (1개 또는 2개: 직전 + 트리거). 붙이지 않고 번호로 읽는다
+	uint32_t ch,					// 채널 0 ~ 2
+	uint32_t i						// 이어붙였다고 가정한 샘플 위치 (0 ~ nframes × 1024 − 1)
 )
 {
 	return frames[i / TDOA_FRAME][ch][i % TDOA_FRAME];
@@ -79,10 +79,10 @@ static inline uint32_t sample(
 // i번째 샘플이 평균에서 벗어난 정도 (3채널 중 최대). 나눗셈을 피하려고 n배 한 정수로 계산:
 // |x - 평균| x n = |n·x - 합|
 static uint32_t deviation(
-	const tdoa_frame_t frames[], 
-	const int32_t sum[], 
-	uint32_t n, 
-	uint32_t i
+	const tdoa_frame_t frames[],	// 프레임 배열 (sample()과 같음)
+	const int32_t sum[],			// 채널별 전체 샘플 합 (평균 × n). 나눗셈 없이 평균과 비교하려고
+	uint32_t n,						// 전체 샘플 수
+	uint32_t i						// 볼 샘플 위치
 )
 {
 	uint32_t worst = 0;
@@ -101,8 +101,8 @@ static uint32_t deviation(
 // 잡음 = 앞쪽 1/4 구간의 평균 편차.  문턱 = max(8 x 잡음, 최대 편차 / 20)
 // 전부 정수 연산이라 Tools/gcc_phat.py 의 find_onset()과 결과가 정확히 같다.
 static uint32_t find_onset(
-	const tdoa_frame_t frames[], 
-	uint32_t n
+	const tdoa_frame_t frames[],	// 프레임 배열
+	uint32_t n						// 전체 샘플 수 (nframes × 1024)
 )
 {
 	int32_t sum[TDOA_CH] = {0};
@@ -136,9 +136,9 @@ static uint32_t find_onset(
 }
 
 void tdoa_process(
-	const tdoa_frame_t frames[], 
-	uint32_t nframes, 
-	tdoa_result_t *out
+	const tdoa_frame_t frames[],	// 시간순 프레임 (50 kHz 원본 uint16[3][1024]). 직전 + 트리거 2개 또는 트리거 1개
+	uint32_t nframes,				// 프레임 개수 (1 또는 2)
+	tdoa_result_t *out				// 결과: 쌍별 지연·피크, 각도, norm, onset, 유효 여부
 )
 {
 	const uint32_t n = nframes * TDOA_FRAME;
