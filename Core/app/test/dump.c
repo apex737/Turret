@@ -48,7 +48,10 @@ static uint32_t            s_seq;     /* 다음에 보낼 패킷 번호 */
  *
  * CRC란: 데이터 전체를 16비트 "지문"으로 요약한 값. 송신측과 수신측이 각자 계산해서
  * 값이 다르면 전송 중 데이터가 깨진 것이다. 비트 단위로 계산하는 가장 단순한 구현. */
-static uint16_t crc16_ccitt(const uint8_t *p, uint32_t n)
+static uint16_t crc16_ccitt(
+	const uint8_t *p,	// 계산할 바이트열 시작 (패킷의 ver 칸, sync 다음)
+	uint32_t n			// 바이트 수 (헤더 − sync 4 B + payload)
+)
 {
     uint16_t crc = 0xFFFFu;                              /* 초기값 */
     while (n--) {                                        /* 바이트 n개를 하나씩 */
@@ -63,11 +66,10 @@ static uint16_t crc16_ccitt(const uint8_t *p, uint32_t n)
 
 uint16_t dump_crc16(const uint8_t *p, uint32_t n) { return crc16_ccitt(p, n); }
 
-/**
- * @brief  덤프 모듈 초기화
- * @param  huart: 송신에 사용할 UART 핸들 (CubeMX가 이미 초기화해 둔 것)
- */
-void dump_init(UART_HandleTypeDef *huart)
+/* 덤프 모듈 초기화 */
+void dump_init(
+	UART_HandleTypeDef *huart	// 송신에 사용할 UART 핸들 (CubeMX가 이미 초기화해 둔 것)
+)
 {
     s_huart = huart;
     s_busy  = false;   /* 아직 아무것도 안 보내는 중 */
@@ -81,7 +83,11 @@ bool dump_busy(void) { return s_busy; }
 uint16_t *dump_payload(void) { return (uint16_t *)&tx_buf[sizeof(dump_hdr_t)]; }
 
 // 이미 채워진 payload(채널당 n샘플)에 헤더와 CRC를 붙여 UART TxDMA 시작
-bool dump_send_payload(uint16_t n, uint32_t frame_seq, uint8_t flags)
+bool dump_send_payload(
+	uint16_t n,			// 채널당 샘플 수 (dump_payload()에 이미 채워 둔 양)
+	uint32_t frame_seq,	// 헤더에 기록할 ADC 프레임 번호
+	uint8_t flags		// DUMP_FLAG_* 조합 (헤더에 기록)
+)
 {
     const uint32_t payload = DUMP_CH * (uint32_t)n * 2u;               /* 데이터 바이트 수 = 채널 x 샘플 x 2B */
     const uint32_t pkt     = sizeof(dump_hdr_t) + payload + 2u;        /* 패킷 전체 길이 = 헤더 + 데이터 + CRC */
@@ -143,11 +149,10 @@ bool dump_send_frames(
     return dump_send_payload((uint16_t)n, frame_seq, flags);
 }
 
-/**
- * @brief  UART DMA 송신 완료 알림 (HAL_UART_TxCpltCallback에서 호출)
- * @param  huart: 송신이 끝난 UART
- */
-void dump_on_tx_cplt(UART_HandleTypeDef *huart)
+/* UART DMA 송신 완료 알림 (HAL_UART_TxCpltCallback에서 호출) */
+void dump_on_tx_cplt(
+	UART_HandleTypeDef *huart	// 송신이 끝난 UART
+)
 {
     if (huart == s_huart) {   /* 다른 UART의 완료 이벤트는 무시 */
         s_busy = false;       /* 송신 버퍼를 다시 쓸 수 있음 */
@@ -155,7 +160,11 @@ void dump_on_tx_cplt(UART_HandleTypeDef *huart)
 }
 
 // 결과 패킷을 대기시킴. seq와 CRC는 실제로 보낼 때(dump_poll) 채운다
-void dump_queue_result(const dump_result_t *res, uint32_t frame_seq, uint8_t flags)
+void dump_queue_result(
+	const dump_result_t *res,	// 보낼 TDOA 결과 (app.c on_capture가 채움)
+	uint32_t frame_seq,			// 결과를 낸 ADC 프레임 번호 (같은 번호의 원파형 패킷과 짝)
+	uint8_t flags				// DUMP_FLAG_* 조합 (VALID 등)
+)
 {
     dump_hdr_t *h = (dump_hdr_t *)res_buf;
     h->sync      = DUMP_SYNC;

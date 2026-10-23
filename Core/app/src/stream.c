@@ -75,7 +75,9 @@ static volatile bool     s_tx_doa;          /* 지금 나가는 것이 DOA 패�
 static uint32_t s_dseq;
 
 /* 부팅 시 한 번. 송신할 UART를 기억하고 두 큐와 번호를 모두 비운다 */
-void stream_init(UART_HandleTypeDef *huart)
+void stream_init(
+	UART_HandleTypeDef *huart	// 송신에 쓸 UART (main.c의 huart2, app_init이 넘겨줌)
+)
 {
 	s_huart = huart;
 	s_head = s_tail = 0u;
@@ -97,6 +99,8 @@ uint32_t stream_free(void)          { return STREAM_SLOTS - (s_head - s_tail); }
  *  - dump_busy(): dump.c(원파형·결과 패킷)도 같은 UART를 쓴다. dump가 보내는 중이면 기다렸다가
  *    main 루프의 stream_poll()이 다시 부를 때 시작한다.
  *  - HAL_UART_Transmit_DMA가 실패하면(HAL_BUSY 등) 송신 중 표시를 되돌린다. 칸은 큐에 그대로 있으므로 다음 호출에서 다시 시도한다. */
+
+// 인터럽트를 막은 상태 (lock)에서 UART_TxDMA 전송
 static void kick_locked(void)
 {
 	if (s_tx || dump_busy())
@@ -115,15 +119,16 @@ static void kick_locked(void)
 		s_tx = false;
 }
 
-/* PCM 블록 하나를 패킷으로 만들어 큐에 넣는다 (main에서만 호출)
- *  pcm       : 전처리 출력 int16[3][256] (12.5 kHz, 프레임 하나)
- *  frame_seq : 이 블록을 만든 ADC 프레임 번호
- *  flags     : STREAM_FLAG_* (CLIP / RESYNC / VERIFY / GAP). app.c·verify.c가 정해서 넘긴다
- *  drop, ovr : adc.c의 유실 누계. 헤더에는 하위 8비트만 들어간다 (PC는 값이 바뀌었는지만 본다)
- *  cpu_pct   : 직전 프레임의 처리 시간을 프레임 주기 대비 %로 (app.c가 계산)
- *  반환      : 큐에 넣었으면 true, 큐가 가득 차 버렸으면 false */
-bool stream_push(const int16_t pcm[PREPROC_CH][PREPROC_OUT], uint32_t frame_seq, uint8_t flags,
-                 uint32_t drop, uint32_t ovr, uint8_t cpu_pct)
+
+// [STREAM HEADER] + [PAYLOAD] + [CRC] 로 패킷을 구성해서 UART_TxDMA 전송
+bool stream_push(
+	const int16_t pcm[PREPROC_CH][PREPROC_OUT],	// PCM 블럭 int16[3][256] (12.5 kHz, 프레임 하나). payload로 복사된다
+	uint32_t frame_seq,	// 이 블록을 만든 ADC 프레임 번호 → 헤더 frame_seq. PC는 (frame_seq − 1) × 256으로 시각을 안다
+	uint8_t flags,		// STREAM_FLAG_* (CLIP / RESYNC / VERIFY / GAP). app.c·verify.c가 정해서 넘긴다 → 헤더 flags
+	uint32_t drop,		// adc.c의 프레임 유실 누계 → 헤더 drop (하위 8비트만. PC는 값이 바뀌었는지만 본다)
+	uint32_t ovr,		// adc.c의 overrun 누계 → 헤더 ovr (하위 8비트만)
+	uint8_t cpu_pct		// 직전 프레임의 처리 시간 / 20.48 ms [%] (app.c가 계산) → 헤더 cpu
+)
 {
 	const uint32_t seq = s_seq++;              /* 버려도 번호는 소비 → PC가 빈 번호로 큐 유실을 앎 */
 	if (s_head - s_tail >= STREAM_SLOTS) {    /* 4칸이 모두 송신 대기 중: UART가 생산 속도를 못 따라감 */
@@ -140,26 +145,28 @@ bool stream_push(const int16_t pcm[PREPROC_CH][PREPROC_OUT], uint32_t frame_seq,
 	h->frame_seq = frame_seq;
 	h->n = PREPROC_OUT; h->len = PAYLOAD;
 	h->drop = (uint8_t)drop; h->ovr = (uint8_t)ovr; h->qdrop = (uint8_t)s_qdrop; h->cpu = cpu_pct;
-	memcpy(p + sizeof(stream_hdr_t), pcm, PAYLOAD);      /* int16[3][256] → ch0 | ch1 | ch2 */
-	/* CRC 범위 = sync 뒤(ver)부터 payload 끝까지. p + 4 = sync 4바이트를 건너뜀 */
-	const uint16_t crc = dump_crc16(p + 4, sizeof(stream_hdr_t) - 4u + PAYLOAD);
+
+	memcpy(p + sizeof(stream_hdr_t), pcm, PAYLOAD);      // 헤더에 PAYLOAD 붙임
+
+	const uint16_t crc = dump_crc16(p + 4, sizeof(stream_hdr_t) - 4u + PAYLOAD);	// PAYLOAD 뒤에 CRC 붙임
 	/* CRC는 little endian (하위 바이트 먼저) */
 	p[sizeof(stream_hdr_t) + PAYLOAD]      = (uint8_t)(crc & 0xFFu);
 	p[sizeof(stream_hdr_t) + PAYLOAD + 1u] = (uint8_t)(crc >> 8);
 
 	/* head를 올리는 것과 송신 시작 판단을 ISR과 겹치지 않게 묶는다 */
 	__disable_irq();
-	s_head++;                                 /* 칸을 다 채운 뒤에 공개 */
+	s_head++;
 	kick_locked();
 	__enable_irq();
 	return true;
 }
 
 /* DOA 결과 하나를 패킷으로 만들어 DOA 큐에 넣는다 (main에서만 호출)
- *  r         : doa_push()가 돌려준 결과
- *  frame_seq : 관측 창이 끝난 ADC 프레임 번호
- *  큐가 가득 차면 false. PCM과 달리 유실 카운터와 번호 소비는 없다 (초당 4개라 4칸이 찰 일이 거의 없음) */
-bool stream_push_doa(const doa_result_t *r, uint32_t frame_seq)
+ *  반환: 큐가 가득 차면 false. PCM과 달리 유실 카운터와 번호 소비는 없다 (초당 4개라 4칸이 찰 일이 거의 없음) */
+bool stream_push_doa(
+	const doa_result_t *r,	// doa_push()가 돌려준 결과 → 전송용 doa_payload_t로 옮겨 담는다
+	uint32_t frame_seq		// 관측 창이 끝난 ADC 프레임 번호 → 헤더 frame_seq (창 시작은 payload의 s0)
+)
 {
 	if (s_dhead - s_dtail >= STREAM_DOA_SLOTS)
 		return false;
@@ -204,7 +211,9 @@ void stream_poll(void)
 /* UART 송신 완료 ISR(HAL_UART_TxCpltCallback, app.c)에서 호출
  *  - 다른 UART이거나 우리가 시작한 송신이 아니면(!s_tx → dump가 보낸 것) 무시한다.
  *  - 방금 끝난 것이 DOA인지 PCM인지(s_tx_doa) 보고 그 큐의 tail을 올린 뒤, 곧바로 다음 패킷을 시작한다. */
-void stream_on_tx_cplt(UART_HandleTypeDef *huart)
+void stream_on_tx_cplt(
+	UART_HandleTypeDef *huart	// 송신이 끝난 UART. HAL이 넘겨준다 (우리 UART인지 s_huart와 비교)
+)
 {
 	if (huart != s_huart || !s_tx)
 		return;
