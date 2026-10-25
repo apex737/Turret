@@ -26,6 +26,8 @@ doa\gcc_phat.py dumps\<세션> --sweep             # 대역 × 구간 비교
 doa\doa_live.py --port COM8                      # 실시간 나침반 + MCU 비교 (dumps\<날짜_시각>\ 세션 폴더)
 doa\doa_live.py --port COM8 --truth 90           # 실제 각도를 알고 측정
 doa\doa_live.py --replay dumps\<세션>
+doa\doa_compass.py --port COM8                   # STREAM 모드 데모: 보드 방위 결과를 나침반으로 (--save LABEL 저장, --offset 보정)
+doa\doa_compass.py --replay dumps\stream\<label> # 녹음의 doa_mcu.csv 다시 보기
 ```
 
 - 결과 전용 모드(`CAPTURE_SEND_RAW 0`)에서는 npz 없이 `log.csv`만 남는다. 알고리즘·파라미터를 바꾼 뒤에는 원파형 모드로 한 번 검증한다.
