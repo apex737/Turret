@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project": "Turret",
-  "updated": "2026-10-23T10:00:00+09:00",
+  "updated": "2026-10-25T23:00:00+09:00",
   "steps": [
     "Step1",
     "Step2",
@@ -22,17 +22,19 @@
       "id": "c-aliasing",
       "keyword": "앨리어싱 (샘플링 접힘)",
       "desc": "샘플링 주파수의 절반(나이퀴스트)을 넘는 성분이 샘플 위에서 0 ~ fs/2 안의 다른 주파수와 똑같은 값을 남겨, 샘플만으로는 둘을 구분할 수 없게 되는 현상. 접힌 뒤에는 디지털 필터로 되돌릴 수 없다.",
-      "context": "마이크 앰프가 약 20 kHz까지 내보내서 ADC를 50 kHz로 잰다 (Step1). 분석에 쓸 12.5 kHz로 줄일 때는 7.5 kHz 위가 0~5 kHz로 접혀 들어오므로, 줄이기 전에 FIR로 그 대역을 지우는 이유가 이 개념이다 (Step4 설계 D4-2, Step5 preproc.c).",
+      "context": "마이크 앰프가 약 20 kHz까지 내보내서 ADC를 50 kHz로 잰다 (Step1). 분석에 쓸 12.5 kHz로 줄일 때는 7.5 kHz 위가 0~5 kHz로 접혀 들어오므로, 줄이기 전에 FIR로 그 대역을 지우는 이유가 이 개념이다 (Step4 설계 D4-2, Step5 preproc.c). 접힘은 재는 순간 생긴다: 1초에 1,000번 재면 600 Hz와 400 Hz의 점이 같은 숫자가 되어, 복원하지 않아도 FFT·고조파 점수가 400 Hz로 본다.",
       "steps": [
         "Step1",
         "Step4",
-        "Step5"
+        "Step5",
+        "Step8b"
       ],
       "verdict": "⚠",
-      "date": "2026-10-21",
-      "trigger": "진단 Q1",
+      "date": "2026-10-25",
+      "trigger": "진단 Q1 · 배경 확인 2026-10-25 ⚠ (\"복원할 때만 생긴다\"로 앎)",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 2
     },
     {
       "id": "c-shared-var",
@@ -48,7 +50,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q2(c)",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-db",
@@ -64,23 +67,26 @@
       "date": "2026-10-21",
       "trigger": "진단 Q4(a)",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-dft-bin",
       "keyword": "DFT bin · 주파수 해상도 · zero-padding",
       "desc": "N점 DFT는 0 ~ fs를 N칸으로 나눠 칸 간격 Δf = fs/N이 된다. 가까운 두 주파수를 실제로 가르는 능력은 실제 신호 길이 T(약 1/T)가 정하고, 뒤에 0을 채우면 칸이 촘촘해질 뿐(보간) 해상도는 늘지 않는다.",
-      "context": "Step3 스냅 방향은 250샘플(5 ms)에 0을 채워 512점 FFT를 하고 bin 2~20(150~2000 Hz)만 쓴다. Step4는 'f0/Δf = 프레임 하나에 기본 주기가 몇 개 들어가나'로 처리 길이를 따졌고, Step7 doa.c는 512샘플 Hann 블록을 1024점 FFT로 바꿔 대역 빈 221개만 보관한다.",
+      "context": "Step3 스냅 방향은 250샘플(5 ms)에 0을 채워 512점 FFT를 하고 bin 2~20(150~2000 Hz)만 쓴다. Step4는 'f0/Δf = 프레임 하나에 기본 주기가 몇 개 들어가나'로 처리 길이를 따졌고, Step7 doa.c는 512샘플 Hann 블록을 1024점 FFT로 바꿔 대역 빈 221개만 보관한다. Step8b B0는 2,048점 @ 12.5 kHz라 한 칸이 6.1 Hz(±1칸 허용)여서, 공진이 만든 가짜 선이 정수배에서 2 ~ 7 Hz 어긋나도 구별하지 못한다.",
       "steps": [
         "Step3",
         "Step4",
-        "Step7"
+        "Step7",
+        "Step8b"
       ],
       "verdict": "△",
-      "date": "2026-10-21",
-      "trigger": "진단 Q5",
+      "date": "2026-10-25",
+      "trigger": "진단 Q5 · T2 2026-10-25 ❌ (가짜 선 2 ~ 7 Hz 어긋남을 못 보는 이유를 ±100 Hz 바닥 범위로 답함) → 배경 확인: Δf = fs/N, N↑ 또는 fs↓, 보간까지 스스로 맞힘",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 2
     },
     {
       "id": "c-delay-phase",
@@ -96,7 +102,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q6",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-gcc-phat",
@@ -111,23 +118,26 @@
       "date": "2026-10-21",
       "trigger": "진단 Q7",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-spatial-alias",
       "keyword": "배열 기하 · 최대 지연 · 공간 앨리어싱",
       "desc": "마이크 간격 d에서 지연은 최대 d/c다. 주파수가 c/(2d)를 넘으면 그 주파수의 위상차가 반 바퀴를 넘어 서로 다른 지연이 같은 위상을 내므로, 그 주파수 하나로는 방향을 하나로 정할 수 없다.",
-      "context": "7 cm 정삼각형에서 c/(2d) ≈ 2450 Hz다. Step3에서 대역 상한을 3000 → 2000 Hz로 내린 결정(D3-1)과 간격을 14 cm로 넓히지 않은 결정(D7-0)의 근거다. 지연 탐색 범위 ±13샘플(Step3)도 최대 지연에서 나왔다.",
+      "context": "7 cm 정삼각형에서 c/(2d) ≈ 2450 Hz다. Step3에서 대역 상한을 3000 → 2000 Hz로 내린 결정(D3-1)과 간격을 14 cm로 넓히지 않은 결정(D7-0)의 근거다. 지연 탐색 범위 ±13샘플(Step3)도 최대 지연에서 나왔다. 공간 앨리어싱은 주파수를 바꾸지 않는다: 3,000 Hz는 각 마이크에서 3,000 Hz 그대로이고, 두 마이크의 어긋남을 만드는 방향 후보가 여럿이 될 뿐이다. 마이크 하나만 보는 드론 탐지(Step8b)는 영향이 없어 5 kHz까지 쓴다.",
       "steps": [
         "Step3",
         "Step7",
-        "Step9B"
+        "Step9B",
+        "Step8b"
       ],
-      "verdict": "△",
-      "date": "2026-10-21",
-      "trigger": "진단 Q8",
+      "verdict": "❌",
+      "date": "2026-10-25",
+      "trigger": "진단 Q8 → 2026-10-25 ❌ (2,450 Hz 위 소리가 다른 주파수로 접힌다고 앎, 탐지 대역도 2,450 Hz로 앎)",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 2
     },
     {
       "id": "c-plane-lse",
@@ -142,7 +152,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q9",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-bg-sub",
@@ -157,7 +168,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q19",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-ema",
@@ -172,7 +184,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q4(b)(c)",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-block-avg",
@@ -186,7 +199,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q18",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-closure",
@@ -201,7 +215,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q20",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-fir",
@@ -217,7 +232,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q11",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-decim",
@@ -233,7 +249,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q10",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-filter-state",
@@ -248,7 +265,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q13",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-common-filter",
@@ -264,7 +282,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q12",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-numeric",
@@ -279,7 +298,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q14",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-clock",
@@ -294,7 +314,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q15",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-deadline",
@@ -309,7 +330,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q27",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-fault",
@@ -324,7 +346,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q28",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-leak",
@@ -340,7 +363,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q16",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-transfer",
@@ -354,23 +378,26 @@
       "date": "2026-10-21",
       "trigger": "진단 Q21",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-threshold",
       "keyword": "문턱 · 운용점 · 오탐/시간",
       "desc": "분류 점수의 문턱을 옮기면 재현율과 오탐이 함께 움직인다. 문턱은 허용할 오탐(예: 시간당 몇 번)에서 먼저 정하고 학습 데이터 안의 교차검증으로만 고른다 (시험 결과로 고르면 낙관적). 연속 창 확인(N개 중 M개)은 오탐을 줄이지만, 오탐이 시간적으로 붙어 나오면 기대만큼 줄지 않는다.",
-      "context": "Step8 문턱은 '비드론 창 오탐 1%' → v3m에서 0.5%로 바꿔 0.77회/시간이 됐다 (D8-5, 시험 결과를 보고 골라 재확인 필요). '3창 중 2창' 확인 때문에 확정 지연이 최소 1.5 s라 기준 ≤ 1 s와 충돌한다 (DO-2). Step9A 결합의 '드론' 판정도 이 문턱을 쓴다.",
+      "context": "Step8 문턱은 '비드론 창 오탐 1%' → v3m에서 0.5%로 바꿔 0.77회/시간이 됐다 (D8-5, 시험 결과를 보고 골라 재확인 필요). '3창 중 2창' 확인 때문에 확정 지연이 최소 1.5 s라 기준 ≤ 1 s와 충돌한다 (DO-2). Step9A 결합의 '드론' 판정도 이 문턱을 쓴다. Step8b: 기본음 후보를 40 ~ 700 Hz로 넓히면 다른 드론까지 잡지만 60 Hz 전원 잡음도 점수가 높고(합성 36점 대 판정 기준 12.7점), 300 ~ 700 Hz로 좁히면 Matrice 창 재현율이 1.00 → 0.63. Step8b 운용점 곡선: 공개 원음은 오탐 10회/시간에서 학습 0.43 대 B0 0.00, 장치 경로는 창 오탐 10%에서 B0 0.63 대 학습 0.11 — 같은 오탐에 맞춰야 비교가 된다.",
       "steps": [
         "Step6",
         "Step8",
-        "Step9A"
+        "Step9A",
+        "Step8b"
       ],
       "verdict": "❌",
-      "date": "2026-10-21",
-      "trigger": "진단 Q22",
+      "date": "2026-10-25",
+      "trigger": "진단 Q22 · T3 2026-10-25 ❌ (기본음 범위의 맞교환 대신 연산량으로 답함) · T1 2026-10-25 ❌ (\"더 넓게 잡으니 더 많이 잡는다\" — 같은 오탐에서 비교한다는 점을 놓침, 재현율·정밀도 정의는 맞음)",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 3
     },
     {
       "id": "c-metrics",
@@ -385,7 +412,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q23",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-domain-shift",
@@ -400,7 +428,8 @@
       "date": "2026-10-23",
       "trigger": "진단 Q24 · T1 △ (Step8 v5 지름길)",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 2
     },
     {
       "id": "c-timebase",
@@ -416,7 +445,8 @@
       "date": "2026-10-21",
       "trigger": "진단 Q25",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 1
     },
     {
       "id": "c-stale",
@@ -431,7 +461,72 @@
       "date": "2026-10-22",
       "trigger": "진단 Q26 ❌ → T1 ⚠ · T3 △ (Step9A 결합 규칙)",
       "kind": "개념",
-      "understood": false
+      "understood": false,
+      "wrong_count": 3
+    },
+    {
+      "id": "c-levelnorm",
+      "keyword": "창 레벨 정규화 · 배경 증폭 (조용한 창)",
+      "desc": "분류기 입력을 창마다 같은 크기(RMS)로 맞추면, 큰 소리 창에서는 배경이 묻히지만 조용한 창에서는 남아 있던 배경·잡음이 소리만큼 커져 주인공이 된다. 그래서 조용한 창의 판정은 그날 배경이 무엇이냐에 좌우된다.",
+      "context": "Step8 embed가 1 s 창을 −30 dBFS로 맞춘다. v5 진단에서 보드 잡음만 있는 창(quiet_10min)은 오탐 0.1%였지만, devpath 녹음 날 스피커가 쉬는 창은 39%였다 — 그날 배경(60 Hz 험 + 130 ~ 185 Hz)이 키워져 드론으로 보였다. 보드 바닥 + 3 dB 미만 창의 오탐 16.8%.",
+      "steps": [
+        "Step8",
+        "Step7"
+      ],
+      "verdict": "❌",
+      "date": "2026-10-23",
+      "trigger": "T2 (Step8 D8-7, 모름 · 확신 하)",
+      "kind": "개념",
+      "understood": false,
+      "wrong_count": 1
+    },
+    {
+      "id": "c-relsnr",
+      "keyword": "주파수 응답 · 이웃 대비 비율 (상대 SNR)",
+      "desc": "스피커·마이크가 주파수마다 곱하는 이득이 이웃 주파수끼리는 거의 같으면(완만하면), 선과 바로 옆 바닥에 같은 이득이 곱해져 '선 ÷ 옆 바닥' 비율에서 지워진다. 스펙트럼 모양 전체를 보는 방식은 그 이득 변화가 그대로 남는다.",
+      "context": "Step8b 고조파 점수는 고조파 자리를 이웃 약 200 Hz 중앙값으로 나눈다. 장치 경로(스피커 → MAX4466)에서 학습 모델 FPV 재현율은 0.22 → 0.05였지만 고조파 센서는 0.68 (조용한 창 규칙 없이 1.00). '완만하다'를 'SNR을 망친다'로 반대로 이해함.",
+      "steps": [
+        "Step8b",
+        "Step8"
+      ],
+      "verdict": "❌",
+      "date": "2026-10-25",
+      "trigger": "T1 ⚠ 뒤 배경 확인 (주파수 응답 정의는 맞음)",
+      "kind": "개념",
+      "understood": false,
+      "wrong_count": 1
+    },
+    {
+      "id": "c-tf-tradeoff",
+      "keyword": "시간 해상도 ↔ 주파수 해상도 (분석 창 길이 T)",
+      "desc": "FFT 한 번은 창 길이 T = N/fs 동안의 소리를 하나의 스펙트럼으로 요약한다. 칸 폭 Δf = fs/N = 1/T라서 T를 늘리면 주파수는 촘촘히 보이지만, 그 T 안에서 언제 무엇이 변했는지는 구분하지 못하고 변하는 선은 퍼진다. 카메라 노출 시간과 같다.",
+      "context": "Step8b B1에서 가짜 선(정수배에서 2 ~ 7 Hz 어긋남)을 보려면 164 ms 조각을 655 ms로 늘려 1.5 Hz 칸을 만들 수 있지만, FPV 통과 비행처럼 기본음이 도플러로 움직이는 동안에는 진짜 선도 퍼져 '정수배가 아니다'로 걸러질 위험이 있다.",
+      "steps": [
+        "Step8b",
+        "Step4"
+      ],
+      "verdict": "❌",
+      "date": "2026-10-25",
+      "trigger": "T2 뒤 배경 확인 (처음 듣는 개념이라고 함)",
+      "kind": "개념",
+      "understood": false,
+      "wrong_count": 1
+    },
+    {
+      "id": "c-kalman",
+      "keyword": "칼만 필터 · 칼만 이득 K · 과정 잡음 Q · 측정 잡음 R",
+      "desc": "물리 모델로 다음 상태를 예측하고, 측정이 오면 예측과 측정을 불확실성(분산)에 따라 섞는다. 섞는 비율이 칼만 이득 K = P ÷ (P + R)이다. R(측정을 못 믿는 정도)이 크면 K가 작아져 측정을 덜 따르고, Q(모델을 못 믿는 정도)가 크면 예측 불확실성 P가 커져 측정을 더 따른다.",
+      "context": "Step8c에서 방위 θ와 각속도 ω를 상태로 두고 0.25 s마다 doa.c 방위로 고친다. ω가 계속 0 근처이고 고도가 0이면 고정된 회전 기계로 보고 거른다. R은 Step7 흔들림 2 ~ 4°, Q는 표적 각속도 변화(15 m/s · 10 m 통과면 최대 86°/s)에서 정한다.",
+      "steps": [
+        "Step8c",
+        "Step9A"
+      ],
+      "verdict": "❌",
+      "date": "2026-10-25",
+      "trigger": "T3 (Step8c R을 10배로 키우면?) — '전혀 모른다, 따로 공부하고 오겠다' → 대기. 예측·측정을 불확실성으로 가중한다는 큰 그림은 스스로 설명함",
+      "kind": "대기",
+      "understood": false,
+      "wrong_count": 1
     }
   ]
 }

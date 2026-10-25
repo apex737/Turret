@@ -237,7 +237,7 @@ dialog textarea { min-height: 84px; resize: vertical; }
       return true;
     });
     var order = { "⚠": 0, "❌": 1, "△": 2 };
-    shown.sort(function (a, b) { return (a.understood - b.understood) || ((order[a.verdict] || 9) - (order[b.verdict] || 9)) || (b.date || "").localeCompare(a.date || ""); });
+    shown.sort(function (a, b) { return (a.understood - b.understood) || ((b.wrong_count || 0) - (a.wrong_count || 0)) || ((order[a.verdict] || 9) - (order[b.verdict] || 9)) || (b.date || "").localeCompare(a.date || ""); });
 
     var list = $("list"); list.textContent = "";
     if (!shown.length) { list.appendChild(h("p", "empty", items.length ? "조건에 맞는 개념이 없습니다." : "아직 틀린 개념이 없습니다.")); }
@@ -271,6 +271,7 @@ dialog textarea { min-height: 84px; resize: vertical; }
     var meta = h("div", "meta");
     meta.appendChild(h("span", "badge " + vclass(it.verdict), it.verdict + " " + (it.verdict === "⚠" ? "확신 오류" : it.verdict === "❌" ? "틀림" : "근접")));
     if (it.kind === "대기") meta.appendChild(h("span", "badge kind", "대기 항목"));
+    if (it.wrong_count) { var wc = h("span", "badge kind", "오답 " + it.wrong_count + "회"); wc.title = "AI만 올리는 읽기 전용 값 (줄지 않음)"; meta.appendChild(wc); }
     it.steps.forEach(function (s) {
       var a = h("a", "step", s); a.href = "../Steps/" + s + ".md"; a.target = "_blank"; a.rel = "noopener"; meta.appendChild(a);
     });
