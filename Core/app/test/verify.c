@@ -32,10 +32,11 @@ static uint8_t  s_flags;
 
 void verify_init(void) { s_st = COLLECT; s_n = 0u; s_k = 0u; }
 
-/* main 루프에서 새 ADC 프레임마다 호출
- *  frame     : 채널별 50 kHz 원본 uint16[3][1024]
- *  frame_seq : 그 프레임의 번호 (adc.c ISR이 1씩 올려 매김) */
-void verify_on_frame(const dump_frame_t *frame, uint32_t frame_seq)
+/* main 루프에서 새 ADC 프레임마다 호출 */
+void verify_on_frame(
+	const dump_frame_t *frame,	// 채널별 50 kHz 원본 uint16[3][1024]
+	uint32_t frame_seq			// 그 프레임의 번호 (adc.c ISR이 1씩 올려 매김)
+)
 {
 	/* 모으는 단계가 아니거나 UART가 아직 쓰이는 중이면 이 프레임은 버린다.
 	 * dump_busy()가 true면 dump_payload() 버퍼를 DMA가 읽고 있으므로 덮어쓰면 안 된다. */
