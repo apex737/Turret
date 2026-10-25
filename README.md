@@ -28,7 +28,8 @@ Turret/
 │  ├─ GUIDE.md        학습형 개발 지침
 │  ├─ profile.md      학습자 배경 (모든 프로젝트 공통)
 │  ├─ concepts.html   점검에서 틀린 개념: 키워드·간략 설명·쓰인 Step. 이해 표시·제거는 사람이 직접
-│  └─ notes/          본인이 쓴 개념 노트, 시각 자료(helper html)
+│  ├─ notes/          본인이 쓴 개념 노트, 시각 자료(helper html)
+│  └─ TIL/            본인이 쓴 하루 개발 흐름 (YYYY-MM-DD.md). AI는 사실 오류만 고친다
 │
 ├─ reports/           스크립트가 만든 출력 (표, 그래프). 판정은 쓰지 않는다
 ├─ Tools/flow/        gen_flow.py, flow_template.html
@@ -49,6 +50,7 @@ Turret/
 | 두 번 이상 실행할 절차인가? | `docs/run.md` |
 | 여러 선택지 중 하나를 고른 것인가? | `decision.html` |
 | 점검에서 틀린 개념인가? | `learning/concepts.html` (키워드·간략 설명·쓰인 Step) |
+| 오늘 한 일과 배운 것을 내 말로 정리한 것인가? | `learning/TIL/YYYY-MM-DD.md` (수치·결정은 Step·decision.html에 두고 링크만) |
 | 반복 실험에서 무슨 일이 있었나? (날짜, 결과, 해석) | `Steps/logs/StepN.md` |
 | 그 Step의 질문, 기준, 판정, 할 일인가? | `Steps/StepN.md` |
 | 프로젝트 전체의 목표·제약인가? | `problem.md` |
