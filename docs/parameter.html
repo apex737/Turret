@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turret 파라미터</title>
+<!--
+  저장 방식 (learning/concepts.html과 같음)
+  - 원본은 같은 폴더의 parameter.json. 이 페이지는 그 파일을 읽어 보여 준다.
+  - 화면에서 추가·수정·삭제하면 브라우저에 임시 저장되고, "JSON 내보내기"로 받은 파일을 docs/parameter.json에 덮어써야 저장소에 반영된다.
+  - 로컬 서버(VS Code Live Preview, python -m http.server)로 열면 자동으로 읽는다. 파일로 바로 열면 "JSON 불러오기"로 고른다.
+  - 파일을 읽지 못하고 브라우저 기억본을 보여 주는 동안에는, 내보내기 전에 한 번 더 확인을 받는다 (더 최신 파일을 덮어쓰지 않도록).
+-->
+<style>
+:root {
+  --bg: #f7f6f2; --panel: #ffffff; --ink: #1f2328; --muted: #646b74; --line: #dcdfe4; --soft: #f1f2f4;
+  --accent: #2459d6; --accent-soft: #e9efff;
+  --ok: #1a7f4b; --ok-soft: #e5f4ec; --mid: #2459d6; --mid-soft: #e9efff; --run: #6b5bd2; --run-soft: #efecff;
+  --none: #c0362c; --none-soft: #fdeceb; --der: #646b74; --der-soft: #f1f2f4; --warn: #b45309; --warn-soft: #fff1df;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141619; --panel: #1c1f23; --ink: #e5e7ea; --muted: #9aa2ac; --line: #30353b; --soft: #24282d;
+    --accent: #7ea3ff; --accent-soft: #1f2a43;
+    --ok: #63d49c; --ok-soft: #173326; --mid: #7ea3ff; --mid-soft: #1f2a43; --run: #b0a5ff; --run-soft: #29243f;
+    --none: #ff8a80; --none-soft: #3b1f1d; --der: #9aa2ac; --der-soft: #24282d; --warn: #f3b25e; --warn-soft: #3a2b16;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141619; --panel: #1c1f23; --ink: #e5e7ea; --muted: #9aa2ac; --line: #30353b; --soft: #24282d;
+  --accent: #7ea3ff; --accent-soft: #1f2a43;
+  --ok: #63d49c; --ok-soft: #173326; --mid: #7ea3ff; --mid-soft: #1f2a43; --run: #b0a5ff; --run-soft: #29243f;
+  --none: #ff8a80; --none-soft: #3b1f1d; --der: #9aa2ac; --der-soft: #24282d; --warn: #f3b25e; --warn-soft: #3a2b16;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.6 "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 20px 16px 80px; }
+h1 { font-size: 1.5rem; margin: 0; }
+h2.grp { font-size: 1.15rem; margin: 28px 0 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.sub { color: var(--muted); margin: 2px 0 0; font-size: .92rem; }
+code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: .88em; }
+code { background: var(--soft); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--accent); }
+.top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+nav.docs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+nav.docs a, .pill { font-size: .85rem; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 2px 12px; text-decoration: none; cursor: pointer; }
+nav.docs a.here { border-color: var(--accent); color: var(--accent); }
+
+.legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 16px 0 6px; }
+.legend > div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: .84rem; color: var(--muted); }
+.legend b { display: block; margin-bottom: 2px; }
+.rule { font-size: .88rem; color: var(--muted); margin: 6px 0 0; max-width: 80ch; }
+
+.stats { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 6px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; min-width: 84px; cursor: pointer; text-align: left; }
+.stat b { display: block; font-size: 1.25rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stat span { font-size: .8rem; color: var(--muted); }
+.stat.on { border-color: var(--accent); }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+input, select, textarea, button { font: inherit; color: var(--ink); }
+input[type=search], select, input[type=text], textarea { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+input[type=search] { flex: 1 1 200px; min-width: 0; }
+button { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger { color: var(--none); }
+button.ghost { border-color: transparent; background: transparent; padding: 4px 8px; }
+label.chk { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; color: var(--muted); cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.banner { border-radius: 10px; padding: 10px 14px; margin: 10px 0; font-size: .92rem; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.banner.warn { background: var(--warn-soft); border: 1px solid var(--warn); }
+.banner.info { background: var(--accent-soft); border: 1px solid var(--accent); }
+.banner .grow { flex: 1 1 260px; }
+.drop { border: 2px dashed var(--line); border-radius: 12px; padding: 28px 16px; text-align: center; color: var(--muted); margin: 16px 0; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+
+.list { display: grid; gap: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.card.s-ok { border-left-color: var(--ok); } .card.s-mid { border-left-color: var(--mid); } .card.s-run { border-left-color: var(--run); }
+.card.s-none { border-left-color: var(--none); } .card.s-der { border-left-color: var(--der); }
+.row1 { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.nm { font-weight: 700; font-size: 1.04rem; }
+.val { font-family: ui-monospace, Consolas, monospace; font-size: .95rem; background: var(--soft); border-radius: 6px; padding: 1px 8px; }
+.val.blank { color: var(--none); }
+.unit { color: var(--muted); font-size: .86rem; }
+.badge { font-size: .76rem; border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+.b-ok { background: var(--ok-soft); color: var(--ok); } .b-mid { background: var(--mid-soft); color: var(--mid); } .b-run { background: var(--run-soft); color: var(--run); }
+.b-none { background: var(--none-soft); color: var(--none); } .b-der { background: var(--der-soft); color: var(--der); }
+.actions { margin-left: auto; display: flex; gap: 2px; }
+.role { margin: 4px 0 8px; color: var(--ink); max-width: 80ch; font-size: .93rem; }
+.fields { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 10px; font-size: .9rem; }
+.fields dt { color: var(--muted); font-size: .82rem; padding-top: 2px; }
+.fields dd { margin: 0; min-width: 0; }
+.blank-cell { color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; padding: 0 8px; display: inline-block; font-size: .82rem; }
+.btype { font-size: .74rem; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-right: 6px; color: var(--muted); }
+.open { color: var(--warn); }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: .82rem; color: var(--muted); }
+.ref { text-decoration: none; background: var(--accent-soft); color: var(--accent); border-radius: 6px; padding: 0 7px; }
+.empty { text-align: center; color: var(--muted); padding: 32px 0; }
+
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 0; width: min(640px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(0,0,0,.35); }
+dialog form { padding: 18px; display: grid; gap: 10px; }
+dialog h2 { margin: 0 0 4px; font-size: 1.1rem; }
+dialog label.f { display: grid; gap: 4px; font-size: .86rem; color: var(--muted); }
+dialog textarea { min-height: 64px; resize: vertical; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.hint { font-size: .8rem; color: var(--muted); }
+.formbtns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+@media (max-width: 560px) { .two, .three { grid-template-columns: 1fr; } .fields { grid-template-columns: 1fr; } .fields dt { padding-top: 6px; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div>
+      <h1>파라미터 — 값, 근거, 실험 결과</h1>
+      <p class="sub">튜닝하는 값마다 왜 그 값인지와 무엇으로 확인했는지 · 원본 <code>docs/parameter.json</code></p>
+      <nav class="docs"><a href="interfaces.html">인터페이스</a><a href="firmware.html">펌웨어 구조</a><a class="here" href="parameter.html">파라미터</a><a href="run.md">실행 절차</a><a href="../decision.html">결정 트리</a><a href="../flow.html">Step 흐름도</a></nav>
+    </div>
+    <button class="pill" id="themeBtn" type="button">◐ 테마</button>
+  </div>
+
+  <div class="legend">
+    <div><b style="color:var(--ok)">검증됨</b>다른 값과 비교한 실험·측정이 있다</div>
+    <div><b style="color:var(--mid)">근거만</b>이유는 기록돼 있지만 다른 값과 비교하지 않았다</div>
+    <div><b style="color:var(--run)">동작 확인만</b>이유는 없고, 이 값으로 통과한 기록만 있다</div>
+    <div><b style="color:var(--none)">근거 없음</b>이 값을 고른 이유가 기록에 없다</div>
+    <div><b style="color:var(--der)">파생</b>다른 파라미터에서 계산으로 정해진다</div>
+  </div>
+  <p class="rule"><b>작성 규칙</b> · <b>근거</b>는 "왜 이 값인가"에 답하는 기록만 적는다. 목적·역할은 근거가 아니다. 제대로 된 근거가 없으면 비워 두고 <b>검증할 것</b>에 무엇이 빠졌는지 적는다. <b>실험 결과</b>는 이 값(또는 대안)으로 실제로 돌려 본 기록만 적고, 실측·시뮬·계산을 앞에 밝힌다.</p>
+
+  <div id="banners"></div>
+
+  <div id="dropzone" class="drop" hidden>
+    <p><b>parameter.json</b>을 여기로 끌어다 놓거나</p>
+    <button type="button" class="primary" id="pickBtn2">JSON 불러오기</button>
+    <p class="hint">파일로 바로 열면 브라우저가 같은 폴더의 파일을 자동으로 읽지 못합니다. docs/parameter.json을 고르세요.</p>
+  </div>
+
+  <section id="app" hidden>
+    <div class="stats" id="stats"></div>
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="이름·코드·근거 검색" aria-label="검색">
+      <select id="fGroup" aria-label="분류로 거르기"><option value="">모든 분류</option></select>
+      <select id="fStatus" aria-label="상태로 거르기"><option value="">모든 상태</option></select>
+      <label class="chk"><input type="checkbox" id="fBlank"> 근거나 실험 결과가 빈 것만</label>
+    </div>
+    <div class="toolbar">
+      <button type="button" class="primary" id="addBtn">+ 파라미터 추가</button>
+      <span style="flex:1"></span>
+      <button type="button" id="pickBtn">JSON 불러오기</button>
+      <button type="button" id="exportBtn">JSON 내보내기</button>
+    </div>
+    <div id="list"></div>
+  </section>
+</main>
+
+<input type="file" id="file" accept="application/json,.json" hidden>
+
+<dialog id="dlg">
+  <form method="dialog" id="form">
+    <h2 id="dlgTitle">파라미터 추가</h2>
+    <div class="two">
+      <label class="f">이름 <input type="text" name="name" required maxlength="80"></label>
+      <label class="f">분류 <select name="group" id="gSel"></select></label>
+    </div>
+    <div class="three">
+      <label class="f">값 <input type="text" name="value" maxlength="80" placeholder="모르면 비움"></label>
+      <label class="f">단위 <input type="text" name="unit" maxlength="80"></label>
+      <label class="f">상태 <select name="status" id="sSel"></select></label>
+    </div>
+    <label class="f">코드 위치 (매크로·변수·파일) <input type="text" name="code" maxlength="200"></label>
+    <label class="f">역할 (무엇을 하나, 키우면·줄이면) <textarea name="role" maxlength="400"></textarea></label>
+    <div class="two">
+      <label class="f">근거 종류 <select name="basis_type"><option value="">(없음)</option><option>실측</option><option>시뮬</option><option>계산</option><option>논리</option></select></label>
+      <span class="hint" style="align-self:end">근거가 없으면 종류와 내용을 비운다</span>
+    </div>
+    <label class="f">근거 (왜 이 값인가) <textarea name="basis" maxlength="800"></textarea></label>
+    <label class="f">실험 결과 (이 값·대안으로 돌려 본 기록) <textarea name="evidence" maxlength="800"></textarea></label>
+    <label class="f">검증할 것 (빠진 근거, 다시 정할 조건) <textarea name="open" maxlength="800"></textarea></label>
+    <div class="two">
+      <label class="f">관련 (쉼표로: D7-0, Step7) <input type="text" name="refs" maxlength="200"></label>
+      <label class="f">PC 쪽 짝 <input type="text" name="pair" maxlength="200"></label>
+    </div>
+    <div class="formbtns">
+      <button type="button" id="cancelBtn">취소</button>
+      <button type="submit" class="primary">저장</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+  var KEY = "turret-parameter-draft";
+  var DEF_GROUPS = ["수집", "전처리", "방향 (지속음)", "방향 (스냅)", "분류", "결합", "하드웨어"];
+  var DEF_STATUS = ["검증됨", "근거만", "동작 확인만", "근거 없음", "파생"];
+  var SCLASS = { "검증됨": "ok", "근거만": "mid", "동작 확인만": "run", "근거 없음": "none", "파생": "der" };
+  var state = { data: null, dirty: false, base: null, removed: [] };
+  var fromFile = false;          // 이번에 연 뒤 파일(자동 또는 직접 고른 것)을 읽었나
+  var editing = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+  function h(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function today() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+
+  // ── 저장 (브라우저 임시) ──
+  function saveDraft() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  function loadDraft() { try { var s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+  function valid(d) { return d && Array.isArray(d.items); }
+  function normalize(d) {
+    d.groups = Array.isArray(d.groups) && d.groups.length ? d.groups : DEF_GROUPS.slice();
+    d.statuses = Array.isArray(d.statuses) && d.statuses.length ? d.statuses : DEF_STATUS.slice();
+    d.items.forEach(function (it) {
+      ["name", "value", "unit", "code", "role", "basis_type", "basis", "evidence", "status", "open", "pair", "group", "updated"].forEach(function (k) { if (it[k] == null) it[k] = ""; });
+      it.refs = Array.isArray(it.refs) ? it.refs : [];
+    });
+    return d;
+  }
+
+  function accept(fileData, source) {
+    if (!valid(fileData)) { banner("warn", "parameter.json 형식이 아닙니다 (items 배열이 없음)."); return; }
+    normalize(fileData);
+    fromFile = true;
+    var draft = loadDraft();
+    if (draft && valid(draft.data) && draft.dirty && draft.base !== fileData.updated) {
+      state = draft; normalize(state.data); start(); conflictBanner(fileData); return;
+    }
+    if (draft && valid(draft.data) && draft.dirty) { state = draft; normalize(state.data); }
+    else { state = { data: fileData, dirty: false, base: fileData.updated, removed: [] }; }
+    saveDraft(); start();
+    if (source === "pick") banner("info", "불러왔습니다.", true);
+  }
+
+  function start() { $("dropzone").hidden = true; $("app").hidden = false; fillSelects(); render(); }
+
+  function fillSelects() {
+    var d = state.data;
+    [["fGroup", d.groups, "모든 분류"], ["fStatus", d.statuses, "모든 상태"]].forEach(function (x) {
+      var sel = $(x[0]), cur = sel.value; sel.textContent = "";
+      var o0 = h("option", null, x[2]); o0.value = ""; sel.appendChild(o0);
+      x[1].forEach(function (v) { var o = h("option", null, v); o.value = v; sel.appendChild(o); });
+      sel.value = cur;
+    });
+    [["gSel", d.groups], ["sSel", d.statuses]].forEach(function (x) {
+      var sel = $(x[0]); sel.textContent = "";
+      x[1].forEach(function (v) { var o = h("option", null, v); o.value = v; sel.appendChild(o); });
+    });
+  }
+
+  // ── 그리기 ──
+  function render() {
+    var d = state.data, items = d.items;
+    var stats = $("stats"); stats.textContent = "";
+    var fs = $("fStatus").value;
+    var all = h("button", "stat" + (fs ? "" : " on")); all.type = "button";
+    all.appendChild(h("b", null, String(items.length))); all.appendChild(h("span", null, "전체"));
+    all.addEventListener("click", function () { $("fStatus").value = ""; render(); });
+    stats.appendChild(all);
+    d.statuses.forEach(function (s) {
+      var n = items.filter(function (i) { return i.status === s; }).length;
+      var b = h("button", "stat" + (fs === s ? " on" : "")); b.type = "button";
+      var num = h("b", null, String(n)); num.style.color = "var(--" + (SCLASS[s] || "der") + ")";
+      b.appendChild(num); b.appendChild(h("span", null, s));
+      b.addEventListener("click", function () { $("fStatus").value = fs === s ? "" : s; render(); });
+      stats.appendChild(b);
+    });
+
+    var q = $("q").value.trim().toLowerCase(), fg = $("fGroup").value, fb = $("fBlank").checked;
+    var shown = items.filter(function (i) {
+      if (fg && i.group !== fg) return false;
+      if (fs && i.status !== fs) return false;
+      if (fb && i.basis.trim() && i.evidence.trim()) return false;
+      if (q && [i.name, i.code, i.value, i.role, i.basis, i.evidence, i.open, i.refs.join(" ")].join(" ").toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+
+    var list = $("list"); list.textContent = "";
+    if (!shown.length) { list.appendChild(h("p", "empty", items.length ? "조건에 맞는 파라미터가 없습니다." : "아직 파라미터가 없습니다.")); dirtyBanner(); return; }
+    var groups = d.groups.slice();
+    shown.forEach(function (i) { if (groups.indexOf(i.group) < 0) groups.push(i.group); });
+    groups.forEach(function (g) {
+      var mine = shown.filter(function (i) { return i.group === g; });
+      if (!mine.length) return;
+      list.appendChild(h("h2", "grp", (g || "(분류 없음)") + " · " + mine.length));
+      var box = h("div", "list");
+      mine.forEach(function (it) { box.appendChild(card(it)); });
+      list.appendChild(box);
+    });
+    dirtyBanner();
+  }
+
+  function blank(text) { return h("span", "blank-cell", text || "공란 — 추후 검증"); }
+
+  function refLink(r) {
+    r = r.trim();
+    var a = h("a", "ref", r); a.target = "_blank"; a.rel = "noopener";
+    if (/^Step/.test(r)) a.href = "../Steps/" + r + ".md";
+    else if (/^D/.test(r)) a.href = "../decision.html#" + r;
+    else { var s = h("span", "ref", r); return s; }
+    return a;
+  }
+
+  function card(it) {
+    var sc = SCLASS[it.status] || "der";
+    var c = h("article", "card s-" + sc);
+    var r1 = h("div", "row1");
+    r1.appendChild(h("span", "nm", it.name));
+    r1.appendChild(it.value ? h("span", "val", it.value) : h("span", "val blank", "값 기록 없음"));
+    if (it.unit) r1.appendChild(h("span", "unit", it.unit));
+    r1.appendChild(h("span", "badge b-" + sc, it.status || "상태 없음"));
+    var acts = h("div", "actions");
+    var eb = h("button", "ghost", "수정"); eb.type = "button"; eb.addEventListener("click", function () { openForm(it); });
+    var db = h("button", "ghost danger", "삭제"); db.type = "button";
+    db.addEventListener("click", function () { askDelete(it); });
+    acts.appendChild(eb); acts.appendChild(db); r1.appendChild(acts);
+    c.appendChild(r1);
+    if (it.role) c.appendChild(h("p", "role", it.role));
+
+    var dl = h("dl", "fields");
+    function row(label, node) { dl.appendChild(h("dt", null, label)); var dd = h("dd"); dd.appendChild(node); dl.appendChild(dd); }
+    if (it.code) { var cd = h("span"); cd.appendChild(h("code", null, it.code)); row("코드", cd); }
+    if (it.basis.trim()) {
+      var b = h("span"); if (it.basis_type) b.appendChild(h("span", "btype", it.basis_type)); b.appendChild(document.createTextNode(it.basis)); row("근거", b);
+    } else row("근거", blank());
+    row("실험 결과", it.evidence.trim() ? h("span", null, it.evidence) : blank("공란 — 이 값으로 비교한 실험 없음"));
+    if (it.open.trim()) row("검증할 것", h("span", "open", it.open));
+    if (it.pair) row("PC 쪽 짝", h("span", null, it.pair));
+    c.appendChild(dl);
+
+    var meta = h("div", "meta");
+    it.refs.forEach(function (r) { if (r.trim()) meta.appendChild(refLink(r)); });
+    if (it.updated) meta.appendChild(h("span", null, "갱신 " + it.updated));
+    c.appendChild(meta);
+    return c;
+  }
+
+  function askDelete(it) {
+    var b = banner("warn", "'" + it.name + "'을(를) 목록에서 지울까요?");
+    var y = h("button", "danger", "지우기"); y.type = "button";
+    y.addEventListener("click", function () {
+      state.data.items = state.data.items.filter(function (x) { return x !== it; });
+      state.removed = (state.removed || []).concat([it.id]);
+      b.remove(); changed();
+    });
+    b.insertBefore(y, b.lastChild);
+  }
+
+  // ── 알림 ──
+  function banner(kind, msg, autoClose) {
+    var b = h("div", "banner " + kind); b.appendChild(h("span", "grow", msg));
+    var x = h("button", "ghost", "닫기"); x.type = "button"; x.addEventListener("click", function () { b.remove(); });
+    b.appendChild(x); $("banners").appendChild(b);
+    if (autoClose) setTimeout(function () { b.remove(); }, 4000);
+    return b;
+  }
+  function dirtyBanner() {
+    var old = $("dirtyBanner"); if (old) old.remove();
+    if (!state.dirty) return;
+    var b = banner("warn", "내보내지 않은 변경이 있습니다. 저장소에 남기려면 JSON 내보내기 → docs/parameter.json에 덮어쓰기.");
+    b.id = "dirtyBanner";
+    var e = h("button", "primary", "JSON 내보내기"); e.type = "button"; e.addEventListener("click", tryExport);
+    b.insertBefore(e, b.lastChild);
+  }
+  function conflictBanner(fileData) {
+    var b = banner("warn", "parameter.json이 마지막으로 불러온 뒤 바뀌었습니다. 그런데 이 브라우저에 내보내지 않은 내 수정도 있습니다.");
+    var keepFile = h("button", null, "파일 내용으로 (내 수정 버림)"); keepFile.type = "button";
+    keepFile.addEventListener("click", function () { state = { data: fileData, dirty: false, base: fileData.updated, removed: [] }; saveDraft(); b.remove(); fillSelects(); render(); });
+    var merge = h("button", "primary", "합치기 (파일의 새 항목 + 내 수정)"); merge.type = "button";
+    merge.addEventListener("click", function () {
+      var mine = {}; state.data.items.forEach(function (i) { mine[i.id] = true; });
+      var removed = state.removed || [];
+      fileData.items.forEach(function (i) { if (!mine[i.id] && removed.indexOf(i.id) < 0) state.data.items.push(i); });
+      state.base = fileData.updated; state.dirty = true; saveDraft(); b.remove(); render();
+    });
+    b.insertBefore(merge, b.lastChild); b.insertBefore(keepFile, b.lastChild);
+  }
+
+  function changed() { state.dirty = true; saveDraft(); render(); }
+
+  // ── 추가·수정 ──
+  // f.elements[...]로 읽는다: form.name처럼 폼 자체 속성과 이름이 겹치는 입력칸이 있어서
+  function openForm(it) {
+    editing = it || null;
+    var f = $("form").elements;
+    $("dlgTitle").textContent = it ? "파라미터 수정" : "파라미터 추가";
+    ["name", "value", "unit", "code", "role", "basis_type", "basis", "evidence", "open", "pair"].forEach(function (k) { f[k].value = it ? (it[k] || "") : ""; });
+    f["group"].value = it ? it.group : ($("fGroup").value || state.data.groups[0]);
+    f["status"].value = it ? it.status : "근거 없음";
+    f["refs"].value = it ? it.refs.join(", ") : "";
+    $("dlg").showModal(); f["name"].focus();
+  }
+  $("form").addEventListener("submit", function (ev) {
+    var f = $("form").elements;
+    if (!f["name"].value.trim()) { ev.preventDefault(); return; }
+    var it = editing || { id: "p-" + Date.now().toString(36) };
+    ["name", "value", "unit", "code", "role", "basis_type", "basis", "evidence", "open", "pair", "group", "status"].forEach(function (k) { it[k] = f[k].value.trim(); });
+    it.refs = f["refs"].value.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+    it.updated = today();
+    if (!editing) state.data.items.push(it);
+    changed();
+  });
+  $("cancelBtn").addEventListener("click", function () { $("dlg").close(); });
+  $("addBtn").addEventListener("click", function () { openForm(null); });
+
+  // ── 불러오기·내보내기 ──
+  function pick() { $("file").value = ""; $("file").click(); }
+  $("pickBtn").addEventListener("click", pick);
+  $("pickBtn2").addEventListener("click", pick);
+  $("file").addEventListener("change", function () { if (this.files[0]) readFile(this.files[0]); });
+  function readFile(file) {
+    var r = new FileReader();
+    r.onload = function () { try { accept(JSON.parse(r.result), "pick"); } catch (e) { banner("warn", "JSON을 읽지 못했습니다: " + e.message); } };
+    r.readAsText(file, "utf-8");
+  }
+  var dz = $("dropzone");
+  ["dragenter", "dragover"].forEach(function (t) { dz.addEventListener(t, function (e) { e.preventDefault(); dz.classList.add("over"); }); });
+  ["dragleave", "drop"].forEach(function (t) { dz.addEventListener(t, function (e) { e.preventDefault(); dz.classList.remove("over"); }); });
+  dz.addEventListener("drop", function (e) { var f = e.dataTransfer.files[0]; if (f) readFile(f); });
+
+  // 파일을 읽지 않은 채(브라우저 기억본만 보고) 내보내면, 그 사이 AI 등이 고친 더 최신 파일을 덮어쓸 수 있다 → 한 번 더 묻는다
+  function tryExport() {
+    if (fromFile) { exportJson(); return; }
+    var b = banner("warn", "이번에는 parameter.json 파일을 읽지 않고 브라우저 기억본을 보고 있습니다. 파일이 더 최신이면 내보낸 파일이 그것을 덮어씁니다. 먼저 JSON 불러오기로 파일을 고르는 것을 권합니다.");
+    var p = h("button", "primary", "파일 먼저 불러오기"); p.type = "button"; p.addEventListener("click", function () { b.remove(); pick(); });
+    var go = h("button", null, "그래도 내보내기"); go.type = "button"; go.addEventListener("click", function () { b.remove(); exportJson(); });
+    b.insertBefore(p, b.lastChild); b.insertBefore(go, b.lastChild);
+  }
+  function exportJson() {
+    var d = state.data, now = new Date(), tz = -now.getTimezoneOffset();
+    var pad = function (n) { return String(Math.floor(Math.abs(n))).padStart(2, "0"); };
+    d.updated = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) + "T" + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds()) + (tz >= 0 ? "+" : "-") + pad(tz / 60) + ":" + pad(tz % 60);
+    var blob = new Blob([JSON.stringify(d, null, 2) + "\n"], { type: "application/json" });
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "parameter.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    state.dirty = false; state.base = d.updated; state.removed = []; saveDraft(); render();
+    banner("info", "parameter.json을 내려받았습니다. docs/parameter.json에 덮어쓰면 저장소에 반영됩니다.", true);
+  }
+  $("exportBtn").addEventListener("click", tryExport);
+
+  ["q", "fGroup", "fStatus", "fBlank"].forEach(function (id) { $(id).addEventListener("input", render); });
+
+  // ── 테마 (docs 페이지들과 같은 저장 키) ──
+  try { var th = localStorage.getItem("turret-theme"); if (th) document.documentElement.setAttribute("data-theme", th); } catch (e) {}
+  $("themeBtn").addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme");
+    var dark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    var next = dark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("turret-theme", next); } catch (e) {}
+  });
+
+  // ── 시작: 같은 폴더의 parameter.json → 실패하면 브라우저 기억본(경고와 함께) → 그것도 없으면 불러오기 화면 ──
+  fetch("parameter.json", { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (d) { accept(d, "fetch"); })
+    .catch(function () {
+      var draft = loadDraft();
+      if (draft && valid(draft.data)) {
+        state = draft; normalize(state.data); start();
+        var b = banner("warn", "파일로 열어서 parameter.json을 자동으로 읽지 못했습니다. 지금 보이는 것은 이 브라우저에 기억된 목록(기준 " + (state.base || "알 수 없음") + ")입니다. 파일이 더 최신일 수 있습니다.");
+        var p = h("button", "primary", "JSON 불러오기"); p.type = "button"; p.addEventListener("click", function () { b.remove(); pick(); });
+        b.insertBefore(p, b.lastChild);
+      } else {
+        $("dropzone").hidden = false;
+      }
+    });
+})();
+</script>
+</body>
+</html>

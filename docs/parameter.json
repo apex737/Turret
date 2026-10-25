@@ -1,0 +1,940 @@
+{
+  "version": 1,
+  "project": "Turret",
+  "updated": "2026-10-23T12:00:00+09:00",
+  "groups": [
+    "수집",
+    "전처리",
+    "방향 (지속음)",
+    "방향 (스냅)",
+    "분류",
+    "결합",
+    "하드웨어"
+  ],
+  "statuses": [
+    "검증됨",
+    "근거만",
+    "동작 확인만",
+    "근거 없음",
+    "파생"
+  ],
+  "basis_types": [
+    "실측",
+    "시뮬",
+    "계산",
+    "논리"
+  ],
+  "items": [
+    {
+      "id": "fs-adc",
+      "group": "수집",
+      "name": "ADC 샘플링 주파수",
+      "value": "50",
+      "unit": "kHz",
+      "code": "TIM2 PSC 0 · ARR 1799 (Turret.ioc), TDOA_FS",
+      "role": "1초에 마이크를 몇 번 재나. 높을수록 높은 주파수까지 담지만 데이터·계산이 늘어난다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "시뮬 (D4-2, Step4): 잡음 SNR 0 dB에서 50 kHz + FIR ↓4 0.71° 대 ADC를 바로 12.5 kHz로 1.24°. 10.5·11.5 kHz 음이 접히면 0.97 ~ 1.98°로 나빠짐 → '높게 재고 필터로 줄인다'가 유리함은 확인",
+      "status": "근거 없음",
+      "open": "처음 50 kHz를 고른 이유가 기록에 없다 (D1-2). 25 kHz 등 다른 값과 비교한 적 없음. ADC 콜백 주기 흔들림 미측정 (Step10)",
+      "refs": [
+        "D1-2",
+        "D4-2",
+        "Step1",
+        "Step4"
+      ],
+      "pair": "Tools 전체의 50 kHz 가정 (TDOA_FS, fir_design.py FS_IN)",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "frame",
+      "group": "수집",
+      "name": "프레임 길이 (반버퍼)",
+      "value": "1024",
+      "unit": "샘플 (20.48 ms)",
+      "code": "ADC_SAMPLES_PER_HALF",
+      "role": "모든 모듈의 처리 단위이자 처리 마감. 길수록 마감에 여유가 있지만 지연이 늘고 RAM을 더 쓴다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "실측: 스냅 GCC-PHAT 3.3 ms = 프레임의 16% (Step1·3). STREAM CPU 최대 48% (Step7)",
+      "status": "동작 확인만",
+      "open": "다른 길이와 비교한 기록이 없다 (D1-2)",
+      "refs": [
+        "D1-2",
+        "Step1"
+      ],
+      "pair": "stream_capture.py N = 256 (= 1024 / 4)",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "adc-smp",
+      "group": "수집",
+      "name": "ADC 샘플링 시간",
+      "value": "28",
+      "unit": "ADC 사이클 (+12 변환 ≈ 1.78 µs)",
+      "code": "Turret.ioc (ADC SamplingTime)",
+      "role": "ADC가 입력 전압을 담는 시간. 길수록 출력 임피던스가 큰 신호원에도 정확하지만 최대 속도가 내려간다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "",
+      "status": "근거 없음",
+      "open": "마이크 모듈 출력 임피던스와 비교한 기록 없음",
+      "refs": [
+        "Step1"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "clock",
+      "group": "수집",
+      "name": "클럭원",
+      "value": "HSE BYPASS 8 MHz",
+      "unit": "",
+      "code": "Turret.ioc (RCC), PLLM 4",
+      "role": "샘플링 타이머의 기준 시계. 틀리면 샘플레이트와 모든 시간·주파수 환산이 같은 비율로 틀어진다",
+      "basis_type": "실측",
+      "basis": "HSI(내부 RC)는 PC 시계 600 s 동안 610.3 s 분량 → 실제 약 50.86 kHz (+1.7%)",
+      "evidence": "실측: HSE 전환 후 49,999.6 Hz (−0.001%)",
+      "status": "검증됨",
+      "open": "",
+      "refs": [
+        "D5-1",
+        "Step5"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "uart-baud",
+      "group": "수집",
+      "name": "UART 속도",
+      "value": "921600",
+      "unit": "bps (약 92 KB/s)",
+      "code": "USART2 (Turret.ioc), stream_capture.py --baud",
+      "role": "PC로 보낼 수 있는 최대 데이터량. PCM 76.3 KB/s를 담아야 한다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "실측: STREAM 10분 × 3에서 큐 유실 0. 사용률 약 83%, 여유 약 17%",
+      "status": "동작 확인만",
+      "open": "왜 921600인지 기록 없음. ST-LINK 가상 COM이 지원하는 더 높은 값 미확인 (Step10 남은 일)",
+      "refs": [
+        "Step5",
+        "Step10"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "q-slots",
+      "group": "수집",
+      "name": "송신 큐 칸 수",
+      "value": "4",
+      "unit": "칸 (PCM 패킷 1개 = 1,562 B)",
+      "code": "STREAM_SLOTS, STREAM_DOA_SLOTS",
+      "role": "UART가 잠깐 밀릴 때 버티는 여유 (4칸 ≈ 80 ms). 크면 RAM을 더 쓴다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "실측: STREAM 10분 × 3에서 qdrop 0",
+      "status": "동작 확인만",
+      "open": "다른 칸 수와 비교 없음",
+      "refs": [
+        "Step5"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "f-use",
+      "group": "전처리",
+      "name": "f_use (FIR 통과 대역 끝)",
+      "value": "5",
+      "unit": "kHz",
+      "code": "fir_design.py F_PASS → fir_coeffs.h, frontend_config.json",
+      "role": "PCM에 남길 소리의 상한. 분류기가 볼 수 있는 대역이자 방향 대역의 바깥 한계. 넓히면 FIR이 길어진다 (2.5 kHz 27탭, 5 kHz 75탭, 6 kHz 365탭)",
+      "basis_type": "실측",
+      "basis": "공개 원음의 고조파 선은 모든 기체에서 약 2 kHz 아래 (FPV 4번째 고조파 약 2.1 kHz), 선 에너지 99%는 6 kHz 아래 (reports/step5/harmonics.md)",
+      "evidence": "",
+      "status": "근거만",
+      "open": "이 근거는 '6 kHz 아래면 충분'까지만 말한다. 왜 2.5·4·6 kHz가 아니라 5 kHz인지, 대역별로 분류 성능을 비교한 실험 없음 (D5pre-2 cost: 분류 최적 대역으로 확정한 것 아님). 실기 녹음에서 6 kHz 위가 분류에 필요한지 확인",
+      "refs": [
+        "D5pre-2",
+        "Step5pre",
+        "Step4"
+      ],
+      "pair": "PC frontend.py, Step8 학습 입력",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "decim",
+      "group": "전처리",
+      "name": "데시메이션 비율 M",
+      "value": "4",
+      "unit": "(50 → 12.5 kHz)",
+      "code": "FIR_DECIM_M",
+      "role": "몇 개 중 하나를 남기나. 클수록 전송·계산이 줄지만 남길 수 있는 상한(fs / 2M)이 내려간다",
+      "basis_type": "계산",
+      "basis": "UART 한계 약 92 KB/s: ↓2(25 kHz)는 150 KB/s로 불가, ↓4는 76.3 KB/s로 가능",
+      "evidence": "시뮬 (D4-2): FIR 후 ↓4가 50 kHz 그대로와 같은 정확도 (0.71° 대 0.70°)",
+      "status": "근거만",
+      "open": "↓8(6.25 kHz)은 검토 항목에 없음 (상한 3.1 kHz가 되어 f_use와 충돌)",
+      "refs": [
+        "D4-2",
+        "D5pre-2"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "f-stop",
+      "group": "전처리",
+      "name": "FIR 저지 대역 시작",
+      "value": "7.5",
+      "unit": "kHz",
+      "code": "fir_design.py F_STOP",
+      "role": "여기부터 확실히 지운다. 이 위가 ↓4 뒤 0 ~ 5 kHz로 접혀 들어오기 때문",
+      "basis_type": "계산",
+      "basis": "12.5 kHz − f_use 5 kHz. 6.25 ~ 7.5 kHz는 접혀도 5 ~ 6.25 kHz(안 쓰는 곳)에 떨어진다",
+      "evidence": "",
+      "status": "파생",
+      "open": "f_use를 바꾸면 같이 바뀐다",
+      "refs": [
+        "Step4",
+        "Step5"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "att",
+      "group": "전처리",
+      "name": "FIR 저지 감쇠",
+      "value": "60",
+      "unit": "dB",
+      "code": "fir_design.py ATT_DB",
+      "role": "접혀 들어올 대역을 얼마나 깎나. 크면 FIR이 길어진다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "실측 응답: 저지 최대 −60.4 dB (reports/step5/fir_response.png)",
+      "status": "근거 없음",
+      "open": "왜 60 dB인지 기록 없음. 접혀 들어올 소리·잡음의 실제 크기와 비교해 정할 것",
+      "refs": [
+        "Step4",
+        "Step5"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "taps",
+      "group": "전처리",
+      "name": "FIR 탭 수 · Kaiser β",
+      "value": "75 · 5.65",
+      "unit": "",
+      "code": "FIR_NUM_TAPS (fir_coeffs.h)",
+      "role": "필터 길이. 전이 폭(2.5 kHz)과 감쇠(60 dB)에서 계산된다. 군지연 37샘플 @ 50 kHz",
+      "basis_type": "계산",
+      "basis": "scipy kaiserord(60 dB, 전이 폭 0.1) → 74 → 홀수로 75. β = 0.1102 × (60 − 8.7)",
+      "evidence": "실측: 통과 리플 0.016 dB, 저지 −60.4 dB",
+      "status": "파생",
+      "open": "",
+      "refs": [
+        "Step5"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "pcm-scale",
+      "group": "전처리",
+      "name": "PCM 스케일",
+      "value": "× 16",
+      "unit": "",
+      "code": "PREPROC_PCM_SCALE, frontend_config.json pcm_scale",
+      "role": "12비트(±2048)를 int16(±32768)로 옮겨 FIR 출력의 소수 아래 4비트를 남긴다",
+      "basis_type": "논리",
+      "basis": "int16 2바이트로 보내야 하므로(float는 대역폭 초과), 정수로 바꿀 때 1/16 LSB 해상도를 남긴다",
+      "evidence": "",
+      "status": "근거만",
+      "open": "×1(1 LSB 반올림)과 비교해 방향·분류 결과가 달라지는지 확인한 적 없음",
+      "refs": [
+        "Step5"
+      ],
+      "pair": "PC frontend.py",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "pcm-round",
+      "group": "전처리",
+      "name": "PCM 반올림 · 포화",
+      "value": "nearest-even · int16 포화",
+      "unit": "",
+      "code": "lrintf, __SSAT (preproc.c)",
+      "role": "MCU와 PC가 같은 입력에서 비트 단위로 같은 값을 내게 한다 (I3)",
+      "basis_type": "실측",
+      "basis": "PC 기준 np.rint와 같은 규칙",
+      "evidence": "실측: VERIFY 20쌍, MCU·PC 최대 차이 1 LSB (기준 ≤ 2)",
+      "status": "검증됨",
+      "open": "",
+      "refs": [
+        "Step5"
+      ],
+      "pair": "PC frontend.py",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "clip",
+      "group": "전처리",
+      "name": "클리핑 문턱",
+      "value": "8 · 4087",
+      "unit": "ADC 값",
+      "code": "CLIP_LO · CLIP_HI (preproc.c, capture.h 두 곳)",
+      "role": "ADC 양 끝 근처면 신호가 잘렸다고 보고 CLIP 플래그",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "",
+      "status": "근거 없음",
+      "open": "왜 8 LSB인지 기록 없음",
+      "refs": [
+        "Step2",
+        "Step5"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "rc",
+      "group": "전처리",
+      "name": "마이크 전원 RC 필터",
+      "value": "220 Ω · 100 µF",
+      "unit": "(f_c 7.2 Hz)",
+      "code": "회로 (Nucleo 3.3V → 마이크 VCC)",
+      "role": "프레임 처리 전류가 마이크 전원으로 새는 것(48.8 Hz 빗)을 막는다",
+      "basis_type": "실측",
+      "basis": "매 프레임 시작에 약 −27 LSB 펄스, 48.8 Hz 배수 빗 (logs/Step5.md)",
+      "evidence": "실측: 펄스 35 → 9 LSB p-p, 빗 5.0 → 1.2 dB, 잡음 바닥 200 ~ 1600 Hz 14 ~ 16 dB↓. STREAM에서도 340 ~ 490 Hz에 2.5 ~ 4.3 dB 남음",
+      "status": "근거만",
+      "open": "220 Ω · 100 µF라는 값 자체는 다른 값과 비교 없음. 남은 빗(FPV 기본음 대역)의 경로(접지·VDDA) 미확인 → D8-7",
+      "refs": [
+        "Step5",
+        "D8-7"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "spacing",
+      "group": "방향 (지속음)",
+      "name": "마이크 간격",
+      "value": "7",
+      "unit": "cm (정삼각형 한 변)",
+      "code": "DOA_SPACING_M, TDOA_SPACING_M, config/geometry.json",
+      "role": "넓히면 각도 정밀도가 오르지만, 모호하지 않게 쓸 수 있는 상한 c/(2d)가 내려간다",
+      "basis_type": "계산",
+      "basis": "c/(2d) = 2450 Hz가 FPV 고조파 선(약 2.1 kHz)보다 위. 14 cm는 정밀도 2배지만 1225 Hz",
+      "evidence": "실측: 이 간격으로 12방향 오차 중앙값 ≤ 2.7°, p95 ≤ 6.8° (Step7)",
+      "status": "근거만",
+      "open": "간격을 바꿔 실측 비교한 적 없음. 실측 지연이 70 mm 기대보다 약 22% 작음 → 캡슐 간 거리 실측 필요. 외장(enclosure_v1) 배치와 다름",
+      "refs": [
+        "D7-0",
+        "Step7"
+      ],
+      "pair": "doa_stream.py, gcc_phat.py --spacing",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "obs",
+      "group": "방향 (지속음)",
+      "name": "관측 창 길이",
+      "value": "0.5",
+      "unit": "s (6,250샘플)",
+      "code": "DOA_OBS",
+      "role": "방위 하나를 내려고 모으는 시간. 길수록 잡음에 강하지만 반응이 늦고 움직이는 음원이 번진다",
+      "basis_type": "논리",
+      "basis": "지연 우선. 1.0 s는 먼 거리용 선택지",
+      "evidence": "시뮬 (D1, SNR 5 dB, logs/Step7.md): 관측 1.0 s만 유효율 84%로 올라감. 0.5 s 유지",
+      "status": "근거만",
+      "open": "실측 녹음으로 0.5 대 1.0 s 비교 없음",
+      "refs": [
+        "Step7"
+      ],
+      "pair": "doa_stream.py --obs",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "hop",
+      "group": "방향 (지속음)",
+      "name": "창 이동 (방위 출력 주기)",
+      "value": "3072",
+      "unit": "샘플 (0.246 s)",
+      "code": "DOA_HOP",
+      "role": "방위가 몇 초마다 나오나. 작을수록 자주 나오지만 CPU가 는다",
+      "basis_type": "계산",
+      "basis": "G3의 '0.25 s마다' 출력. 3072는 블록 간격 256의 배수라 겹치는 창이 같은 블록 FFT를 공유",
+      "evidence": "실측: 3125 → 3072로 바꿔 CPU 최대 108% → 48% (회전 인자 표와 함께, Step7)",
+      "status": "근거만",
+      "open": "0.25 s 자체가 G3의 초기 제안값",
+      "refs": [
+        "Step7",
+        "D7-3"
+      ],
+      "pair": "doa_stream.py --hop 0.25",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "block",
+      "group": "방향 (지속음)",
+      "name": "블록 길이 · 창 함수",
+      "value": "512 · Hann 50%",
+      "unit": "샘플",
+      "code": "DOA_BLOCK",
+      "role": "FFT 한 번의 길이. 길면 주파수 해상도가 좋고 창 안 평균 횟수가 준다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "시뮬 (D1, SNR 5 dB): 블록을 바꿔도 기본값보다 낫지 않음 (비교한 값은 기록 없음)",
+      "status": "근거 없음",
+      "open": "비교한 블록 길이와 수치가 남아 있지 않음",
+      "refs": [
+        "Step7"
+      ],
+      "pair": "doa_stream.py --block",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "band-doa",
+      "group": "방향 (지속음)",
+      "name": "방향 대역",
+      "value": "300 ~ 3000",
+      "unit": "Hz (실제 빈 25 ~ 245)",
+      "code": "doa.c K_LO · K_HI, doa.h DOA_BAND_*",
+      "role": "교차 스펙트럼에서 쓸 주파수 범위. 넓히면 정보가 늘지만 PHAT은 잡음 빈도 같은 무게로 센다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "시뮬 (D1, SNR 5 dB): 대역을 바꿔도 기본값보다 낫지 않음 (비교 대역 기록 없음). 실측: 12방향 통과",
+      "status": "근거 없음",
+      "open": "스냅 경로의 D3-1은 150 ~ 2000 Hz로 정했고 500 ~ 3000을 '2450 Hz 공간 앨리어싱 한계를 넘는다'며 버렸다. 지속음 경로가 3000으로 돌아온 이유가 기록 없음. 150 ~ 2400 등과 실측 비교 필요 (12방향은 시험셋이라 새 녹음으로)",
+      "refs": [
+        "D3-1",
+        "Step7"
+      ],
+      "pair": "doa_stream.py --band",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "up",
+      "group": "방향 (지속음)",
+      "name": "상관 해상도 · 보간",
+      "value": "1/16 샘플 + 포물선",
+      "unit": "",
+      "code": "DOA_UP",
+      "role": "샘플 사이의 시간차를 얼마나 잘게 읽나",
+      "basis_type": "실측",
+      "basis": "스냅에서 포물선 보간과 16배 업샘플의 차이 최대 0.015샘플 (D3-2). PC 기준(16배 제로패딩)과 같은 값을 내기 위해",
+      "evidence": "실측: MCU·PC 지연 차이 최대 0.0001샘플 (mcu_doa2)",
+      "status": "근거만",
+      "open": "",
+      "refs": [
+        "D3-2",
+        "Step7"
+      ],
+      "pair": "doa_stream.py estimate(up=16)",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "eps",
+      "group": "방향 (지속음)",
+      "name": "PHAT 바닥값",
+      "value": "0.01",
+      "unit": "(대역 최대 크기 대비)",
+      "code": "DOA_PHAT_EPS, TDOA_PHAT_EPS",
+      "role": "크기가 거의 0인 빈을 1로 키워 잡음을 부풀리지 않게 하는 바닥",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "",
+      "status": "근거 없음",
+      "open": "다른 값과 비교 없음",
+      "refs": [
+        "Step3",
+        "Step7"
+      ],
+      "pair": "doa_stream.py estimate(eps), gcc_phat.py --eps",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "min-peak",
+      "group": "방향 (지속음)",
+      "name": "유효 판정: 최소 봉우리",
+      "value": "0.15",
+      "unit": "",
+      "code": "DOA_MIN_PEAK",
+      "role": "세 쌍 중 가장 낮은 상관 봉우리가 이 값 이상이어야 VALID",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "",
+      "status": "근거 없음",
+      "open": "스냅(0.5)과 다른 값을 쓰는 이유 기록 없음",
+      "refs": [
+        "Step7"
+      ],
+      "pair": "doa_stream.py --min-peak",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "closure",
+      "group": "방향 (지속음)",
+      "name": "유효 판정: 닫힘 오차",
+      "value": "0.3",
+      "unit": "샘플 @ 12.5 kHz",
+      "code": "DOA_MAX_CLOSURE",
+      "role": "|τ12 + τ23 − τ13|가 이 값 이하여야 VALID. 크면 봉우리 하나가 가짜",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "",
+      "status": "근거 없음",
+      "open": "",
+      "refs": [
+        "Step7"
+      ],
+      "pair": "doa_stream.py --max-closure",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "norm",
+      "group": "방향 (지속음)",
+      "name": "유효 판정: norm 범위",
+      "value": "0.5 ~ 1.3",
+      "unit": "",
+      "code": "DOA_MIN_NORM · DOA_MAX_NORM",
+      "role": "방향 벡터 길이가 물리적으로 가능한 범위인가",
+      "basis_type": "계산",
+      "basis": "하한 0.5 = 고도 60°",
+      "evidence": "시뮬: 고도 30·45°는 유효 90% 이상, 60°에서 54% (norm 0.5 경계)",
+      "status": "근거만",
+      "open": "상한 1.3의 근거 기록 없음. 실측 지연이 기대보다 22% 작아 norm이 낮게 나오는 문제와 같이 볼 것",
+      "refs": [
+        "Step7"
+      ],
+      "pair": "doa_stream.py --min-norm --max-norm",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "min-snr",
+      "group": "방향 (지속음)",
+      "name": "PRESENT 판정 SNR",
+      "value": "6",
+      "unit": "dB (배경 대비 대역 전력)",
+      "code": "DOA_MIN_SNR_DB",
+      "role": "배경보다 이만큼 커야 새 소리가 있는 창으로 본다 (평가 대상 선정에도 씀)",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "시뮬: D1은 SNR 약 +7 dB까지 통과",
+      "status": "근거 없음",
+      "open": "'시험 전 고정'이라는 절차만 있고 6 dB인 이유는 기록 없음",
+      "refs": [
+        "Step7"
+      ],
+      "pair": "doa_stream.py --min-snr",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "bg-sec",
+      "group": "방향 (지속음)",
+      "name": "배경 학습 시간",
+      "value": "10",
+      "unit": "s",
+      "code": "DOA_BG_SECONDS",
+      "role": "부팅·B1 버튼 뒤 '평소 소리'를 평균하는 시간. 길수록 배경이 안정적이지만 그동안은 배경 없이(D0) 계산",
+      "basis_type": "논리",
+      "basis": "켠 뒤 빨리 쓰기 위함 (PC 시험은 60 s)",
+      "evidence": "",
+      "status": "근거만",
+      "open": "10 대 60 s 배경으로 결과가 얼마나 다른지 비교 없음",
+      "refs": [
+        "Step7"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "ch-delay",
+      "group": "방향 (지속음)",
+      "name": "채널 고유 지연",
+      "value": "ch2 −23.1 · ch3 +4.3",
+      "unit": "µs (ch1 기준)",
+      "code": "DOA_DELAY_US_CH*, config/geometry.json channel_delay_us",
+      "role": "앰프·배선 차이로 생기는 채널 간 지연을 시간차에서 뺀다",
+      "basis_type": "실측",
+      "basis": "캡슐을 한 점에 모아 0°·180° 녹음 평균 (cal_d0, cal_d180). 12방향과 따로 잼",
+      "evidence": "실측: 보정 전 오차 중앙값 최대 24.5° → 보정 + 공통 회전 제거 후 2.7°",
+      "status": "검증됨",
+      "open": "마이크 모듈·게인 트리머를 바꾸거나 외장에 넣으면 다시 잰다",
+      "refs": [
+        "D7-2",
+        "Step7"
+      ],
+      "pair": "doa_stream.py (geometry.json)",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "band-snap",
+      "group": "방향 (스냅)",
+      "name": "스냅 대역",
+      "value": "150 ~ 2000",
+      "unit": "Hz",
+      "code": "TDOA_BAND_LO_HZ · _HI_HZ",
+      "role": "스냅 GCC-PHAT에 쓰는 대역",
+      "basis_type": "실측",
+      "basis": "원파형 194개를 대역만 바꿔 재계산: 판정 통과 174 대 180, 세 쌍 일치 95% 대 97%, 같은 자리 표준편차 0.77° 대 1.38° (500 ~ 3000 대비)",
+      "evidence": "",
+      "status": "검증됨",
+      "open": "날개 소리로 확인한 것이 아니다. 대역마다 각도 평균이 1 ~ 3° 달라 실제 각도 시험 필요",
+      "refs": [
+        "D3-1",
+        "Step3"
+      ],
+      "pair": "gcc_phat.py --band",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "win-snap",
+      "group": "방향 (스냅)",
+      "name": "분석 구간 · onset 전 여유",
+      "value": "250 · 50",
+      "unit": "샘플 @ 50 kHz (5 ms · 1 ms)",
+      "code": "TDOA_WIN · TDOA_PRE",
+      "role": "소리가 터진 직후 반사가 오기 전 직접음만 쓰는 구간",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "",
+      "status": "근거 없음",
+      "open": "Step3 표에 '이전 판 5.1절 비교'라고만 있고 수치가 현재 문서에 없다",
+      "refs": [
+        "Step3"
+      ],
+      "pair": "gcc_phat.py --win --pre",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "maxlag-snap",
+      "group": "방향 (스냅)",
+      "name": "최대 지연",
+      "value": "±13",
+      "unit": "샘플 @ 50 kHz",
+      "code": "TDOA_MAX_LAG",
+      "role": "상관 봉우리를 찾는 범위",
+      "basis_type": "계산",
+      "basis": "7 cm 최대 지연 10.2샘플 + 여유",
+      "evidence": "",
+      "status": "근거만",
+      "open": "",
+      "refs": [
+        "Step3"
+      ],
+      "pair": "gcc_phat.py --max-lag",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "valid-snap",
+      "group": "방향 (스냅)",
+      "name": "스냅 유효 판정",
+      "value": "peak ≥ 0.5 · norm 0.3 ~ 1.2",
+      "unit": "",
+      "code": "TDOA_MIN_PEAK · _MIN_NORM · _MAX_NORM",
+      "role": "믿을 결과만 고른다",
+      "basis_type": "실측",
+      "basis": "peak ≥ 0.5인 49개는 세 쌍 일치 92%, 전체 124개는 50%. 캡처 235개 중 220개 통과",
+      "evidence": "",
+      "status": "근거만",
+      "open": "세 숫자는 AI가 정한 값이고 사용자가 확정하지 않음 (D3-5). 위쪽 소리 표본으로 확인 필요",
+      "refs": [
+        "D3-5",
+        "Step3"
+      ],
+      "pair": "gcc_phat.py --min-peak --min-norm --max-norm",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "trig",
+      "group": "방향 (스냅)",
+      "name": "소리 트리거",
+      "value": "k_on 4.0 · α 0.05 · min_rms 20 · learn 25",
+      "unit": "",
+      "code": "capture.c 기본값",
+      "role": "잡음 바닥 대비 갑자기 커진 소리를 잡는다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "시뮬: 0.5 s 상승(80 dB/s)은 걸리고 0.7 s(57 dB/s)는 안 걸림",
+      "status": "근거 없음",
+      "open": "k_on·α를 다른 값과 비교한 수치 없음 (D2-3)",
+      "refs": [
+        "D2-3",
+        "Step2"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "holdoff",
+      "group": "방향 (스냅)",
+      "name": "트리거 holdoff",
+      "value": "50 · 10",
+      "unit": "프레임 (원파형 / 결과만)",
+      "code": "CAPTURE_HOLDOFF_DEFAULT",
+      "role": "트리거 뒤 다시 트리거하지 않는 시간",
+      "basis_type": "실측",
+      "basis": "원파형 송신 134 ms + 잔향. 결과만이면 결과 간격 최소 0.205 s로 0.27 s 간격 스냅을 따라감",
+      "evidence": "",
+      "status": "근거만",
+      "open": "holdoff 직후 꼬리에서 잡힌 결과 2개 — 표본이 적음 (D3-6)",
+      "refs": [
+        "D3-6",
+        "Step3"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "cls-win",
+      "group": "분류",
+      "name": "분류 창 · 이동",
+      "value": "1 · 0.5",
+      "unit": "s",
+      "code": "Tools/ml/embed_v0.py WIN · HOP",
+      "role": "판정 하나에 쓰는 소리 길이와 판정 간격. 확정 지연의 대부분이 여기서 나온다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "",
+      "status": "근거 없음",
+      "open": "Step8 v0에서 처음 쓴 값 그대로. 확정 지연 최소 1.5 s(기준 ≤ 1 s)의 원인 → DO-2 결정 뒤 다시 정할 것",
+      "refs": [
+        "Step6",
+        "Step8",
+        "DO-2"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "confirm",
+      "group": "분류",
+      "name": "지속 확인",
+      "value": "3창 중 2창",
+      "unit": "",
+      "code": "Step6 평가 규칙, combine.py CONFIRM_N · CONFIRM_K",
+      "role": "한 창만 드론이라고 나와도 확정하지 않는다. 오탐을 줄이지만 지연이 는다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "",
+      "status": "근거 없음",
+      "open": "다른 조합(2중 1, 4중 3)과 오탐·지연 비교 없음",
+      "refs": [
+        "Step6",
+        "Step8",
+        "DO-2"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "rms-norm",
+      "group": "분류",
+      "name": "창 레벨 정규화",
+      "value": "−30",
+      "unit": "dBFS (창 RMS)",
+      "code": "Tools/ml/embed_v*.py",
+      "role": "창마다 소리 크기를 맞춘다",
+      "basis_type": "논리",
+      "basis": "녹음 크기 차이를 드론 판단 단서(지름길)로 쓰지 못하게",
+      "evidence": "",
+      "status": "근거만",
+      "open": "작은 소리 창을 키우면 보드 잡음도 커진다 → 장치 경로 오탐의 추정 원인 (D8-7). 정규화 유무로 비교 없음",
+      "refs": [
+        "Step8",
+        "D8-7"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "model",
+      "group": "분류",
+      "name": "분류 모델",
+      "value": "CNN14 임베딩 + 로지스틱 회귀",
+      "unit": "",
+      "code": "Tools/ml/train_v*.py",
+      "role": "고정된 사전학습 임베딩(2048차원) 위에 직선 분류기",
+      "basis_type": "논리",
+      "basis": "드론 사건 21개뿐 → 학습할 값을 2049개로 줄여 기체 외우기를 막는다",
+      "evidence": "시뮬: 무학습 AudioSet 점수 FPV AUC 0.79 < 학습 0.90 (D8-1). v4 MLP는 오탐 ≤ 1 ~ 2회/시간 구간에서 직선보다 나쁨 (D8-5)",
+      "status": "검증됨",
+      "open": "고정 임베딩의 한계가 확인되면 미세조정(C2)",
+      "refs": [
+        "D8-1",
+        "D8-5",
+        "Step8"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "c-reg",
+      "group": "분류",
+      "name": "로지스틱 회귀 정규화 C · 클래스 균형",
+      "value": "0.05 · balanced",
+      "unit": "",
+      "code": "train_v0.py LogisticRegression(C=0.05, class_weight=balanced)",
+      "role": "C가 작을수록 계수를 작게 묶어 과적합을 줄인다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "",
+      "status": "근거 없음",
+      "open": "C 값을 교차검증으로 고른 기록 없음",
+      "refs": [
+        "Step8"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "thr",
+      "group": "분류",
+      "name": "판정 문턱",
+      "value": "비드론 창 오탐 0.5%",
+      "unit": "",
+      "code": "train_v3·v5 운용점",
+      "role": "문턱을 내리면 재현율과 오탐이 같이 오른다",
+      "basis_type": "시뮬",
+      "basis": "오탐 0.77회/시간, 사건 17/21, FPV 3/3 (v3m, D8-5)",
+      "evidence": "시뮬: 1 · 0.5 · 0.2 · 0.1% 곡선 비교 (v4_curve)",
+      "status": "근거만",
+      "open": "네 값 중 시험 결과를 보고 고름 → 낙관적. 새 시험 데이터로 재확인. 장치 경로에서는 같은 운용점이 창 오탐 6.8% (82회/시간)",
+      "refs": [
+        "D8-5",
+        "Step8"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "near-only",
+      "group": "분류",
+      "name": "near_only 라벨 규칙",
+      "value": "−20",
+      "unit": "dB (파일 최대 대비, 500 Hz 위 대역)",
+      "code": "embed_v0.py NEAR_DB",
+      "role": "드론이 멀어 정답이 불확실한 구간을 양성에서 뺀다",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "",
+      "status": "근거 없음",
+      "open": "−20 dB인 이유 기록 없음",
+      "refs": [
+        "Step6",
+        "Step8"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "fs-model",
+      "group": "분류",
+      "name": "분류 입력 샘플레이트",
+      "value": "16",
+      "unit": "kHz (12.5 kHz에서 리샘플)",
+      "code": "embed_v*.py FS_M",
+      "role": "CNN14 16 kHz판이 받는 입력",
+      "basis_type": "논리",
+      "basis": "사용하는 사전학습 모델(PANNs CNN14 16 kHz판)의 입력 규격",
+      "evidence": "",
+      "status": "파생",
+      "open": "",
+      "refs": [
+        "D8-1",
+        "Step8"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "cls-max-age",
+      "group": "결합",
+      "name": "판정 경과 시간 한도",
+      "value": "1.0",
+      "unit": "s",
+      "code": "combine.py CLS_MAX_AGE",
+      "role": "가장 최근 분류 창이 이보다 오래되면 '판단 불가'. 길면 PC가 멈춰도 옛 판정을 오래 쓴다",
+      "basis_type": "실측",
+      "basis": "정상 경과 = 창 이동 0.5 s + 추론 0.3 s(가정)",
+      "evidence": "실측 (정답 타임라인): 1.0 s에서 고장 주입 위반 0. 3.0 s면 분류 1.5 s 지연(F4)은 0.81로 살지만 PC 멈춤(F1) 위반 77/96",
+      "status": "검증됨",
+      "open": "Step10에서 실제 추론 지연 최악값을 잰 뒤 다시 정한다",
+      "refs": [
+        "D9A-1",
+        "Step9A",
+        "Step10"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "doa-max-age",
+      "group": "결합",
+      "name": "방위 경과 시간 한도",
+      "value": "0.75",
+      "unit": "s",
+      "code": "combine.py DOA_MAX_AGE",
+      "role": "이보다 오래된 방향 창은 버린다",
+      "basis_type": "논리",
+      "basis": "방향 창 3개분 (0.25 s 이동)",
+      "evidence": "",
+      "status": "근거만",
+      "open": "다른 값과 비교 없음",
+      "refs": [
+        "Step9A"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "cls-lat",
+      "group": "결합",
+      "name": "분류 도착 지연 (평가 가정)",
+      "value": "0.3",
+      "unit": "s",
+      "code": "eval_9a.py --cls-lat",
+      "role": "평가에서 분류 결과가 창 끝보다 이만큼 늦게 도착한다고 가정",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "",
+      "status": "근거 없음",
+      "open": "실측 전 가정. Step10에서 실제 값으로 바꾼다",
+      "refs": [
+        "Step9A",
+        "Step10"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "id": "gain",
+      "group": "하드웨어",
+      "name": "MAX4466 게인 (트리머)",
+      "value": "",
+      "unit": "배 (모듈 범위 25 ~ 125)",
+      "code": "마이크 모듈 트리머",
+      "role": "마이크 신호를 키우는 정도. 크면 작은 소리도 ADC 여러 칸으로 잡지만 큰 소리에서 클리핑",
+      "basis_type": "",
+      "basis": "",
+      "evidence": "실측: 스피커 재생 녹음 RMS −30.5 ~ −30.9 dBFS, 클리핑 0 (Step5)",
+      "status": "근거 없음",
+      "open": "현재 설정값 자체가 기록에 없다. 바꾸면 채널 지연을 다시 잰다. 장치 음압 보정(dBFS ↔ dB SPL)에 필요",
+      "refs": [
+        "Step5",
+        "Step7"
+      ],
+      "pair": "",
+      "updated": "2026-10-23"
+    }
+  ]
+}

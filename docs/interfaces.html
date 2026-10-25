@@ -120,13 +120,13 @@ svg { display: block; width: 100%; height: auto; }
   <div>
     <h1>인터페이스 — MCU ↔ PC 경계의 약속</h1>
     <p class="sub">UART 921600 bps 위로 오가는 패킷의 형식·의미·규칙 · 코드가 원본이고 이 페이지는 참고표다 (코드와 같은 커밋에서 고친다)</p>
-    <nav class="docs"><a class="here" href="interfaces.html">인터페이스</a><a href="firmware.html">펌웨어 구조</a><a href="run.md">실행 절차</a><a href="../flow.html">Step 흐름도</a></nav>
+    <nav class="docs"><a class="here" href="interfaces.html">인터페이스</a><a href="firmware.html">펌웨어 구조</a><a href="parameter.html">파라미터</a><a href="run.md">실행 절차</a><a href="../flow.html">Step 흐름도</a></nav>
   </div>
   <button class="theme" id="themeBtn" type="button">◐ 테마</button>
 </div>
 <nav class="toc">
   <a href="#layers">세 층</a><a href="#modes">모드별 패킷</a><a href="#v2">v2 원파형·결과</a><a href="#v3">v3 PCM·DOA</a>
-  <a href="#flags">플래그</a><a href="#pcm">PCM 값</a><a href="#time">시간축</a><a href="#parser">수신 파서</a><a href="#gap">끊김 규칙</a><a href="#budget">대역폭</a><a href="#pairs">같이 고칠 짝</a>
+  <a href="#v3rules">헤더 칸 규칙</a><a href="#flags">플래그</a><a href="#pcm">PCM 값</a><a href="#time">시간축</a><a href="#parser">수신 파서</a><a href="#gap">끊김 규칙</a><a href="#budget">대역폭</a><a href="#pairs">같이 고칠 짝</a>
 </nav>
 
 <h2 id="layers">세 층으로 나눈 약속</h2>
@@ -172,6 +172,18 @@ svg { display: block; width: 100%; height: auto; }
 <div id="map-doa"></div>
 <p>PCM payload: <code>ch0[256] | ch1[256] | ch2[256]</code>, 샘플마다 int16. DOA 패킷 헤더의 drop·ovr·cpu 칸은 0이고 qdrop만 참고용으로 실린다.</p>
 <div class="note"><b>little endian 예:</b> <code>seq = 258 = 0x00000102</code>는 offset 8부터 <code>02 01 00 00</code> 순서로 놓인다. 작은 자리가 앞(낮은 주소)이다.</div>
+
+<h3 id="v3rules">헤더 칸을 읽는 규칙</h3>
+<div class="tw"><table>
+<tr><th>칸</th><th>PCM 0x03</th><th>DOA 0x04</th><th>수신단이 할 일</th></tr>
+<tr><td><code>seq</code></td><td>0부터. 큐가 가득 차 <b>버린 패킷도 번호를 하나 쓴다</b></td><td>0부터, PCM과 따로 센다. 큐에 넣을 때만 번호를 쓴다 (DOA 큐가 차서 버리면 번호도 안 씀)</td><td>(버전, 종류)별로 1씩 느는지 본다. PCM의 빈 번호 = MCU가 버렸거나 PC가 놓친 패킷</td></tr>
+<tr><td><code>frame_seq</code></td><td>이 블록을 만든 ADC 프레임 (1부터). 블록 첫 샘플 = (frame_seq − 1) × 256</td><td>관측 창이 <b>끝난</b> 프레임. 창 자체의 구간은 payload의 <code>s0</code>로 본다</td><td>PCM은 1씩 느는지 본다. 건너뛰면 그 프레임의 PCM이 없다</td></tr>
+<tr><td><code>drop</code> · <code>ovr</code> · <code>qdrop</code></td><td colspan="2">MCU의 유실 누계를 <b>하위 8비트만</b> 싣는다 (mod 256). 값 자체보다 바뀌었는지가 중요하다</td><td>직전 패킷과의 차이 <code>(b − a) &amp; 0xFF</code>로 늘어난 횟수를 센다 (<code>stream_capture.py</code> summary의 <code>delta_drop_ovr_qdrop</code>)</td></tr>
+<tr><td><code>cpu</code></td><td><b>직전</b> 프레임의 처리 시간 [%] (이번 프레임 시간은 패킷을 만든 뒤에야 끝나므로)</td><td>항상 0</td><td>최대값으로 마감 여유를 본다 (평균이 아니라)</td></tr>
+<tr><td><code>flags</code></td><td>CLIP · RESYNC · VERIFY · GAP (아래 <a href="#flags">플래그</a>)</td><td>항상 0. 방향 결과의 상태는 payload <code>flags</code>에 있다</td><td>GAP·RESYNC면 앞과 이어 붙이지 않는다 (<a href="#gap">끊김 규칙</a>)</td></tr>
+<tr><td>CRC</td><td colspan="2">마지막 2 B, <b>little endian</b>(하위 바이트 먼저). CRC-16/CCITT-FALSE: 다항식 0x1021, 초기값 0xFFFF, 비트 반사 없음, 마지막 XOR 없음. 범위 = <code>ver</code>(offset 4)부터 payload 끝 (sync 제외)</td><td>Python <code>binascii.crc_hqx(data[4:24+len], 0xFFFF)</code>와 비교</td></tr>
+</table></div>
+<p>DOA 큐는 유실 카운터가 없다 (초당 4개라 4칸이 찰 일이 거의 없음). 빠진 창은 연속한 DOA 결과의 <code>s0</code> 간격이 3,072보다 큰 것으로 알 수 있다. 끊김(RESYNC) 뒤에는 창이 새 시점부터 다시 시작하므로 간격이 3,072의 배수가 아닐 수 있다.</p>
 
 <h2 id="flags">2. 의미 — 플래그 비트</h2>
 <h3>v2 헤더 flags (offset 7)</h3>
@@ -221,16 +233,25 @@ svg { display: block; width: 100%; height: auto; }
 </div>
 
 <h2 id="gap">3. 규칙 — 끊김 표시와 수신단의 처리</h2>
-<p>끊긴 입력을 정상 연속 신호처럼 이어 붙이지 않는다 (problem.md I1). MCU는 프레임마다 아래 판정으로 플래그를 붙인다.</p>
-<svg id="gapSvg" viewBox="0 0 900 230" role="img" aria-label="정상, ADC 유실, 송신 큐 유실 때의 프레임과 플래그"></svg>
+<p>끊긴 입력을 정상 연속 신호처럼 이어 붙이지 않는다 (problem.md I1). 샘플이 빠지는 길은 네 가지이고, 길마다 PC에 보이는 흔적이 다르다. 앞의 셋은 MCU가 알고 플래그로 알려 주며, 마지막은 MCU가 모르는 PC 쪽 유실이다.</p>
+<svg id="gapSvg" viewBox="0 0 900 300" role="img" aria-label="정상, ADC 프레임 유실, overrun, 송신 큐 유실 때의 프레임 번호와 플래그"></svg>
 <div class="tw"><table>
-<tr><th>상황</th><th>MCU가 아는 방법</th><th>MCU 처리</th><th>플래그</th><th>PC 처리 (stream_capture.py)</th></tr>
-<tr><td>정상</td><td>frame_seq = 직전 + 1, ovr·qdrop 그대로</td><td>FIR 상태 유지</td><td>—</td><td>같은 WAV에 이어 씀</td></tr>
-<tr><td>ADC 프레임 유실 · overrun</td><td>frame_seq가 건너뜀 또는 ovr 증가</td><td>FIR 상태 0 (<code>preproc_reset</code>), 방향 창 버림</td><td>RESYNC + GAP</td><td>새 WAV 구간, 첫 19샘플(⌈75/4⌉, 과도 구간) 버림</td></tr>
-<tr><td>송신 큐 넘침</td><td>qdrop 증가</td><td>FIR은 연속 (MCU 입력은 안 빠짐)</td><td>GAP만</td><td>새 WAV 구간 (빈 seq로도 확인)</td></tr>
-<tr><td>부팅 직후 첫 프레임</td><td>first</td><td>FIR 상태 0</td><td>RESYNC</td><td>첫 19샘플 버림</td></tr>
+<tr><th>길</th><th>무슨 일인가</th><th>PCM <code>frame_seq</code></th><th>PCM <code>seq</code></th><th>다음 패킷 flags</th><th>헤더 카운터</th><th>PC 처리 (<code>stream_capture.py</code>)</th></tr>
+<tr><td>정상</td><td>—</td><td>+1</td><td>+1</td><td>—</td><td>그대로</td><td>같은 WAV에 이어 씀</td></tr>
+<tr><td>① ADC 프레임 유실</td><td>MCU main이 늦어 반버퍼를 가져가기 전에 다음 반버퍼가 참</td><td><b>건너뜀</b></td><td>+1 (패킷을 안 만들었으니 번호도 안 씀)</td><td>RESYNC + GAP</td><td><code>drop</code> 증가</td><td>새 WAV 구간, 첫 19샘플 버림</td></tr>
+<tr><td>② ADC overrun</td><td>ADC → DMA가 하드웨어 오류로 멈췄다가 MCU가 다시 켬</td><td><b>+1 (이어짐)</b></td><td>+1</td><td>RESYNC + GAP</td><td><code>ovr</code> 증가</td><td>새 WAV 구간, 첫 19샘플 버림</td></tr>
+<tr><td>③ 송신 큐 유실</td><td>UART가 밀려 MCU 송신 큐 4칸이 다 차서 새 PCM 패킷을 버림</td><td>건너뜀 (버린 패킷의 번호)</td><td><b>건너뜀</b> (버린 패킷도 번호를 씀)</td><td>GAP만</td><td><code>qdrop</code> 증가</td><td>새 WAV 구간. 과도 구간 없음 (MCU의 FIR은 이어져 있음)</td></tr>
+<tr><td>④ PC 수신 유실</td><td>CRC 오류, PC OS 수신 버퍼 넘침 등. MCU는 정상적으로 보냄</td><td>건너뜀</td><td>건너뜀</td><td>없음 (MCU는 모름)</td><td>그대로</td><td>새 WAV 구간. parser의 <code>crc_fail</code>·<code>seq_gap</code>로 센다</td></tr>
+<tr><td>부팅 직후</td><td>첫 프레임</td><td>1부터</td><td>0부터</td><td>RESYNC (GAP 없음)</td><td>—</td><td>첫 19샘플 버림</td></tr>
 </table></div>
-<p>송신 큐가 넘쳐 버린 PCM 패킷도 <code>seq</code>를 하나 소비한다. 그래서 PC는 빈 번호로 무엇이 빠졌는지 안다.</p>
+<ul>
+  <li><b>원인 가르기:</b> frame_seq만 건너뛰면 ①, seq까지 건너뛰고 GAP·qdrop이 같이 오면 ③, 플래그·카운터 없이 둘 다 건너뛰면 ④다.</li>
+  <li><b>overrun은 번호로 안 보인다.</b> overrun이 나면 DMA가 멈춰 반버퍼가 안 차고, 프레임 번호는 반버퍼가 찰 때만 오른다. 재시작 뒤 첫 반버퍼가 다음 번호를 받으므로 번호는 이어지지만 그 사이 소리는 없다. 그래서 MCU는 <code>ovr</code> 누계가 바뀐 것으로 알고 플래그를 붙인다.</li>
+  <li><b>overrun 뒤 시간축 주의:</b> 샘플 번호 = (frame_seq − 1) × 256 규칙이 실제 시각과 어긋난다 (빠진 시간만큼). overrun이 있었던 녹음은 그 지점 앞뒤를 같은 시간축으로 맞추지 않는다. 정상 운용 기준은 overrun 0이다.</li>
+  <li><b>왜 다음 패킷에 붙나:</b> 버려지거나 못 만든 패킷은 PC에 오지 않는다. 그래서 "앞에서 빠졌다"는 사실은 그 뒤에 처음으로 도착하는 패킷이 알린다.</li>
+  <li><b>RESYNC가 있으면 첫 19샘플을 버리는 이유:</b> MCU가 FIR 상태를 0으로 지우고 다시 시작했으므로, 첫 ⌈75 / 4⌉ = 19개 출력은 "과거 입력이 0이었다"고 가정한 과도 구간이다.</li>
+</ul>
+<p>MCU 안에서 이 판정을 하는 변수(<code>last_seq</code>, <code>last_ovr</code>, <code>last_qdrop</code>)와 송신 큐의 구조는 <a href="firmware.html#state">펌웨어 구조 — 상태 변수 지도</a>에 있다.</p>
 
 <h2 id="budget">대역폭 예산</h2>
 <p>UART 921600 bps, 8N1 → 바이트당 10비트 → 이론상 약 92 KB/s.</p>
@@ -413,31 +434,30 @@ svg { display: block; width: 100%; height: auto; }
     t(x0, 240, "PC 분류 창(1 s)도 같은 샘플 번호로 시작·끝을 붙이고, 구간이 겹치는 결과끼리 짝짓는다 (Step9A)", g, { "font-size": 11 });
   })();
 
-  // 끊김 그림
+  // 끊김 그림: 칸마다 [윗줄, 아랫줄, 종류]. 종류 ok = 정상 전송, miss = 빠짐, stop = ADC 멈춤, q = 큐에서 버림
   (function () {
     var g = document.getElementById("gapSvg");
     var rows = [
-      { y: 30, name: "정상", frames: [1, 2, 3, 4, 5, 6], flags: {} },
-      { y: 100, name: "ADC 유실", frames: [1, 2, 3, null, 5, 6], flags: { 4: "RESYNC+GAP" } },
-      { y: 170, name: "큐 유실", frames: [1, 2, 3, "q", 5, 6], flags: { 4: "GAP" } }
+      { y: 20, name: "정상", cells: [["frame 1", "PCM 전송", "ok"], ["frame 2", "PCM 전송", "ok"], ["frame 3", "PCM 전송", "ok"], ["frame 4", "PCM 전송", "ok"], ["frame 5", "PCM 전송", "ok"], ["frame 6", "PCM 전송", "ok"]] },
+      { y: 90, name: "① 프레임 유실", cells: [["frame 1", "PCM 전송", "ok"], ["frame 2", "PCM 전송", "ok"], ["frame 3", "PCM 전송", "ok"], ["frame 4 유실", "main이 못 가져감", "miss"], ["frame 5", "번호 건너뜀", "ok"], ["frame 6", "PCM 전송", "ok"]], tag: [4, "RESYNC + GAP"] },
+      { y: 160, name: "② overrun", cells: [["frame 1", "PCM 전송", "ok"], ["frame 2", "PCM 전송", "ok"], ["frame 3", "PCM 전송", "ok"], ["ADC 멈춤", "번호 안 오름", "stop"], ["frame 4", "번호는 이어짐", "ok"], ["frame 5", "PCM 전송", "ok"]], tag: [4, "RESYNC + GAP"] },
+      { y: 230, name: "③ 큐 유실", cells: [["frame 1", "PCM 전송", "ok"], ["frame 2", "PCM 전송", "ok"], ["frame 3", "PCM 전송", "ok"], ["PCM 4 버림", "seq 번호는 소비", "q"], ["frame 5", "PCM 전송", "ok"], ["frame 6", "PCM 전송", "ok"]], tag: [4, "GAP"] }
     ];
     var x0 = 120, bw = 112;
+    var FILL = { ok: "var(--panel)", miss: "var(--bad-soft)", stop: "var(--bad-soft)", q: "var(--warn-soft)" };
+    var STROKE = { ok: "var(--line)", miss: "var(--bad)", stop: "var(--bad)", q: "var(--warn)" };
     rows.forEach(function (r) {
       t(10, r.y + 22, r.name, g, { "font-size": 13, fill: "var(--ink)" });
-      r.frames.forEach(function (f, i) {
-        var x = x0 + i * bw;
-        var missing = f === null, qd = f === "q";
-        s("rect", { x: x, y: r.y, width: bw - 8, height: 34, rx: 6,
-          fill: missing ? "var(--bad-soft)" : qd ? "var(--warn-soft)" : "var(--panel)",
-          stroke: missing ? "var(--bad)" : qd ? "var(--warn)" : "var(--line)", "stroke-dasharray": (missing || qd) ? "5 3" : "" }, g);
-        t(x + 8, r.y + 15, missing ? "frame 4 유실" : qd ? "PCM 4 버림" : "frame " + f, g, { "font-size": 11, fill: "var(--ink)" });
-        t(x + 8, r.y + 29, missing ? "(main이 못 가져감)" : qd ? "(seq 번호는 소비)" : "PCM 전송", g, { "font-size": 10 });
+      r.cells.forEach(function (c, i) {
+        var x = x0 + i * bw, k = c[2];
+        s("rect", { x: x, y: r.y, width: bw - 8, height: 34, rx: 6, fill: FILL[k], stroke: STROKE[k], "stroke-dasharray": k === "ok" ? "" : "5 3" }, g);
+        t(x + 8, r.y + 15, c[0], g, { "font-size": 11, fill: "var(--ink)" });
+        t(x + 8, r.y + 29, c[1], g, { "font-size": 10 });
       });
-      var tag = r.flags[4];
-      if (tag) {
-        var x = x0 + 4 * bw;
+      if (r.tag) {
+        var x = x0 + r.tag[0] * bw;
         s("rect", { x: x, y: r.y + 38, width: bw - 8, height: 18, rx: 4, fill: "var(--accent-soft)", stroke: "var(--accent)" }, g);
-        t(x + 6, r.y + 51, "frame 5: " + tag, g, { "font-size": 10.5, fill: "var(--accent)" });
+        t(x + 6, r.y + 51, r.tag[1], g, { "font-size": 10.5, fill: "var(--accent)" });
       }
     });
   })();

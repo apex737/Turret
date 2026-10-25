@@ -68,7 +68,9 @@ void capture_request_manual(void)
 }
 
 // 캡처를 보낸 직후 부를 함수 등록 (NULL이면 해제)
-void capture_set_trigger_cb(capture_trigger_cb_t cb)
+void capture_set_trigger_cb(
+	capture_trigger_cb_t cb	// 캡처를 보낸 직후 부를 함수 (app.c on_capture). NULL이면 해제
+)
 {
 	on_trigger = cb;
 }

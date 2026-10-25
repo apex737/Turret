@@ -22,6 +22,7 @@ Turret/
 ├─ docs/              코드와 함께 바뀌는 것
 │  ├─ interfaces.html MCU ↔ PC 경계의 약속: 패킷 형식(바이트 배치)·의미(스케일·시간축·플래그)·규칙(파서·끊김), 같이 고칠 짝
 │  ├─ firmware.html   MCU 내부 구조: 모듈, 데이터 흐름, 클럭, DMA 핑퐁, 송신 큐, 방향 계산, 메모리·CPU, 빌드·CubeMX
+│  ├─ parameter.html  튜닝 파라미터의 값·근거·실험 결과·검증할 것 (원본 parameter.json, 화면에서 편집 후 내보내기)
 │  └─ run.md          두 번 이상 실행하는 절차: 배치 방법, 녹음·분석 명령
 │
 ├─ learning/          학습 기록
@@ -29,6 +30,7 @@ Turret/
 │  ├─ profile.md      학습자 배경 (모든 프로젝트 공통)
 │  ├─ concepts.html   점검에서 틀린 개념: 키워드·간략 설명·쓰인 Step. 이해 표시·제거는 사람이 직접
 │  ├─ notes/          본인이 쓴 개념 노트, 시각 자료(helper html)
+│  │  └─ ML_Classifier/ 드론 분류(Step6·8)에 쓰인 머신러닝 강의 노트북만 골라 둔 공부 자료
 │  └─ TIL/            본인이 쓴 하루 개발 흐름 (YYYY-MM-DD.md). AI는 사실 오류만 고친다
 │
 ├─ reports/           스크립트가 만든 출력 (표, 그래프). 판정은 쓰지 않는다

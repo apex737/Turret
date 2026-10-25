@@ -22,14 +22,11 @@ void burst_init(void)
 
 uint32_t burst_get_restart_cnt(void) { return s_restart; }
 
-/* main 루프에서 새 ADC 프레임마다 호출 (인자 설명은 burst.h)
- *  frame     : 채널별 50 kHz 원본 uint16[3][1024]
- *  frame_seq : 그 프레임의 번호. burst가 다 차면 패킷의 frame_seq로 쓴다
- *  drop_cnt  : adc_get_drop_cnt() 값. 직전 호출 때와 비교해 중간 유실을 알아낸다 */
+/* main 루프에서 새 ADC 프레임마다 호출 */
 void burst_on_frame(
-	const dump_frame_t *frame,
-	uint32_t frame_seq,
-	uint32_t drop_cnt
+	const dump_frame_t *frame,	// 채널별 50 kHz 원본 uint16[3][1024]
+	uint32_t frame_seq,			// 그 프레임의 번호. burst가 다 차면 패킷의 frame_seq로 쓴다
+	uint32_t drop_cnt			// adc_get_drop_cnt() 값. 직전 호출 때와 비교해 중간 유실을 알아낸다
 )
 {
     /* dropped : 직전 프레임 이후 ADC 프레임 유실이 있었나. 비교 기준(s_last_drop)은 프레임을 버리는 경우에도 매번 갱신한다
