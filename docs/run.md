@@ -137,7 +137,7 @@ cd Tools
 
 옵션: `--cls-lat` 분류 도착 지연(기본 0.3 s), `--doa-lat` 방향 도착 지연(0.02 s), `--max-age` 고장 채점의 허용 결과 경과 시간(1 s), `--release` 비드론 구간 해제 허용(2 s).
 
-## Step8c 핸드폰 회전·고도 녹음 (사용자, 약 7분)
+## Step8c 핸드폰 회전·고도 녹음 (사용자, 약 10분)
 
 배열은 책상 위에 고정하고, FPV 소리를 트는 **핸드폰을 들고 사람이 움직인다**. 핸드폰으로 옮길 파일: `DataSet/_playback/40_phone_rot_fpv_3min.wav`(회전), `41_phone_elev_fpv_2min.wav`(고도). Salford FPV의 큰 구간(머리 위 통과 근처 6 s × 3)을 이어 붙인 반복 파일이다.
 
@@ -148,29 +148,71 @@ cd Tools
 - 핸드폰은 **배열 높이**에서 스피커가 배열을 향하게, 팔을 뻗어 몸이 핸드폰과 배열 사이를 가리지 않게 든다
 - 펌웨어는 STREAM 모드. 보드가 켜질 때 처음 10 s 동안 배경을 배우므로 그동안은 조용히
 
-1. **회전 녹음**
+1. **회전 녹음 — 느리게, 빠르게 두 번** (각속도별 무효 창 비율을 보려고)
    ```
-   .venv/Scripts/python.exe board/stream_capture.py --port COM8 --label phone_rot --minutes 3
+   .venv/Scripts/python.exe board/stream_capture.py --port COM8 --label phone_rot_slow --minutes 2.5
+   .venv/Scripts/python.exe board/stream_capture.py --port COM8 --label phone_rot_fast --minutes 1.5
    ```
    1. 시작 메시지가 뜨면 **10 s 조용히** (재생 전)
    2. 0° 표시에 서서 재생 시작, **5 s 정지**
-   3. 반시계 방향으로 일정한 속도로 한 바퀴 (약 15 ~ 20 s). **90° · 180° · 270° · 360°(= 0°) 방향선을 넘을 때마다 박수 한 번**
+   3. 반시계 방향으로 일정한 속도로 한 바퀴 (느리게 약 30 s = 12°/s, 빠르게 약 10 s = 36°/s). **90° · 180° · 270° · 360°(= 0°) 방향선을 넘을 때마다 박수 한 번**
    4. 0°에서 **10 s 정지**
    5. 시계 방향으로 한 바퀴. **270° · 180° · 90° · 0° 방향선을 넘을 때마다 박수 한 번**
    6. 0°에서 끝날 때까지 정지 (재생은 계속)
-2. **고도 녹음 — 같은 높이**
+2. **고도 녹음 — 0° · 10° · 20° · 30° 네 단계** (고도 해상도 시험, Step8c)
    ```
-   .venv/Scripts/python.exe board/stream_capture.py --port COM8 --label phone_elev_h0 --minutes 1.5
+   .venv/Scripts/python.exe board/stream_capture.py --port COM8 --label phone_elev_00 --minutes 1
+   .venv/Scripts/python.exe board/stream_capture.py --port COM8 --label phone_elev_10 --minutes 1
+   .venv/Scripts/python.exe board/stream_capture.py --port COM8 --label phone_elev_20 --minutes 1
+   .venv/Scripts/python.exe board/stream_capture.py --port COM8 --label phone_elev_30 --minutes 1
    ```
-   - 10 s 조용히 → 0° 표시에서 배열 높이로 들고 재생, 움직이지 않음
-3. **고도 녹음 — 손 들고**
-   ```
-   .venv/Scripts/python.exe board/stream_capture.py --port COM8 --label phone_elev_up --minutes 1.5
-   ```
-   - 10 s 조용히 → 같은 0° 자리에서 핸드폰을 든 손을 위로 올리고 재생, 움직이지 않음
-   - 줄자로 **배열 중심 대비 핸드폰 높이 h**와 **수평 거리 l**을 재서 알려 준다 (예: h 80 cm, l 100 cm → 고도각 atan(80/100) = 38.7°)
+   - 모두 **0° 방향, 배열 중심에서 수평 거리 l = 100 cm**. 핸드폰 스피커 높이(배열 높이 기준) h = l × tan(고도각): **0 · 17.6 · 36.4 · 57.7 cm**
+   - 손으로 들기보다 책·상자를 쌓아 그 위에 **올려 고정**한다 (30 s 이상 움직이지 않아야 함). 스피커가 배열을 향하게
+   - 각 녹음: 10 s 조용히 → 재생, 끝까지 정지
+   - 실제로 잰 h와 l을 알려 준다 (계획과 다르면 실제 값으로 기준을 계산한다)
 
 녹음마다 상태 줄의 `clip`이 0인지 본다.
+
+## Step8d 보드 눈금 (사용자, 약 10분)
+
+보드가 재는 dBFS가 실제 몇 dB SPL인지 한 번 맞춘다. 탐지거리 식의 세 변수(음원 크기·잡음·필요 SNR)를 모두 이 눈금으로 읽는다. 재생 파일: `DataSet/_playback/50_cal_tones.wav` (3 s 쉼 뒤 [1 kHz 15 s · 쉼 5 s · 250 Hz 15 s · 쉼 5 s] × 3, 약 2분).
+
+**준비**
+- 휴대폰 소음계 앱 (아이폰은 NIOSH SLM 권장). 가능하면 가중치 **Z 또는 C**, 시간 **Slow**. A만 되면 A로 재고 알려 준다 (250 Hz는 A가중이 −8.6 dB라 계산으로 고친다)
+- **트리머 3개 위치를 사진으로** 남긴다. Step8d가 끝날 때까지 돌리지 않는다 (돌리면 눈금이 바뀐다)
+- 조용한 방, 에어컨·선풍기 끔
+- 배치: 소음계 휴대폰의 마이크를 **배열 중심 바로 옆(5 cm 안), 마이크와 같은 높이**에 둔다. 재생은 노트북 스피커(또는 다른 휴대폰)로, 배열 **0° 방향 0.5 m**, 같은 높이
+- 음량 맞추기 (녹음 전): 파일을 틀고 1 kHz 구간에서 소음계가 **70 ~ 80 dB**가 되게 음량을 정한 뒤 멈춘다. 이후 음량은 고정
+
+**녹음**
+```
+.venv/Scripts/python.exe board/stream_capture.py --port COM8 --label cal_spl --minutes 2.5
+```
+1. 시작 메시지가 뜨면 **10 s 조용히** (보드 배경 학습)
+2. `50_cal_tones.wav`를 처음부터 재생, 끝날 때까지 움직이지 않는다
+3. 톤마다 소음계 값(Leq 또는 안정된 값)을 적는다: **1 kHz × 3, 250 Hz × 3** = 6개
+4. 상태 줄 `clip`이 0인지 본다. 생기면 음량을 낮춰 처음부터 다시
+
+**알려 줄 것:** 6개 값, 가중치(Z/C/A), 앱 이름, 휴대폰 기종, 트리머 사진. 250 Hz가 스피커에서 잘 안 나거나 찌그러지게 들리면 그것도 알려 준다 (작은 스피커는 300 Hz 아래가 약하다).
+
+## Step8d 필요 SNR (T) 1차 (사용자, 소리 하나에 약 12분)
+
+드론 소리를 2 dB씩 줄여 가며 틀어서, 보드가 언제부터 드론 판정·방향을 놓치는지 본다. 재생 파일 (각 670 s = 20 s 조용히 → 0 dB부터 −40 dB까지 2 dB씩 21단계 × 30 s → 20 s 조용히):
+- `DataSet/_playback/51_T_fpv_steps.wav` (FPV, 먼저)
+- `DataSet/_playback/52_T_mini3_steps.wav` (Mini 3 Pro 호버)
+
+**준비:** 보드 눈금 때와 **같은 자리**(노트북 스피커 0° · 0.5 m · 같은 높이)와 **같은 음량**. 트리머는 그대로. 녹음 내내 조용히 (말·타자·알림 끔) — 소리가 작은 단계에서는 작은 잡음도 결과를 흔든다.
+
+**녹음** (소리마다 한 번)
+```
+.venv/Scripts/python.exe board/stream_capture.py --port COM8 --label T_fpv --minutes 12
+.venv/Scripts/python.exe board/stream_capture.py --port COM8 --label T_mini3 --minutes 12
+```
+1. 녹음을 시작하자마자 보드의 **B1(파란 버튼)을 한 번** 눌러 배경을 새로 배우게 하고 **12 s 조용히**
+2. 재생 파일을 처음부터 재생, 끝날 때까지(11분 10초) 조용히
+3. 끝나면 녹음이 멈출 때까지 기다린다 (12분)
+
+**알려 줄 것:** 중간에 소리가 났던 시각(있으면), 상태 줄 `clip` 수.
 
 ## 흐름도
 

@@ -111,6 +111,43 @@ dialog textarea { min-height: 64px; resize: vertical; }
 .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .hint { font-size: .8rem; color: var(--muted); }
 .formbtns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+/* Top10: 뿌리 파라미터 카드 + 딸린 파라미터 접은 줄 */
+.chips { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: .84rem; color: var(--muted); margin: 10px 0 0; }
+.chips span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; background: var(--c); vertical-align: 0; }
+details.rules { margin: 6px 0 0; font-size: .88rem; color: var(--muted); }
+details.rules summary { cursor: pointer; }
+.toplist { display: grid; gap: 14px; }
+.top10 { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 8px; }
+.top10 .hd { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.rank { font: 700 .9rem ui-monospace, Consolas, monospace; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 0 7px; }
+.top10 .tn { font-weight: 700; font-size: 1.1rem; }
+.top10 .why { margin: 0; max-width: 80ch; font-size: .93rem; }
+.calc { font: .82rem/1.55 ui-monospace, Consolas, monospace; color: var(--muted); background: var(--soft); border-radius: 8px; padding: 6px 10px; overflow-wrap: anywhere; }
+.tradeoff { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tradeoff > div { min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.tradeoff h4 { margin: 0 0 4px; font-size: .9rem; }
+.tradeoff h4 small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+.tradeoff ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: .88rem; }
+.tradeoff li { padding-left: 1.3em; text-indent: -1.3em; }
+.tradeoff li.g::before { content: "▲ 득 "; color: var(--ok); font-weight: 600; font-size: .78rem; }
+.tradeoff li.l::before { content: "▼ 실 "; color: var(--none); font-weight: 600; font-size: .78rem; }
+.tnote { font-size: .86rem; color: var(--ink); border-left: 3px solid var(--accent); padding: 2px 10px; margin: 0; }
+.absorb { font-size: .82rem; color: var(--muted); margin: 0; }
+details.subs > summary { cursor: pointer; font-size: .9rem; font-weight: 600; padding: 4px 0; }
+details.subs > summary .cnt { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.subrows { display: grid; gap: 4px; margin-top: 4px; }
+details.sub { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+details.sub > summary { cursor: pointer; list-style: none; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; padding: 6px 10px; font-size: .9rem; }
+details.sub > summary::-webkit-details-marker { display: none; }
+details.sub > summary::before { content: "▸"; color: var(--muted); }
+details.sub[open] > summary::before { content: "▾"; }
+details.sub .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; align-self: center; }
+details.sub .sn { font-weight: 600; }
+details.sub .sv { font-family: ui-monospace, Consolas, monospace; font-size: .84rem; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+details.sub .repb { font-size: .72rem; border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; padding: 0 7px; }
+details.sub .card { border: 0; border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; }
+@media (max-width: 640px) { .tradeoff { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .two, .three { grid-template-columns: 1fr; } .fields { grid-template-columns: 1fr; } .fields dt { padding-top: 6px; } }
 </style>
 </head>
@@ -118,21 +155,24 @@ dialog textarea { min-height: 64px; resize: vertical; }
 <main>
   <div class="top">
     <div>
-      <h1>파라미터 — 값, 근거, 실험 결과</h1>
-      <p class="sub">튜닝하는 값마다 왜 그 값인지와 무엇으로 확인했는지 · 원본 <code>docs/parameter.json</code></p>
+      <h1>파라미터 Top10</h1>
+      <p class="sub">프로젝트 전체를 움직이는 뿌리 파라미터 10개와 ½배·2배의 득실. 나머지 값은 모두 이 10개 중 하나에 묶는다 · 원본 <code>docs/parameter.json</code></p>
       <nav class="docs"><a href="interfaces.html">인터페이스</a><a href="firmware.html">펌웨어 구조</a><a class="here" href="parameter.html">파라미터</a><a href="run.md">실행 절차</a><a href="../decision.html">결정 트리</a><a href="../flow.html">Step 흐름도</a></nav>
     </div>
     <button class="pill" id="themeBtn" type="button">◐ 테마</button>
   </div>
 
-  <div class="legend">
-    <div><b style="color:var(--ok)">검증됨</b>다른 값과 비교한 실험·측정이 있다</div>
-    <div><b style="color:var(--mid)">근거만</b>이유는 기록돼 있지만 다른 값과 비교하지 않았다</div>
-    <div><b style="color:var(--run)">동작 확인만</b>이유는 없고, 이 값으로 통과한 기록만 있다</div>
-    <div><b style="color:var(--none)">근거 없음</b>이 값을 고른 이유가 기록에 없다</div>
-    <div><b style="color:var(--der)">파생</b>다른 파라미터에서 계산으로 정해진다</div>
+  <div class="chips" aria-label="상태 색">
+    <span style="--c:var(--ok)" title="다른 값과 비교한 실험·측정이 있다">검증됨</span>
+    <span style="--c:var(--mid)" title="이유는 기록돼 있지만 다른 값과 비교하지 않았다">근거만</span>
+    <span style="--c:var(--run)" title="이유는 없고, 이 값으로 통과한 기록만 있다">동작 확인만</span>
+    <span style="--c:var(--none)" title="이 값을 고른 이유가 기록에 없다">근거 없음</span>
+    <span style="--c:var(--der)" title="다른 파라미터에서 계산으로 정해진다">파생</span>
   </div>
-  <p class="rule"><b>작성 규칙</b> · <b>근거</b>는 "왜 이 값인가"에 답하는 기록만 적는다. 목적·역할은 근거가 아니다. 제대로 된 근거가 없으면 비워 두고 <b>검증할 것</b>에 무엇이 빠졌는지 적는다. <b>실험 결과</b>는 이 값(또는 대안)으로 실제로 돌려 본 기록만 적고, 실측·시뮬·계산을 앞에 밝힌다.</p>
+  <details class="rules"><summary>묶는 규칙과 작성 규칙</summary>
+    <p class="rule"><b>묶기</b> · 새 파라미터는 "이 값을 바꾸면 Top10 중 어느 것의 득실이 같이 바뀌나"로 하나에 붙인다. 두 곳에 걸리면 더 직접 영향을 주는 쪽 하나만 고른다. 어디에도 붙지 않으면 Top10을 다시 고를 신호다.</p>
+    <p class="rule"><b>근거</b>는 "왜 이 값인가"에 답하는 기록만 적는다. 목적·역할은 근거가 아니다. 제대로 된 근거가 없으면 비워 두고 <b>검증할 것</b>에 무엇이 빠졌는지 적는다. <b>실험 결과</b>는 이 값(또는 대안)으로 실제로 돌려 본 기록만 적고, 실측·시뮬·계산을 앞에 밝힌다. Top10의 ½배·2배 득실은 <code>parameter.json</code>의 <code>top10</code>에서 직접 고친다.</p>
+  </details>
 
   <div id="banners"></div>
 
@@ -146,7 +186,7 @@ dialog textarea { min-height: 64px; resize: vertical; }
     <div class="stats" id="stats"></div>
     <div class="toolbar">
       <input type="search" id="q" placeholder="이름·코드·근거 검색" aria-label="검색">
-      <select id="fGroup" aria-label="분류로 거르기"><option value="">모든 분류</option></select>
+      <select id="fGroup" aria-label="Top10 묶음으로 거르기"><option value="">모든 묶음</option></select>
       <select id="fStatus" aria-label="상태로 거르기"><option value="">모든 상태</option></select>
       <label class="chk"><input type="checkbox" id="fBlank"> 근거나 실험 결과가 빈 것만</label>
     </div>
@@ -167,7 +207,7 @@ dialog textarea { min-height: 64px; resize: vertical; }
     <h2 id="dlgTitle">파라미터 추가</h2>
     <div class="two">
       <label class="f">이름 <input type="text" name="name" required maxlength="80"></label>
-      <label class="f">분류 <select name="group" id="gSel"></select></label>
+      <label class="f">묶음 (Top10) <select name="top" id="gSel"></select></label>
     </div>
     <div class="three">
       <label class="f">값 <input type="text" name="value" maxlength="80" placeholder="모르면 비움"></label>
@@ -216,8 +256,9 @@ dialog textarea { min-height: 64px; resize: vertical; }
   function normalize(d) {
     d.groups = Array.isArray(d.groups) && d.groups.length ? d.groups : DEF_GROUPS.slice();
     d.statuses = Array.isArray(d.statuses) && d.statuses.length ? d.statuses : DEF_STATUS.slice();
+    d.top10 = Array.isArray(d.top10) ? d.top10.slice().sort(function (a, b) { return a.rank - b.rank; }) : [];
     d.items.forEach(function (it) {
-      ["name", "value", "unit", "code", "role", "basis_type", "basis", "evidence", "status", "open", "pair", "group", "updated"].forEach(function (k) { if (it[k] == null) it[k] = ""; });
+      ["name", "value", "unit", "code", "role", "basis_type", "basis", "evidence", "status", "open", "pair", "group", "top", "updated"].forEach(function (k) { if (it[k] == null) it[k] = ""; });
       it.refs = Array.isArray(it.refs) ? it.refs : [];
     });
     return d;
@@ -231,7 +272,16 @@ dialog textarea { min-height: 64px; resize: vertical; }
     if (draft && valid(draft.data) && draft.dirty && draft.base !== fileData.updated) {
       state = draft; normalize(state.data); start(); conflictBanner(fileData); return;
     }
-    if (draft && valid(draft.data) && draft.dirty) { state = draft; normalize(state.data); }
+    if (draft && valid(draft.data) && draft.dirty) {
+      state = draft;
+      // Top10이 생기기 전의 기억본이면 Top10과 묶음은 파일 것을 쓴다 (내 수정은 그대로)
+      if (!Array.isArray(state.data.top10) || !state.data.top10.length) {
+        state.data.top10 = fileData.top10;
+        var tops = {}; fileData.items.forEach(function (i) { tops[i.id] = i.top; });
+        state.data.items.forEach(function (i) { if (!i.top && tops[i.id]) i.top = tops[i.id]; });
+      }
+      normalize(state.data);
+    }
     else { state = { data: fileData, dirty: false, base: fileData.updated, removed: [] }; }
     saveDraft(); start();
     if (source === "pick") banner("info", "불러왔습니다.", true);
@@ -239,18 +289,20 @@ dialog textarea { min-height: 64px; resize: vertical; }
 
   function start() { $("dropzone").hidden = true; $("app").hidden = false; fillSelects(); render(); }
 
+  // 선택 상자: 값과 보이는 글자를 따로 ([값, 글자])
+  function topOpts(d) { return d.top10.map(function (t) { return [t.id, t.rank + ". " + t.name]; }); }
+  function fillSel(sel, pairs, allText) {
+    var cur = sel.value; sel.textContent = "";
+    if (allText != null) { var o0 = h("option", null, allText); o0.value = ""; sel.appendChild(o0); }
+    pairs.forEach(function (p) { var o = h("option", null, p[1]); o.value = p[0]; sel.appendChild(o); });
+    sel.value = cur;
+  }
   function fillSelects() {
-    var d = state.data;
-    [["fGroup", d.groups, "모든 분류"], ["fStatus", d.statuses, "모든 상태"]].forEach(function (x) {
-      var sel = $(x[0]), cur = sel.value; sel.textContent = "";
-      var o0 = h("option", null, x[2]); o0.value = ""; sel.appendChild(o0);
-      x[1].forEach(function (v) { var o = h("option", null, v); o.value = v; sel.appendChild(o); });
-      sel.value = cur;
-    });
-    [["gSel", d.groups], ["sSel", d.statuses]].forEach(function (x) {
-      var sel = $(x[0]); sel.textContent = "";
-      x[1].forEach(function (v) { var o = h("option", null, v); o.value = v; sel.appendChild(o); });
-    });
+    var d = state.data, st = d.statuses.map(function (s) { return [s, s]; });
+    fillSel($("fGroup"), topOpts(d), "모든 묶음");
+    fillSel($("fStatus"), st, "모든 상태");
+    fillSel($("gSel"), topOpts(d).concat([["", "(묶음 없음)"]]));
+    fillSel($("sSel"), st);
   }
 
   // ── 그리기 ──
@@ -272,8 +324,9 @@ dialog textarea { min-height: 64px; resize: vertical; }
     });
 
     var q = $("q").value.trim().toLowerCase(), fg = $("fGroup").value, fb = $("fBlank").checked;
+    var filtering = !!(q || fs || fb);
     var shown = items.filter(function (i) {
-      if (fg && i.group !== fg) return false;
+      if (fg && i.top !== fg) return false;
       if (fs && i.status !== fs) return false;
       if (fb && i.basis.trim() && i.evidence.trim()) return false;
       if (q && [i.name, i.code, i.value, i.role, i.basis, i.evidence, i.open, i.refs.join(" ")].join(" ").toLowerCase().indexOf(q) < 0) return false;
@@ -281,18 +334,77 @@ dialog textarea { min-height: 64px; resize: vertical; }
     });
 
     var list = $("list"); list.textContent = "";
-    if (!shown.length) { list.appendChild(h("p", "empty", items.length ? "조건에 맞는 파라미터가 없습니다." : "아직 파라미터가 없습니다.")); dirtyBanner(); return; }
-    var groups = d.groups.slice();
-    shown.forEach(function (i) { if (groups.indexOf(i.group) < 0) groups.push(i.group); });
-    groups.forEach(function (g) {
-      var mine = shown.filter(function (i) { return i.group === g; });
-      if (!mine.length) return;
-      list.appendChild(h("h2", "grp", (g || "(분류 없음)") + " · " + mine.length));
-      var box = h("div", "list");
-      mine.forEach(function (it) { box.appendChild(card(it)); });
-      list.appendChild(box);
+    if (!items.length) { list.appendChild(h("p", "empty", "아직 파라미터가 없습니다.")); dirtyBanner(); return; }
+    var box = h("div", "toplist"), known = {};
+    d.top10.forEach(function (t) {
+      known[t.id] = true;
+      if (fg && t.id !== fg) return;
+      var mine = shown.filter(function (i) { return i.top === t.id; });
+      if (filtering && !mine.length) return;
+      box.appendChild(topCard(t, mine, filtering));
     });
+    var loose = shown.filter(function (i) { return !known[i.top]; });
+    if (loose.length && !fg) box.appendChild(topCard({ id: "", rank: "–", name: "묶음 없음", value: "", unit: "", why: "Top10 중 하나에 붙여야 하는 파라미터. 붙일 곳이 없으면 Top10을 다시 고를 신호다." }, loose, true));
+    if (!box.children.length) box.appendChild(h("p", "empty", "조건에 맞는 파라미터가 없습니다."));
+    list.appendChild(box);
     dirtyBanner();
+  }
+
+  // Top10 카드 하나: 왜 뿌리인가 · 계산 · ½배/2배 득실 · 딸린 파라미터(접힘)
+  function topCard(t, mine, openSubs) {
+    var c = h("article", "top10"); c.id = "top-" + (t.id || "none");
+    var hd = h("div", "hd");
+    hd.appendChild(h("span", "rank", String(t.rank)));
+    hd.appendChild(h("span", "tn", t.name));
+    if (t.value) hd.appendChild(h("span", "val", t.value));
+    if (t.unit) hd.appendChild(h("span", "unit", t.unit));
+    c.appendChild(hd);
+    if (t.why) c.appendChild(h("p", "why", t.why));
+    if (t.calc) c.appendChild(h("div", "calc", t.calc));
+    if (t.half || t.double) {
+      var tr = h("div", "tradeoff");
+      [["½배", t.half], ["2배", t.double]].forEach(function (x) {
+        if (!x[1]) return;
+        var col = h("div"), h4 = h("h4", null, x[0]);
+        if (x[1].label) h4.appendChild(h("small", null, x[1].label));
+        col.appendChild(h4);
+        var ul = h("ul");
+        (x[1].gain || []).forEach(function (s) { ul.appendChild(h("li", "g", s)); });
+        (x[1].loss || []).forEach(function (s) { ul.appendChild(h("li", "l", s)); });
+        col.appendChild(ul); tr.appendChild(col);
+      });
+      c.appendChild(tr);
+    }
+    if (t.note) c.appendChild(h("p", "tnote", t.note));
+    if (t.absorb) c.appendChild(h("p", "absorb", "여기에 묶는 것: " + t.absorb));
+
+    var ds = h("details", "subs"); if (openSubs) ds.open = true;
+    var sm = h("summary", null, "딸린 파라미터 " + mine.length + "개");
+    var cnt = {}; mine.forEach(function (i) { cnt[i.status] = (cnt[i.status] || 0) + 1; });
+    var none = cnt["근거 없음"] || 0;
+    if (none) sm.appendChild(h("span", "cnt", "· 근거 없음 " + none));
+    ds.appendChild(sm);
+    var rows = h("div", "subrows");
+    mine.slice().sort(function (a, b) { return (b.id === t.rep) - (a.id === t.rep); })
+      .forEach(function (it) { rows.appendChild(subRow(it, it.id === t.rep)); });
+    ds.appendChild(rows);
+    c.appendChild(ds);
+    return c;
+  }
+
+  // 딸린 파라미터 한 줄 (펼치면 기존 상세 카드)
+  function subRow(it, isRep) {
+    var sc = SCLASS[it.status] || "der";
+    var dt = h("details", "sub");
+    var s = h("summary");
+    var dot = h("span", "dot"); dot.style.background = "var(--" + sc + ")"; dot.title = it.status || "상태 없음";
+    s.appendChild(dot);
+    s.appendChild(h("span", "sn", it.name));
+    s.appendChild(h("span", "sv", it.value ? it.value + (it.unit ? " " + it.unit : "") : "값 기록 없음"));
+    if (isRep) s.appendChild(h("span", "repb", "대표값"));
+    dt.appendChild(s);
+    dt.addEventListener("toggle", function () { if (dt.open && !dt.querySelector(".card")) dt.appendChild(card(it)); });
+    return dt;
   }
 
   function blank(text) { return h("span", "blank-cell", text || "공란 — 추후 검증"); }
@@ -390,7 +502,7 @@ dialog textarea { min-height: 64px; resize: vertical; }
     var f = $("form").elements;
     $("dlgTitle").textContent = it ? "파라미터 수정" : "파라미터 추가";
     ["name", "value", "unit", "code", "role", "basis_type", "basis", "evidence", "open", "pair"].forEach(function (k) { f[k].value = it ? (it[k] || "") : ""; });
-    f["group"].value = it ? it.group : ($("fGroup").value || state.data.groups[0]);
+    f["top"].value = it ? (it.top || "") : ($("fGroup").value || (state.data.top10[0] ? state.data.top10[0].id : ""));
     f["status"].value = it ? it.status : "근거 없음";
     f["refs"].value = it ? it.refs.join(", ") : "";
     $("dlg").showModal(); f["name"].focus();
@@ -399,7 +511,8 @@ dialog textarea { min-height: 64px; resize: vertical; }
     var f = $("form").elements;
     if (!f["name"].value.trim()) { ev.preventDefault(); return; }
     var it = editing || { id: "p-" + Date.now().toString(36) };
-    ["name", "value", "unit", "code", "role", "basis_type", "basis", "evidence", "open", "pair", "group", "status"].forEach(function (k) { it[k] = f[k].value.trim(); });
+    ["name", "value", "unit", "code", "role", "basis_type", "basis", "evidence", "open", "pair", "top", "status"].forEach(function (k) { it[k] = f[k].value.trim(); });
+    if (it.group == null) it.group = "";
     it.refs = f["refs"].value.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
     it.updated = today();
     if (!editing) state.data.items.push(it);

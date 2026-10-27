@@ -1,6 +1,6 @@
 ---
 name: knowledge-checkpoint-protocol
-description: 점검은 learning/GUIDE.md v2.5 트리거(T1 ~ T4, R 복습)에서만. 틀린 개념만 learning/concepts.json에 기록, 교재는 만들지 않음
+description: 점검은 learning/GUIDE.md v2.6 트리거(T1 ~ T4, R 복습)에서만. 틀린 개념만 learning/concepts.json에 기록, 교재는 만들지 않음
 metadata:
   node_type: memory
   type: feedback
@@ -8,7 +8,7 @@ metadata:
   modified: 2026-10-27T01:47:52.868Z
 ---
 
-`learning/GUIDE.md` v2.5를 따른다 (전역 사본 `~/.claude/learning-dev-guide.md`도 v2.5, 2026-10-27 맞춤). 트리거와 예산은 GUIDE 4절이 원본이고, 요약은 [[user-junior-wants-to-learn]].
+`learning/GUIDE.md` v2.6을 따른다 (전역 사본 `~/.claude/learning-dev-guide.md`는 v2.5 — 사무실 PC에서 v2.6으로 맞출 것). 트리거와 예산은 GUIDE 4절이 원본이고, 요약은 [[user-junior-wants-to-learn]].
 
 - 문항: 서술형, 프로젝트 실제 숫자, 힌트·객관식 없음, 채점 기준을 답 보기 전에 정함, "모름도 답이다, 확신 상/중/하". 면접관 질문 형태 ([[user-career-goal]]).
 - 채점: 대화에서 ✅ △ ❌ ⚠ + 맞은 것 / 빠진 것. △/❌/⚠ 개념만 `learning/concepts.json`에 기록 (concepts.html은 보는 UI). 기록 전에 바로 아래 기초를 먼저 확인해 가장 낮은 빈칸을 적는다.

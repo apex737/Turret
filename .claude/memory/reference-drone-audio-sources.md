@@ -1,6 +1,6 @@
 ---
 name: reference-drone-audio-sources
-description: "드론(특히 FPV) 공개 음원 조사 결과 — 어디에 무엇이 있고 무엇이 막혔는지 (2026-10-13, 10-14)"
+description: "드론 공개 음원 조사 — FPV(10-13 ~ 10-19)와 고정익 1차(10-27: 공개 음원 없음, 제원·음원 크기 규정 상한)"
 metadata:
   node_type: memory
   type: reference
@@ -8,7 +8,13 @@ metadata:
   modified: 2026-10-27T01:48:11.813Z
 ---
 
-> **FPV 시절 기록.** 2026-10-26 대상이 고정익 정찰기로 바뀌어 FPV 음원은 비교·음성(negative) 자료로만 쓴다. 고정익·소형 엔진 음원은 아직 조사 안 함 ([[project-product-direction]]).
+> **FPV 시절 기록.** 2026-10-26 대상이 고정익 정찰기로 바뀌어 FPV 음원은 비교·음성(negative) 자료로만 쓴다 ([[project-product-direction]]).
+
+2026-10-27 고정익 1차 조사 (웹 검색):
+- 대상 제원(보도): 2017 인제 기체 날개폭 2.86 m, 체코 Rotomotor 50V2(50 cc 가솔린 2기통) 엔진, 연료 7.47 L (newsis NISX20170621_0000018984). 2022 침범 기체 2 m 수준, 고도 약 3 km·시속 약 100 km (newsis NISX20221227_0002138515). 2014 백령도 기체 체코 엔진, 날개폭 약 2.46 m(2.86 − 0.4). 엔진 rpm·프로펠러 날개 수는 못 찾음 → 기본음 100 ~ 250 Hz는 추정.
+- 공개 데이터셋: 소형 가솔린 고정익 UAV 공개 음원을 찾지 못함. Wang et al. 15종, 32종(arXiv 2509.04715)은 대부분 멀티로터. 이미 있는 FSD50K에 Fixed-wing_aircraft_and_airplane·Aircraft 약 270클립(유인기 위주 추정, 미확인).
+- 음원 크기: 실측 수치 못 찾음. 규정 상한만 — FAI F3A 96 dBA @3 m(≈ 1 m 105 dB), AMA 96 dB @20 ft(≈ 1 m 112 dB). 논문 Kloet 2017(IJMAV, 액체연료 고정익), Southampton 2022(4 m 고정익 noise-power-distance)는 403으로 원문 못 봄.
+- 다음 후보: Freesound "RC plane gas engine flyby" 계열(거리 미기재), 대용 음원(소형 2행정 엔진) 직접 녹음.
 
 사용자는 실제 기체가 없어 공개 원음에 의존한다 ([[project-no-real-fpv]]). 전체 후보표와 등급은 `Steps/Step5.md`.
 
