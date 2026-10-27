@@ -1,0 +1,15 @@
+- [User background level](user-background-level.md) — quiz graded: 3/30 concepts pass; gaps are DSP basics + ML eval; known misconceptions
+- [Knowledge checkpoint protocol](knowledge-checkpoint-protocol.md) — GUIDE v2.5 트리거(T1 ~ T4·R)에서만 점검, 틀린 개념만 concepts.json, 교재 금지
+- [Learning-mode preference](learning-mode-preference.md) — all projects: Claude as teacher; general guide ~/.claude/learning-dev-guide.md
+- [Product direction (2026-10-26)](project-product-direction.md) — recon fixed-wing UAV, fixed-site, existing hardware only, low-cost embedded; don't edit docs unless asked
+- [기준선 고정 후 피버팅](workflow-baseline-pivoting.md) — 확정 설정 고정, 변수 하나씩 변경
+- [주니어, 학습형 개발](user-junior-wants-to-learn.md) — 구현은 AI가 빠르게, 숙지는 GUIDE 트리거로. 파츠 등급 = 숙지 깊이 (누가 짜는지 아님)
+- [결정 문서는 간결하게](feedback-concise-decision-docs.md) — 방향·성패 좌우 결정만, 시각화는 HTML 애니메이션만 (Mermaid 금지), 결정 기록은 루트 decision.html (클릭 시 이유)
+- [최종 목표는 드론 탐지](project-goal-drone-detection.md) — TDoA로 카메라를 돌리고 퓨전으로 락온, 이론 설명은 HTML 시각화로
+- [드론 음원 출처 조사](reference-drone-audio-sources.md) — FPV 시절 기록 (Salford DJI FPV 등), 고정익 음원은 미조사
+- [실기체 없음 전제](project-no-real-fpv.md) — FPV도 정찰기도 없음, 공개 원음+스피커·대용 음원으로 진행
+- [Step 문서는 최소로](feedback-lean-step-docs.md) — 다음 설계를 바꾸는 작업만, 스냅 기준선·150~2000Hz를 고정값으로 다루지 말 것
+- [간격은 데이터로 추정](feedback-geometry-from-data.md) — 시험판 마이크 간격 실측을 반복 요청하지 말 것, 70 mm 공칭 유지
+- [물결표 띄우기](feedback-tilde-spacing.md) — md 범위는 "A ~ B", "A~B"는 취소선이 됨
+- [목표 직무: 제어·추정 + 신호처리](user-career-goal.md) — 트리거 문항을 기술면접 질문으로, 예측-실측 차이 원인 찾기를 가장 중시
+- [중간 계산 생략 금지](feedback-show-intermediate-calc.md) — 표에 넣는 숫자는 단계별 계산을 보이고, 근거 없는 가정은 가정이라고 밝힌다
