@@ -125,7 +125,10 @@ def main():
     a = ap.parse_args()
 
     label = a.label or (os.path.basename(os.path.dirname(a.replay)) + "_replay" if a.replay else time.strftime("%Y%m%d_%H%M%S"))
-    out = os.path.join(a.out, label); os.makedirs(out, exist_ok=True)
+    out = os.path.join(a.out, label)
+    if not a.replay and os.path.exists(os.path.join(out, "raw.bin")):   # 같은 라벨로 녹음을 덮어쓰지 않는다 (T_mini3 손실 재발 방지)
+        print(f"이미 있는 라벨: {label} — 다른 --label을 쓰거나 폴더를 먼저 옮긴다"); sys.exit(1)
+    os.makedirs(out, exist_ok=True)
     parser, rec = PacketParser(), Recorder(out)
     t0 = time.time(); t_show = t0; nbytes = 0
 
