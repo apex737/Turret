@@ -1,5 +1,5 @@
 - [User background level](user-background-level.md) — quiz graded: 3/30 concepts pass; gaps are DSP basics + ML eval; known misconceptions
-- [Knowledge checkpoint protocol](knowledge-checkpoint-protocol.md) — GUIDE v2.6 트리거(T1 ~ T4·R)에서만 점검, 틀린 개념만 concepts.json, 교재 금지
+- [Knowledge checkpoint protocol](knowledge-checkpoint-protocol.md) — GUIDE v2.7 트리거(T1 ~ T4·R)에서만 점검, 틀린 개념만 concepts.json, 교재 금지
 - [Learning-mode preference](learning-mode-preference.md) — all projects: Claude as teacher; general guide ~/.claude/learning-dev-guide.md
 - [Product direction (2026-10-26)](project-product-direction.md) — recon fixed-wing UAV, fixed-site, existing mics only (SBC ok for PC+camera), low-cost embedded; 10-27 docs reflected (D4-3)
 - [기준선 고정 후 피버팅](workflow-baseline-pivoting.md) — 확정 설정 고정, 변수 하나씩 변경
@@ -13,3 +13,4 @@
 - [물결표 띄우기](feedback-tilde-spacing.md) — md 범위는 "A ~ B", "A~B"는 취소선이 됨
 - [목표 직무: 제어·추정 + 신호처리](user-career-goal.md) — 트리거 문항을 기술면접 질문으로, 예측-실측 차이 원인 찾기를 가장 중시
 - [중간 계산 생략 금지](feedback-show-intermediate-calc.md) — 표에 넣는 숫자는 단계별 계산을 보이고, 근거 없는 가정은 가정이라고 밝힌다
+- [검증도 노트북으로](feedback-checks-go-in-notebook.md) — 실녹음 확인은 빠른 검증이라도 ipynb 먼저, 대화에 스크립트 숫자·결론 금지
