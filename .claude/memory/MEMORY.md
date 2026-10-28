@@ -1,7 +1,8 @@
+- [Next steps (2026-10-29)](project-next-steps.md) — branch four-mic: tetra 4th mic confirmed, doa4.py + sim done; next = firmware 4ch (PA4 ADC1 rank2, USART2 1.5 Mbps), pending confirmations
 - [User background level](user-background-level.md) — quiz graded: 3/30 concepts pass; gaps are DSP basics + ML eval; known misconceptions
 - [Knowledge checkpoint protocol](knowledge-checkpoint-protocol.md) — GUIDE v2.7 트리거(T1 ~ T4·R)에서만 점검, 틀린 개념만 concepts.json, 교재 금지
 - [Learning-mode preference](learning-mode-preference.md) — all projects: Claude as teacher; general guide ~/.claude/learning-dev-guide.md
-- [Product direction (2026-10-26)](project-product-direction.md) — recon fixed-wing UAV, fixed-site, existing mics only (SBC ok for PC+camera), low-cost embedded; 10-27 docs reflected (D4-3)
+- [Product direction (2026-10-28)](project-product-direction.md) — recon fixed-wing UAV, fixed-site cueing sensor, 3 mics + 1 out-of-plane elevation mic (D8c-2, branch four-mic), SBC ok, low-cost embedded
 - [기준선 고정 후 피버팅](workflow-baseline-pivoting.md) — 확정 설정 고정, 변수 하나씩 변경
 - [주니어, 학습형 개발](user-junior-wants-to-learn.md) — 구현은 AI가 빠르게, 숙지는 GUIDE 트리거로. 파츠 등급 = 숙지 깊이 (누가 짜는지 아님)
 - [결정 문서는 간결하게](feedback-concise-decision-docs.md) — 방향·성패 좌우 결정만, 시각화는 HTML 애니메이션만 (Mermaid 금지), 결정 기록은 루트 decision.html (클릭 시 이유)
