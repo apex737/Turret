@@ -4,7 +4,7 @@ description: "Turret progress as of 2026-10-29 end of day (branch four-mic): wha
 metadata:
   node_type: memory
   type: project
-  modified: 2026-10-28T15:24:07.375Z
+  modified: 2026-10-28T15:25:20.134Z
   originSessionId: 22b71e3d-c38f-4a45-b943-59b7839e02f2
 ---
 
@@ -27,7 +27,6 @@ metadata:
 **집 녹음 남은 것** (docs/run.md "집 녹음 묶음"): `fan_T_fpv`(선풍기 + FPV 단계), `T2_mini3`, `servo_noise`(부품 있으면). 회전·3마이크 고도 녹음은 끝(더 안 함). 4마이크 하드웨어 뒤에 고도 녹음 다시.
 
 **사용자 확인 대기**
-- 커밋에서 뺀 삭제 3개: `Tools/notebooks/doa_mask_phat.ipynb`, `kf_synth.ipynb`, `learning/notes/RefrencePaper.pdf` — 일부러 지운 것인지.
 - problem.md에 "음향 = 카메라 큐잉 센서, 유인기는 카메라 판별" 문장 반영 여부 (제안만 함).
 - 오늘 노트북 3개(`doa_mask_real`, `doa_bg_real`, `elev_real`)는 중간 절에도 그림이 있어 GUIDE v2.7(그림은 결론부에만)에 안 맞음 — 손볼지.
 - 노트북 덮개 닫힘 동작을 "아무것도 안 함"으로 바꿔 둔 것 되돌릴지.
