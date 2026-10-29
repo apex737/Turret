@@ -59,7 +59,9 @@ void verify_on_frame(
 	const uint32_t n_total = BURST_FRAMES * DUMP_N;
 	for (uint32_t c = 0; c < DUMP_CH; c++)
 		memcpy(&pl[c * n_total + s_n * DUMP_N], (*frame)[c], DUMP_N * sizeof(uint16_t));
-	/* 같은 프레임을 MCU 전처리로도 돌린다. FIR 상태는 묶음 안에서 프레임끼리 이어진다 (연속 수음과 같은 조건) */
+	/* 같은 프레임을 MCU 전처리로도 돌린다. FIR 상태는 묶음 안에서 프레임끼리 이어진다 (연속 수음과 같은 조건)
+	 * 주의 (Step8e 4채널): frame은 app.c의 uint16[4][1024]를 3채널 모양으로 본 것이다. preproc_run은 4채널을 읽으므로
+	 * 실제 버퍼(4행)를 그대로 쓴다. 원본 비교(위 memcpy)는 평면 3채널만 보낸다 */
 	if (preproc_run(*frame, s_pcm[s_n]))
 		s_flags |= DUMP_FLAG_CLIP;
 	s_seq[s_n++] = frame_seq;

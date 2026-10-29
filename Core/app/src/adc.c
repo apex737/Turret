@@ -5,9 +5,9 @@
  *    TIM2 갱신 이벤트(50 kHz) → ADC1(마스터)이 트리거를 받고 ADC2·3(슬레이브)이 같은 순간 함께 변환 (삼중 동시 모드)
  *    → DMA2가 결과 3개를 [ADC1, ADC2, ADC3] 순서로 adc_buffer에 이어 쓴다 (원형 모드: 끝까지 쓰면 처음으로)
  *
- *  adc_buffer 배치 (uint16 6144개 = 12 KB)
- *    [ 앞쪽 절반 : 1024샘플 × 3채널 인터리브 ][ 뒤쪽 절반 : 1024샘플 × 3채널 인터리브 ]
- *      a1 a2 a3 a1 a2 a3 …                      a1 a2 a3 …
+ *  adc_buffer 배치 (uint16 12288개 = 24 KB)
+ *    [ 앞쪽 절반 : 1024트리거 × 6값 인터리브 ][ 뒤쪽 절반 : 1024트리거 × 6값 인터리브 ]
+ *      m1 m2 m3 m4 x x m1 m2 m3 m4 x x …         (m4 = ADC1 rank 2, x = ADC2·3 rank 2 자리 채우기)
  *    DMA가 뒤쪽을 채우는 동안 main이 앞쪽을 가져가고, 그 반대도 같다 (핑퐁). 절반 하나 = 1024 / 50 kHz = 20.48 ms
  *
  *  ISR과 main의 역할 분담
@@ -102,7 +102,7 @@ void adc_service(void)
 /* 반버퍼 하나가 다 찼을 때 ISR에서 호출. "준비된 절반" 칸에 주소를 넣고 번호를 매긴다.
  * 번호는 main이 가져간 횟수가 아니라 만들어진 순서라서, main이 놓친 프레임은 번호가 건너뛰는 것으로 드러난다. */
 static inline void adc_on_half_ready(
-	const uint16_t* half	// 방금 다 찬 절반의 시작 주소 (&adc_buffer[0] 또는 &adc_buffer[3072])
+	const uint16_t* half	// 방금 다 찬 절반의 시작 주소 (&adc_buffer[0] 또는 &adc_buffer[ADC_HALF_LENGTH])
 )
 {
 	if(readyHalf != NULL) {
@@ -133,7 +133,7 @@ void HAL_ADC_ConvCpltCallback(
 
 
 bool adc_get_frame(
-	uint16_t out[ADC_CH_CNT][ADC_SAMPLES_PER_HALF],	// 채널 3개 연속으로 읽은 값을 out[3]에 나눠 담는다
+	uint16_t out[ADC_CH_CNT][ADC_SAMPLES_PER_HALF],	// 마이크 4개 값을 out[4]에 나눠 담는다 (자리 채우기 2개는 버림)
 	uint32_t *seq	// 프레임 번호
 )
 {
@@ -148,12 +148,16 @@ bool adc_get_frame(
 	if(src == NULL)
 		return false;          // 새로 찬 절반이 없음
 
-	/* 인터리브 해제: [a1 a2 a3 a1 a2 a3 …] → out[0][…] = ADC1(PA0, MIC1), out[1] = ADC2(PA1, MIC2), out[2] = ADC3(PC0, MIC3). */
+	/* 인터리브 해제: 트리거마다 [A1r1 A2r1 A3r1 A1r2 A2r2 A3r2]
+	 *   out[0] = ADC1 r1 (PA0, MIC1 0°), out[1] = ADC2 r1 (PA1, MIC2 120°), out[2] = ADC3 r1 (PC0, MIC3 −120°),
+	 *   out[3] = ADC1 r2 (PA4, MIC4 위, 1.78 us 늦음). [4]·[5]는 자리 채우기라 버린다 */
 	for (uint32_t i = 0; i < ADC_SAMPLES_PER_HALF; i++)
 	{
-		out[0][i] = src[ADC_CH_CNT * i + 0U];
-		out[1][i] = src[ADC_CH_CNT * i + 1U];
-		out[2][i] = src[ADC_CH_CNT * i + 2U];
+		const uint16_t *t = &src[ADC_SEQ_LEN * i];
+		out[0][i] = t[0];
+		out[1][i] = t[1];
+		out[2][i] = t[2];
+		out[3][i] = t[3];
 	}
 
 	// 복사하는 동안 다른 쪽 반버퍼가 완료됐다면(frameSeq 증가) 그 순간부터 DMA는 src 쪽 절반을 덮어쓰고 있다 → 폐기
