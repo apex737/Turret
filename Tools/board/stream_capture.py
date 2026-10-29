@@ -1,10 +1,10 @@
-"""Step5 연속 수음 수신기. 펌웨어 APP_MODE_STREAM 과 짝 (PCM 패킷 v3, 12.5 kHz 3ch int16).
+"""Step5 연속 수음 수신기. 펌웨어 APP_MODE_STREAM 과 짝 (PCM 패킷 v3, 12.5 kHz int16, 채널 수는 패킷 헤더 ch — Step8e부터 4ch).
 
     python board/stream_capture.py --port COM8 --label quiet_10min --minutes 10
     python board/stream_capture.py --replay Tools/dumps/stream/quiet_10min/raw.bin     # 저장한 바이트로 다시 계산
 
 저장 (Tools/dumps/stream/<label>/)
-  seg_000.wav ...   연속 구간마다 WAV 하나 (3ch, 12.5 kHz, int16). 끊김(GAP)·필터 재시작(RESYNC)에서 새 파일
+  seg_000.wav ...   연속 구간마다 WAV 하나 (패킷의 채널 수: 4ch = MIC1 0° · MIC2 120° · MIC3 −120° · MIC4 위, 12.5 kHz, int16). 끊김(GAP)·필터 재시작(RESYNC)에서 새 파일
                     RESYNC 블록의 첫 19샘플(FIR 과도 구간)은 버린다
   packets.csv       패킷마다 수신 시각·번호·플래그·유실 카운터·CPU
   doa_mcu.csv       MCU 방위 추정 결과 (0.25 s마다, doa.c). PC 기준과 비교: python doa/compare_mcu.py dumps/stream/<label>
@@ -33,7 +33,7 @@ class Recorder:
         self.n = dict(packets=0, frame_gaps=0, frames_missing=0, gap_flags=0, resync=0, clip_packets=0, verify_packets=0)
         self.cpu_max = 0
         self.first_ctr = None
-        self.lv = np.zeros(3); self.lv_n = 0
+        self.lv = None; self.lv_n = 0; self.nch = None
         self.csv = csv.writer(open(os.path.join(out, "packets.csv"), "w", newline=""))
         self.csv.writerow(["t_rx", "seq", "frame_seq", "flags", "drop", "ovr", "qdrop", "cpu"])
         self.doa_csv = None
@@ -64,7 +64,7 @@ class Recorder:
     def _new_seg(self, start_sample):
         if self.wav: self.wav.close()
         path = os.path.join(self.out, f"seg_{len(self.segs):03d}.wav")
-        self.wav = wave.open(path, "wb"); self.wav.setnchannels(3); self.wav.setsampwidth(2); self.wav.setframerate(FS)
+        self.wav = wave.open(path, "wb"); self.wav.setnchannels(self.nch); self.wav.setsampwidth(2); self.wav.setframerate(FS)
         self.segs.append(dict(file=os.path.basename(path), start_sample=int(start_sample), samples=0))
 
     def add(self, p, t_rx):
@@ -85,7 +85,11 @@ class Recorder:
             self.n["frame_gaps"] += 1
             self.n["frames_missing"] += max(0, p["frame_seq"] - self.last_fseq - 1)
         self.last_fseq = p["frame_seq"]
-        d = p["data"]                                   # [3, 256] int16
+        d = p["data"]                                   # [ch, 256] int16
+        if self.nch is None:
+            self.nch = d.shape[0]; self.lv = np.zeros(self.nch)
+        elif d.shape[0] != self.nch:                    # 채널 수가 바뀐 패킷 (펌웨어가 다름) → 새 파일
+            self.nch = d.shape[0]; self.lv = np.zeros(self.nch); self.lv_n = 0; jump = True
         start = (p["frame_seq"] - 1) * N
         if self.wav is None or jump or (f & (F_GAP | F_RESYNC)):
             skip = TRANSIENT if f & F_RESYNC else 0
@@ -96,6 +100,8 @@ class Recorder:
         self.lv += np.mean(d.astype(np.float64) ** 2, axis=1); self.lv_n += 1
 
     def levels(self):
+        if self.lv is None:
+            return np.zeros(0)
         v = 10 * np.log10(self.lv / max(self.lv_n, 1) / 32768 ** 2 * 2 + 1e-12)   # 사인 기준 dBFS
         self.lv[:] = 0; self.lv_n = 0
         return v
@@ -118,7 +124,7 @@ class Recorder:
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port"); ap.add_argument("--baud", type=int, default=921600)
+    ap.add_argument("--port"); ap.add_argument("--baud", type=int, default=1500000)   # Step8e 4채널: 2074 B × 48.8 패킷/s ≈ 101 kB/s (921600은 최대 92 kB/s라 부족)
     ap.add_argument("--label"); ap.add_argument("--minutes", type=float, default=0.0)
     ap.add_argument("--replay", help="raw.bin 경로 (포트 대신)")
     ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "..", "dumps", "stream"))

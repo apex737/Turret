@@ -1,16 +1,16 @@
 /*
  * app.c : 모드 선택(APP_MODE)과 메인 루프. 모듈들을 이어 붙이는 곳이다.
  *
- * STREAM 모드(기본)의 한 프레임 흐름 — 프레임 = ADC 반버퍼 1024샘플 × 3채널 = 20.48 ms
+ * STREAM 모드(기본)의 한 프레임 흐름 — 프레임 = ADC 반버퍼 1024샘플 × 4채널 = 20.48 ms (MIC4 = 평면 위, Step8e)
  *
  *   [하드웨어, CPU 없이]  TIM2 50 kHz → ADC1·2·3 동시 변환 → DMA가 adc_buffer에 채움
  *   [ISR]                반버퍼가 차면 adc.c가 "이 절반 준비됨 + 번호(seq)"만 기록
- *   [main 루프]          app_main → adc_get_frame()   채널별로 복사          uint16 [3][1024] @ 50 kHz
+ *   [main 루프]          app_main → adc_get_frame()   채널별로 복사          uint16 [4][1024] @ 50 kHz
  *                        on_stream_frame()
  *                          1) 끊김 판정        번호 건너뜀·overrun → FIR 재시작 + RESYNC/GAP
- *                          2) preproc_run()    FIR + ↓4               → int16 [3][256] @ 12.5 kHz
- *                          3) stream_push()    PCM 패킷(1562 B) 큐에 넣기 → UART DMA → PC
- *                          4) doa_push()       블록 FFT 누적, 0.5 s 창이 끝나면 방위 → stream_push_doa() (0.25 s마다)
+ *                          2) preproc_run()    FIR + ↓4               → int16 [4][256] @ 12.5 kHz
+ *                          3) stream_push()    PCM 패킷(2074 B) 큐에 넣기 → UART DMA → PC
+ *                          4) doa_push()       평면 3채널(MIC1~3)로 블록 FFT 누적, 0.5 s 창이 끝나면 방위 → stream_push_doa() (0.25 s마다)
  *                          5) CPU 사용률 계산  → 다음 PCM 패킷 헤더에 실림
  *   [ISR]                UART 송신 완료 → stream.c가 다음 패킷 송신 시작
  *
@@ -51,10 +51,13 @@
 
 _Static_assert(TDOA_CH == DUMP_CH && TDOA_FRAME == DUMP_N, "tdoa and dump frame shapes must match");
 _Static_assert(PREPROC_CH == ADC_CH_CNT && PREPROC_IN == ADC_SAMPLES_PER_HALF, "preproc and adc frame shapes must match");
+_Static_assert(DOA_CH <= PREPROC_CH && DOA_FRAME == PREPROC_OUT, "doa uses the first DOA_CH rows of the PCM block");
+_Static_assert(DUMP_CH <= ADC_CH_CNT && DUMP_N == ADC_SAMPLES_PER_HALF, "test modes use the first DUMP_CH rows of the frame");
 
 #define FRAME_CYCLES  3686400u      // 180 MHz × 20.48 ms = 프레임 하나의 처리 마감(사이클). 이걸 넘기면 다음 반버퍼를 놓친다
 
-/* frame : adc_get_frame()이 DMA 버퍼에서 꺼내 채널별로 정리해 둔 프레임 하나 (uint16 [3][1024] = 6 KB).
+/* frame : adc_get_frame()이 DMA 버퍼에서 꺼내 채널별로 정리해 둔 프레임 하나 (uint16 [4][1024] = 8 KB).
+ *         SNAP·BURST 시험 모드는 앞 3채널(평면 MIC1~3)만 dump_frame_t로 본다.
  *         DMA 버퍼를 직접 쓰지 않고 복사하는 이유: 처리하는 동안 DMA가 그 절반을 다시 덮어쓸 수 있어서.
  *         모든 모드가 같은 버퍼를 쓰고, 다음 프레임이 올 때까지만 유효하다. */
 static uint16_t frame[ADC_CH_CNT][ADC_SAMPLES_PER_HALF];
@@ -113,7 +116,7 @@ static void on_stream_frame(
 	static uint32_t last_ovr; 		// 직전의 overrun 누계. ADC가 멈추면 seq1 -> [ADC 재시작 시간] -> seq2 사이에 유실된 프레임 수를 감지
 	static uint32_t last_qdrop;		// 직전의 송신 큐 유실 누계. 늘었으면 PC가 받을 샘플이 빠진 것 ??
 	static uint8_t  cpu_pct;		// 직전 프레임의 처리 시간 [%]
-	static int16_t  pcm[PREPROC_CH][PREPROC_OUT]; // 전처리 출력 int16 [3][256]. stream_push가 패킷으로 복사하고 doa_push가 링버퍼로 복사한다
+	static int16_t  pcm[PREPROC_CH][PREPROC_OUT]; // 전처리 출력 int16 [4][256]. stream_push가 패킷으로 복사하고 doa_push가 앞 3채널을 링버퍼로 복사한다
 
 	const uint32_t t0 = DWT->CYCCNT;
 	/* ---------------------------------- 처리 시간 측정 시작 (180 MHz 사이클) ---------------------------------- */
@@ -133,13 +136,13 @@ static void on_stream_frame(
 		flags |= STREAM_FLAG_GAP;
 	first = false; last_seq = seq; last_ovr = ovr; last_qdrop = qdrop;
 
-	/* 2) 전처리: 50 kHz uint16 [3][1024] → 12.5 kHz int16 [3][256]. 클리핑 샘플이 있었으면 표시만 한다 */
+	/* 2) 전처리: 50 kHz uint16 [4][1024] → 12.5 kHz int16 [4][256]. 클리핑 샘플이 있었으면 표시만 한다 */
 	if (preproc_run((const uint16_t (*)[PREPROC_IN])frame, pcm))
 		flags |= STREAM_FLAG_CLIP;
 	/* 3) PCM 패킷을 송신 큐에 넣는다. 큐(4칸)가 가득 차면 버려지고 qdrop이 올라간다 (다음 프레임에서 GAP으로 표시됨) */
 	(void)stream_push(pcm, seq, flags, adc_get_drop_cnt(), ovr, cpu_pct);
 
-	/* 4) 방위 추정: 같은 PCM을 doa.c에 넣는다. 0.5 s 창이 끝나는 프레임(약 12프레임마다)에만 결과가 나온다.
+	/* 4) 방위 추정: 같은 PCM의 앞 3채널(평면)을 doa.c에 넣는다 (4채널 방향은 Step8e 다음 단계). 0.5 s 창이 끝나는 프레임(약 12프레임마다)에만 결과가 나온다.
 	 *    송신 큐 유실(GAP만)은 MCU 입력과 무관하므로 전처리를 다시 시작했을 때(RESYNC)만 끊김으로 본다 */
 	doa_result_t r;
 	if (doa_push((const int16_t (*)[DOA_FRAME])pcm, seq, (flags & STREAM_FLAG_RESYNC) != 0u, &r))

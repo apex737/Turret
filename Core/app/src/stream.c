@@ -2,8 +2,8 @@
  * stream.c : 전처리된 PCM 블록과 DOA 결과를 패킷으로 만들어 UART DMA로 PC에 보낸다 (패킷 형식은 stream.h)
  *
  *  큐가 두 개다.
- *    PCM 큐 (s_slot, STREAM_SLOTS칸)    : 프레임(20.48 ms)마다 1562 B 하나. 921600 baud에서 약 16.9 ms 걸림
- *    DOA 큐 (s_doa, STREAM_DOA_SLOTS칸) : 관측 창이 끝날 때마다 78 B 하나 (초당 4개). 약 0.85 ms
+ *    PCM 큐 (s_slot, STREAM_SLOTS칸)    : 프레임(20.48 ms)마다 2074 B 하나 (4채널). 1.5 Mbaud(150 kB/s)에서 약 13.8 ms 걸림
+ *    DOA 큐 (s_doa, STREAM_DOA_SLOTS칸) : 관측 창이 끝날 때마다 78 B 하나 (초당 4개). 약 0.52 ms
  *  UART는 하나뿐이므로 한 번에 패킷 하나만 DMA로 나간다. 다음에 무엇을 보낼지는 kick_locked()가 정하고,
  *  DOA 큐가 비어 있지 않으면 DOA를 먼저 보낸다 (작고, 결과가 늦게 도착하면 쓸모가 줄어서).
  *
@@ -31,9 +31,9 @@ typedef struct __attribute__((packed)) {
 
 _Static_assert(sizeof(stream_hdr_t) == 24, "header must be 24 bytes");
 
-/* PCM 패킷 크기. payload = 3채널 × 256샘플 × int16(2 B), 끝의 2u = CRC16 */
-#define PAYLOAD  (PREPROC_CH * PREPROC_OUT * 2u)                 /* 1536 B */
-#define PKT      (sizeof(stream_hdr_t) + PAYLOAD + 2u)           /* 1562 B */
+/* PCM 패킷 크기. payload = 4채널 × 256샘플 × int16(2 B), 끝의 2u = CRC16. 헤더 ch = 4라 PC 파서는 ch로 모양을 안다 */
+#define PAYLOAD  (PREPROC_CH * PREPROC_OUT * 2u)                 /* 2048 B */
+#define PKT      (sizeof(stream_hdr_t) + PAYLOAD + 2u)           /* 2074 B */
 
 /* DOA 결과 payload 52 B. doa_result_t(doa.h)를 전송용으로 줄인 것 (proc_us를 uint16으로, reserved 추가).
  * 배치는 PC의 Tools/board/dump_viewer.py DOA_FMT와 1바이트도 어긋나면 안 된다. */
@@ -51,7 +51,7 @@ _Static_assert(sizeof(doa_payload_t) == 52, "DOA payload must be 52 bytes");
 /* 링버퍼: main이 head에 쓰고, UART 완료 ISR이 tail을 넘긴다 (생산자 1, 소비자 1)
  * s_slot[칸][바이트] : PCM 패킷 STREAM_SLOTS개를 완성된 모양(헤더 + payload + CRC) 그대로 담아 두는 송신 버퍼.
  *                     DMA가 이 메모리를 직접 읽어 UART로 내보내므로, 송신이 끝날 때까지 그 칸은 고치면 안 된다.
- * aligned(4)는 배열 시작만 4바이트에 맞춘다. PKT(1562)가 4의 배수가 아니라 1·3번 칸의 시작은 2바이트 어긋나지만,
+ * aligned(4)는 배열 시작만 4바이트에 맞춘다. PKT(2074)가 4의 배수가 아니라 1·3번 칸의 시작은 2바이트 어긋나지만,
  * 헤더가 packed 구조체라 컴파일러가 정렬을 가정하지 않고, Cortex-M4는 일반 LDR/STR의 비정렬 접근도 허용한다. */
 static uint8_t s_slot[STREAM_SLOTS][PKT] __attribute__((aligned(4)));
 
@@ -122,7 +122,7 @@ static void kick_locked(void)
 
 // [STREAM HEADER] + [PAYLOAD] + [CRC] 로 패킷을 구성해서 UART_TxDMA 전송
 bool stream_push(
-	const int16_t pcm[PREPROC_CH][PREPROC_OUT],	// PCM 블럭 int16[3][256] (12.5 kHz, 프레임 하나). payload로 복사된다
+	const int16_t pcm[PREPROC_CH][PREPROC_OUT],	// PCM 블럭 int16[4][256] (12.5 kHz, 프레임 하나). payload로 복사된다
 	uint32_t frame_seq,	// 이 블록을 만든 ADC 프레임 번호 → 헤더 frame_seq. PC는 (frame_seq − 1) × 256으로 시각을 안다
 	uint8_t flags,		// STREAM_FLAG_* (CLIP / RESYNC / VERIFY / GAP). app.c·verify.c가 정해서 넘긴다 → 헤더 flags
 	uint32_t drop,		// adc.c의 프레임 유실 누계 → 헤더 drop (하위 8비트만. PC는 값이 바뀌었는지만 본다)

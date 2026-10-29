@@ -266,6 +266,28 @@ cd Tools
 ```
 - 서보를 배열 옆 실제로 달 위치에 가깝게 두고: 20 s 정지 → 끝까지 0° ↔ 90° 왕복을 반복 (빠르게 1분, 느리게 나머지)
 
+## Step8e 4채널 확인·게인 맞추기 (사용자, 약 10분)
+
+배선: MIC1 0°(새 마이크) = A0 (PA0), MIC2 120° = A1 (PA1), MIC3 −120° = A5 (PC0), **MIC4 통 위 = A2 (PA4)**. 펌웨어를 새로 빌드해 올린다 (CubeIDE Run). 보레이트 1.5 Mbps가 기본값이다.
+
+**1. 채널 짝 확인** (1분)
+```
+.venv/Scripts/python.exe board/stream_capture.py --port COM8 --label ch4_map --minutes 1
+```
+- 10 s 조용히 → **MIC1 → MIC2 → MIC3 → MIC4 순서로** 마이크 바로 옆에서 손가락을 3번 튕기고(또는 "아" 2 s) 5 s 쉬기
+- 상태 줄: `KB/s`가 약 100, `gaps 0`, `clip 0`, ch1 ~ ch4 레벨이 4개 나오는지
+
+**2. 게인 맞추기** (상태 줄을 보면서 실시간)
+```
+.venv/Scripts/python.exe board/stream_capture.py --port COM8 --label ch4_gain --minutes 4
+```
+- 스피커를 배열에서 **1 ~ 1.5 m**, 배열 높이쯤에 두고 `DataSet/_playback/50_cal_tones.wav`의 1 kHz 구간을 반복 재생 (마이크마다 거리 차이 ≤ 7 cm → 레벨 차이 ≤ 0.6 dB)
+- 상태 줄의 ch1 ~ ch4 dBFS(2 s마다)를 보며 **새 마이크(ch1) 트리머**를 돌려 ch2·ch3과 **±3 dB 안**으로. ch4(통 위)도 같이 본다
+- 크게 틀어도 `clip`이 0이어야 한다. 맞춘 뒤 1분은 그대로 둔다 (녹음에 남김)
+- 정밀하게 맞출 필요는 없다: PHAT는 칸마다 크기를 1로 맞추고 위상만 써서 게인 차이가 방향에 거의 영향이 없다. 게인은 클리핑과 바닥 잡음 여유만 정한다
+
+**알려 줄 것:** 1번에서 튕긴 순서대로 ch가 커졌는지, 2번의 최종 ch1 ~ ch4 레벨, `clip`·`gaps` 수.
+
 ## 흐름도
 
 `problem.md`나 `Steps/*.md`를 고친 쪽(사람이든 AI든)이 커밋 전에 실행한다. 규칙 검사를 겸한다 (README 5절).
