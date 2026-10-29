@@ -5,7 +5,8 @@
 #include "preproc.h"
 #include "doa.h"
 
-#define STREAM_VER        3u
+#define STREAM_VER        3u      /* PCM 패킷 */
+#define STREAM_DOA_VER    4u      /* DOA 결과 패킷: 4채널 (6쌍 + 고도각, 84 B payload). 3 = 예전 3채널 */
 #define STREAM_TYPE_PCM   0x03u
 #define STREAM_TYPE_DOA   0x04u
 

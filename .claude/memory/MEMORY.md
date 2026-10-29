@@ -1,4 +1,4 @@
-- [Next steps (2026-10-29)](project-next-steps.md) — branch four-mic: tetra confirmed; hardware-free list = validity retune sim → doa.c 4ch + host test → firmware 4ch build → PC tools → D8d-4 → Step8c → B0 port
+- [Next steps (2026-10-29 밤)](project-next-steps.md) — branch four-mic: 4-mic board pipeline done (CPU 74 %, board = PC); next = channel delay recal → validity retune → 4ch elevation notebook → D8d-4 → Step8c → B0
 - [User background level](user-background-level.md) — quiz graded: 3/30 concepts pass; gaps are DSP basics + ML eval; known misconceptions
 - [Knowledge checkpoint protocol](knowledge-checkpoint-protocol.md) — GUIDE v2.7 트리거(T1 ~ T4·R)에서만 점검, 틀린 개념만 concepts.json, 교재 금지
 - [Learning-mode preference](learning-mode-preference.md) — all projects: Claude as teacher; general guide ~/.claude/learning-dev-guide.md

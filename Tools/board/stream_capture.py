@@ -41,12 +41,15 @@ class Recorder:
 
     def add_doa(self, p, t_rx):
         d = p["doa"]
+        four = "elev" in d                                # 4채널 결과 (DOA 패킷 ver 4)
         if self.doa_csv is None:
             self.doa_csv = csv.writer(open(os.path.join(self.out, "doa_mcu.csv"), "w", newline=""))
-            self.doa_csv.writerow(["t_rx", "frame_seq", "s0", "tau12", "tau13", "tau23", "peak12", "peak13", "peak23",
-                                   "angle", "norm", "snr_db", "flags", "proc_us", "bg_s0", "bg_n"])
+            P = ["12", "13", "23", "14", "24", "34"] if four else ["12", "13", "23"]
+            self.doa_csv.writerow(["t_rx", "frame_seq", "s0", *[f"tau{k}" for k in P], *[f"peak{k}" for k in P], "angle"]
+                                  + (["elev", "norm", "resid"] if four else ["norm"]) + ["snr_db", "flags", "proc_us", "bg_s0", "bg_n"])
         self.doa_csv.writerow([f"{t_rx:.4f}", p["frame_seq"], d["s0"], *[f"{t:.6f}" for t in d["tau"]], *[f"{v:.6f}" for v in d["peak"]],
-                               f"{d['angle']:.4f}", f"{d['norm']:.5f}", f"{d['snr_db']:.3f}", d["flags"], d["proc_us"], d["bg_s0"], d["bg_n"]])
+                               f"{d['angle']:.4f}"] + ([f"{d['elev']:.4f}", f"{d['norm']:.5f}", f"{d['resid']:.5f}"] if four else [f"{d['norm']:.5f}"])
+                              + [f"{d['snr_db']:.3f}", d["flags"], d["proc_us"], d["bg_s0"], d["bg_n"]])
         self.doa_n["results"] += 1
         self.doa_n["valid"] += bool(d["flags"] & 0x01) and bool(d["flags"] & 0x02)
         self.doa_n["bg"] += bool(d["flags"] & 0x04)
@@ -59,7 +62,8 @@ class Recorder:
             return ""
         state = "배경학습" if d["flags"] & 0x08 and not d["flags"] & 0x04 else ("D1" if d["flags"] & 0x04 else "D0")
         ok = d["flags"] & 0x01 and d["flags"] & 0x02
-        return f"  방위 {d['angle']:+6.1f}° {'유효' if ok else '----'} {state} snr {d['snr_db']:4.1f}"
+        el = f" 고도 {d['elev']:+5.1f}°" if "elev" in d else ""
+        return f"  방위 {d['angle']:+6.1f}°{el} {'유효' if ok else '----'} {state} snr {d['snr_db']:4.1f}"
 
     def _new_seg(self, start_sample):
         if self.wav: self.wav.close()

@@ -288,6 +288,27 @@ cd Tools
 
 **알려 줄 것:** 1번에서 튕긴 순서대로 ch가 커졌는지, 2번의 최종 ch1 ~ ch4 레벨, `clip`·`gaps` 수.
 
+## Step8e 4채널 방향 확인 (사용자, 약 5분)
+
+펌웨어를 새로 빌드해 올린다 (doa.c 4채널). 결과 패킷에 고도각이 실린다.
+
+```
+.venv/Scripts/python.exe board/stream_capture.py --port COM8 --label doa4_check --minutes 2
+```
+1. 녹음을 시작한 **뒤에 B1(파란 버튼)을 한 번** 누르고 **10 s 조용히** (배경을 녹음 안에서 다시 배운다. 그래야 PC가 같은 배경으로 compare_mcu.py 비교를 할 수 있다. 상태 줄 끝이 `배경학습` → `D1`). 손이 버튼에서 떨어진 뒤 조용히
+2. 핸드폰으로 FPV(`41_phone_elev_fpv_2min.wav`)를 틀고, 배열에서 약 1 m · **배열 높이**에서 20 s
+3. 같은 방위에서 핸드폰을 **머리 위쪽으로 천천히 올려** 20 s (고도각이 커지는지)
+4. 다른 방위 1 ~ 2곳에서 2 · 3 반복
+- 상태 줄: `방위 … 고도 …`, `cpu≤`가 100 % 아래인지 (최적화 전 92 %, 목표 75 % 아래), `gaps 0`
+
+끝나면 보드 결과와 PC 계산이 같은지:
+```
+.venv/Scripts/python.exe doa/compare_mcu.py dumps/stream/doa4_check
+```
+실시간으로 보려면 `doa/doa_compass.py --port COM8` (고도각이 아래 줄에 나온다).
+
+**알려 줄 것:** `cpu≤` 최대값, 2 · 3에서 고도각이 대략 어떻게 움직였는지, compare_mcu.py 결과.
+
 ## 흐름도
 
 `problem.md`나 `Steps/*.md`를 고친 쪽(사람이든 AI든)이 커밋 전에 실행한다. 규칙 검사를 겸한다 (README 5절).

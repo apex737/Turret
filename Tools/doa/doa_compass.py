@@ -16,6 +16,8 @@ STREAM 모드 실시간 나침반: 보드(doa.c)가 0.25 s마다 보내는 방�
   회색 점선   : 소리는 있지만 계산 결과를 믿기 어려움
   화살표 없음 : 배경보다 큰 소리 없음
   점    : 최근 유효 결과들 (오래될수록 흐림)
+  4채널(고도각이 실린 결과, Step8e)이면 하늘 지도로 그린다: 바깥 원 = 수평(고도 0°), 가운데 = 머리 위(90°),
+         안쪽 점선 원 = 고도 30° · 60°. 화살표 끝과 점이 그 고도에 놓인다 (수평보다 아래는 바깥 원 밖)
   보드는 켜질 때(또는 B1 버튼) 10 s 동안 배경을 배운다. 그동안 나는 소리는 이후 무시된다.
 """
 import argparse
@@ -52,7 +54,8 @@ class Compass:
         plt.rcParams["axes.unicode_minus"] = False
         self.plt, self.keep, self.offset = plt, keep, offset
         self.rgba = np.array(to_rgba(SERIES))
-        self.hist = []
+        self.hist = []                   # (시각, 방위, 반지름)
+        self.sky = False                 # 고도각이 실린 결과를 받으면 하늘 지도 모드
         self.n = dict(total=0, valid=0)
         self.last_t = None
         if not headless:
@@ -79,15 +82,35 @@ class Compass:
         self.fig.text(0.5, 0.03, f"MIC1 = 0°, 위에서 볼 때 반시계 +  /  파란 점 = 최근 {keep:g} s 유효 결과"
                       + (f"  /  보정 {offset:+.1f}°" if offset else ""), ha="center", fontsize=9, color=MUTED)
 
+    def _sky_on(self):
+        """처음 고도각을 받았을 때 고도 30° · 60° 원과 표시를 그린다"""
+        self.sky = True
+        th = np.linspace(0, 2 * np.pi, 200)
+        for el in (30, 60):
+            r = 1 - el / 90
+            self.ax.plot(th, np.full_like(th, r), color=MUTED, lw=0.8, ls=":", zorder=1)
+            self.ax.text(np.deg2rad(-90), r, f" 고도 {el}°", color=MUTED, fontsize=8, va="bottom")
+        self.ax.text(0, 0, "머리 위", color=MUTED, fontsize=8, ha="center", va="top")
+
+    @staticmethod
+    def radius(d):
+        """하늘 지도 반지름: 수평 1, 머리 위 0. 고도각이 없으면(3채널) 0.88에 고정"""
+        if "elev" not in d:
+            return 0.88
+        return float(np.clip(1 - d["elev"] / 90, 0.0, 1.12))
+
     def add(self, d, t):
-        """d: angle, norm, snr_db, flags"""
+        """d: angle, norm, snr_db, flags (+ elev: 4채널)"""
+        if "elev" in d and not self.sky:
+            self._sky_on()
+        rad = self.radius(d)
         self.n["total"] += 1; self.last_t = t
         f = int(d["flags"]); ang = wrap(d["angle"] + self.offset)
         learning = bool(f & F_LEARN) and not f & F_BG       # 첫 배경 학습 중: 배경이 없어 PRESENT가 항상 1
         ok = bool(f & F_VALID) and bool(f & F_PRESENT) and not learning
         self.n["valid"] += ok
         if ok:
-            self.hist.append((t, ang))
+            self.hist.append((t, ang, rad))
         if learning:
             big, col, arrow = "배경 학습 중, 조용히", WARN, None
         elif ok:
@@ -97,26 +120,27 @@ class Compass:
         else:
             big, col, arrow = "소리 없음", MUTED, None
         self.big.set_text(big); self.big.set_color(col)
-        self.sub.set_text(f"배경 대비 {d['snr_db']:+.1f} dB  /  norm {d['norm']:.2f}  /  "
+        el = f"고도 {d['elev']:+.0f}°  /  " if "elev" in d else ""      # 4채널 (Step8e)
+        self.sub.set_text(f"{el}배경 대비 {d['snr_db']:+.1f} dB  /  norm {d['norm']:.2f}  /  "
                           f"유효 {self.n['valid']}/{self.n['total']}")
         th = np.deg2rad(ang)
         if arrow:
             c = INK if arrow == "solid" else MUTED
-            self.arrow.set_data([th, th], [0, 0.88]); self.arrow.set_color(c); self.arrow.set_linestyle(arrow)
+            self.arrow.set_data([th, th], [0, rad]); self.arrow.set_color(c); self.arrow.set_linestyle(arrow)
             self.arrow.set_linewidth(4 if arrow == "solid" else 2)
-            self.head.set_data([th], [0.88]); self.head.set_color(c)
+            self.head.set_data([th], [rad]); self.head.set_color(c)
         else:
             self.arrow.set_data([], []); self.head.set_data([], [])
         self._dots(t)
 
     def _dots(self, now):
         """최근 keep 초 안의 유효 결과만 점으로 (오래될수록 흐림)"""
-        self.hist = [(t, a) for t, a in self.hist if now - t <= self.keep]
+        self.hist = [h for h in self.hist if now - h[0] <= self.keep]
         if not self.hist:
             self.dots.set_offsets(np.empty((0, 2))); return
-        t, a = np.array(self.hist).T
+        t, a, r = np.array(self.hist).T
         rgba = np.tile(self.rgba, (len(a), 1)); rgba[:, 3] = np.clip(1.0 - (now - t) / self.keep, 0.12, 1.0)
-        self.dots.set_offsets(np.column_stack((np.deg2rad(a), np.ones_like(a))))
+        self.dots.set_offsets(np.column_stack((np.deg2rad(a), r if self.sky else np.ones_like(a))))
         self.dots.set_facecolors(rgba)
 
     def tick(self, now):
@@ -177,7 +201,7 @@ def run_serial(a):
 def run_replay(a):
     rows = list(csv.DictReader(open(os.path.join(a.replay, "doa_mcu.csv"), encoding="utf-8")))
     rows = [dict(t=float(r["t_rx"]), angle=float(r["angle"]), norm=float(r["norm"]), snr_db=float(r["snr_db"]),
-                 flags=int(r["flags"])) for r in rows]
+                 flags=int(r["flags"]), **({"elev": float(r["elev"])} if "elev" in r else {})) for r in rows]
     if a.snapshot:                                      # 창 없이 n번째 결과까지 그려 PNG로 (검증용)
         cp = Compass(a.keep, a.offset, headless=True)
         for r in rows[:a.snapshot_at]:
@@ -199,7 +223,7 @@ def run_replay(a):
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--port"); ap.add_argument("--baud", type=int, default=921600)
+    ap.add_argument("--port"); ap.add_argument("--baud", type=int, default=1500000)   # Step8e 4채널 펌웨어
     ap.add_argument("--save", metavar="LABEL", help="받은 바이트를 dumps/stream/LABEL/raw.bin에 저장")
     ap.add_argument("--offset", type=float, default=0.0, help="표시 각도에 더할 보정 [deg]")
     ap.add_argument("--keep", type=float, default=3.0, help="최근 유효 결과를 점으로 남길 시간 [s]")
