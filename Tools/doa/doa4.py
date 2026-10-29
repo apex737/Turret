@@ -11,7 +11,7 @@
 
 배치(PLACEMENTS)는 평면 3마이크 위치(gcc_phat.mic_positions, MIC1 = 0°)에 네 번째 마이크 좌표를 더한 것.
 """
-import os, sys
+import json, os, sys
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -32,6 +32,23 @@ PLACEMENTS = {
     "m1": (R_TRI, 0.0, 0.070),                            # MIC1 바로 위
 }
 PAIRS4 = ((0, 1), (0, 2), (1, 2), (0, 3), (1, 3), (2, 3))  # 앞 3쌍은 평면 3마이크와 같은 순서
+GEOM = os.path.join(HERE, "..", "..", "config", "geometry.json")
+BG_SECONDS = 10                                           # doa.h DOA_BG_SECONDS
+OBS, HOP = 6250, 3072                                     # doa.h DOA_OBS, DOA_HOP [샘플]
+
+
+def config_positions():
+    """config/geometry.json의 실제 배치 (평면 간격 평균, 번호 방향, MIC4 높이) → 좌표 [4, 3]. doa.h와 같아야 한다"""
+    gm = json.load(open(GEOM, encoding="utf-8"))
+    d = np.mean([gm["d12_mm"], gm["d13_mm"], gm["d23_mm"]]) / 1000
+    p2 = g.mic_positions(d, bool(gm.get("cw", False)))
+    return np.vstack((np.column_stack((p2, np.zeros(3))), [0.0, 0.0, gm.get("mic4_z_mm", 57.2) / 1000]))
+
+
+def channel_delays_us():
+    """config/geometry.json의 채널 고유 지연 [us] (ch1 ~ ch4). 없으면 0"""
+    cd = json.load(open(GEOM, encoding="utf-8")).get("channel_delay_us", {})
+    return np.array([float(cd.get(f"ch{k}", 0.0)) for k in (1, 2, 3, 4)])
 
 
 def positions(place="tetra", spacing=D, cw=False):
@@ -67,19 +84,37 @@ def solve(tau, pos, fs=FS, pairs=PAIRS4):
             float(np.linalg.norm(u)), float(np.sqrt(np.mean(resid ** 2))))
 
 
-def estimate(x, pos, fs=FS, band=(300, 3000), block=512, up=16, eps=0.01, bg=None,
-             min_peak=0.15, max_resid=0.3, norm_range=(0.5, 1.3)):
-    """관측 창 x[4, n] 하나 → dict(az, el, norm, resid, tau, peak, valid). bg = 같은 형식의 배경 스펙트럼 (교차는 빼고 PHAT)"""
+def band_mask(nfft, fs=FS, band=(300, 3000)):
+    f = np.fft.rfftfreq(nfft, 1.0 / fs)
+    return (f >= band[0]) & (f <= band[1])
+
+
+def background(x, block=512):
+    """배경 녹음 x[4, BG_N] → 배경 스펙트럼 (블록 평균, doa.c가 배우는 것과 같음)"""
+    return cross_spectra(x, block, 2 * block)
+
+
+def estimate(x, pos, fs=FS, band=(300, 3000), block=512, up=16, eps=0.01, bg=None, delay_us=None,
+             min_peak=0.15, max_resid=0.3, norm_range=(0.5, 1.3), min_snr=6.0):
+    """관측 창 x[4, n] 하나 → dict(az, el, norm, resid, tau, peak, snr, valid, present). doa.c finalize와 같은 계산
+    bg = background()의 결과 (교차는 빼고 PHAT, 대역 전력은 SNR). delay_us = 채널 고유 지연 [us] (빼서 보정)"""
     nfft = 2 * block
     S = cross_spectra(x, block, nfft)
+    m = band_mask(nfft, fs, band)
+    snr = np.nan
+    if bg is not None:
+        snr = float(10 * np.log10(sum(S[6 + c][m].sum() for c in range(4)).real / sum(bg[6 + c][m].sum() for c in range(4)).real))
+    d = np.zeros(4) if delay_us is None else np.asarray(delay_us, float)
     tau, peak = [], []
     for k, ml in enumerate(max_lags(pos, fs)):
         Rk = S[k] - bg[k] if bg is not None else S[k]
         t, p, _, _, _ = g.phat_peak(Rk, nfft, fs, band, ml, up, eps)
-        tau.append(t); peak.append(p)
+        i, j = PAIRS4[k]
+        tau.append(t - (d[j] - d[i]) * 1e-6 * fs); peak.append(p)
     az, el, norm, resid = solve(tau, pos, fs)
     valid = min(peak) >= min_peak and resid <= max_resid and norm_range[0] <= norm <= norm_range[1]
-    return dict(az=az, el=el, norm=norm, resid=resid, tau=tau, peak=peak, valid=bool(valid))
+    present = True if bg is None else snr >= min_snr
+    return dict(az=az, el=el, norm=norm, resid=resid, tau=tau, peak=peak, snr=snr, valid=bool(valid), present=bool(present))
 
 
 def run(x, pos, fs=FS, obs=0.5, hop=0.25, **kw):

@@ -10,7 +10,7 @@
  *                          1) 끊김 판정        번호 건너뜀·overrun → FIR 재시작 + RESYNC/GAP
  *                          2) preproc_run()    FIR + ↓4               → int16 [4][256] @ 12.5 kHz
  *                          3) stream_push()    PCM 패킷(2074 B) 큐에 넣기 → UART DMA → PC
- *                          4) doa_push()       평면 3채널(MIC1~3)로 블록 FFT 누적, 0.5 s 창이 끝나면 방위 → stream_push_doa() (0.25 s마다)
+ *                          4) doa_push()       4채널 6쌍 블록 FFT 누적, 0.5 s 창이 끝나면 방위·고도각 → stream_push_doa() (0.25 s마다)
  *                          5) CPU 사용률 계산  → 다음 PCM 패킷 헤더에 실림
  *   [ISR]                UART 송신 완료 → stream.c가 다음 패킷 송신 시작
  *
@@ -116,7 +116,7 @@ static void on_stream_frame(
 	static uint32_t last_ovr; 		// 직전의 overrun 누계. ADC가 멈추면 seq1 -> [ADC 재시작 시간] -> seq2 사이에 유실된 프레임 수를 감지
 	static uint32_t last_qdrop;		// 직전의 송신 큐 유실 누계. 늘었으면 PC가 받을 샘플이 빠진 것 ??
 	static uint8_t  cpu_pct;		// 직전 프레임의 처리 시간 [%]
-	static int16_t  pcm[PREPROC_CH][PREPROC_OUT]; // 전처리 출력 int16 [4][256]. stream_push가 패킷으로 복사하고 doa_push가 앞 3채널을 링버퍼로 복사한다
+	static int16_t  pcm[PREPROC_CH][PREPROC_OUT]; // 전처리 출력 int16 [4][256]. stream_push가 패킷으로 복사하고 doa_push가 링버퍼로 복사한다
 
 	const uint32_t t0 = DWT->CYCCNT;
 	/* ---------------------------------- 처리 시간 측정 시작 (180 MHz 사이클) ---------------------------------- */
@@ -142,7 +142,7 @@ static void on_stream_frame(
 	/* 3) PCM 패킷을 송신 큐에 넣는다. 큐(4칸)가 가득 차면 버려지고 qdrop이 올라간다 (다음 프레임에서 GAP으로 표시됨) */
 	(void)stream_push(pcm, seq, flags, adc_get_drop_cnt(), ovr, cpu_pct);
 
-	/* 4) 방위 추정: 같은 PCM의 앞 3채널(평면)을 doa.c에 넣는다 (4채널 방향은 Step8e 다음 단계). 0.5 s 창이 끝나는 프레임(약 12프레임마다)에만 결과가 나온다.
+	/* 4) 방향 추정: 같은 PCM 4채널을 doa.c에 넣는다 (방위 + 고도각, Step8e). 0.5 s 창이 끝나는 프레임(약 12프레임마다)에만 결과가 나온다.
 	 *    송신 큐 유실(GAP만)은 MCU 입력과 무관하므로 전처리를 다시 시작했을 때(RESYNC)만 끊김으로 본다 */
 	doa_result_t r;
 	if (doa_push((const int16_t (*)[DOA_FRAME])pcm, seq, (flags & STREAM_FLAG_RESYNC) != 0u, &r))

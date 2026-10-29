@@ -37,6 +37,10 @@ PCM_HDR_LEN = struct.calcsize(PCM_HDR_FMT)  # 24
 TYPE_DOA = 0x04
 DOA_FMT = "<I3f3ffffBBHII"         # s0 tau[3] peak[3] angle norm snr_db flags reserved proc_us bg_s0 bg_n
 DOA_LEN = struct.calcsize(DOA_FMT)  # 52
+# DOA 결과 패킷 4채널 (ver 4, type 0x04, Step8e): 6쌍 + 고도각·잔차. stream.c doa_payload_t
+VER_DOA4 = 4
+DOA4_FMT = "<I6f6ffffffBBHII"      # s0 tau[6] peak[6] angle elev norm resid snr_db flags reserved proc_us bg_s0 bg_n
+DOA4_LEN = struct.calcsize(DOA4_FMT)  # 84
 
 FLAG_CLIP = 0x01
 FLAG_MANUAL = 0x02
@@ -66,12 +70,14 @@ class PacketParser:
             else:
                 ok = typ == TYPE_RESULT and length == RESULT_LEN
             return (HDR_LEN, length, dict(ver=ver, type=typ, ch=ch, flags=flags, seq=seq, frame_seq=fseq, n=n)) if ok else None
-        if ver == VER_PCM:
+        if ver in (VER_PCM, VER_DOA4):
             if len(self.buf) < PCM_HDR_LEN:
                 return "wait"
             _, ver, typ, ch, flags, seq, fseq, n, length, drop, ovr, qdrop, cpu = struct.unpack_from(PCM_HDR_FMT, self.buf, 0)
             if typ == TYPE_DOA:
-                ok = length == DOA_LEN
+                ok = length == (DOA4_LEN if ver == VER_DOA4 else DOA_LEN)
+            elif ver == VER_DOA4:
+                ok = False
             else:
                 ok = typ == TYPE_PCM and 1 <= ch <= 8 and n > 0 and length == ch * n * 2 and length <= MAX_PAYLOAD
             return (PCM_HDR_LEN, length, dict(ver=ver, type=typ, ch=ch, flags=flags, seq=seq, frame_seq=fseq, n=n,
@@ -120,6 +126,12 @@ class PacketParser:
             self.last_seq[key] = seq
             self.stats["ok"] += 1
 
+            if h["type"] == TYPE_DOA and h["ver"] == VER_DOA4:
+                v = struct.unpack_from(DOA4_FMT, pkt, hlen)
+                out.append(dict(seq=seq, frame_seq=h["frame_seq"], type=h["type"],
+                                doa=dict(s0=v[0], tau=v[1:7], peak=v[7:13], angle=v[13], elev=v[14], norm=v[15], resid=v[16],
+                                         snr_db=v[17], flags=v[18], proc_us=v[20], bg_s0=v[21], bg_n=v[22])))
+                continue
             if h["type"] == TYPE_DOA:
                 v = struct.unpack_from(DOA_FMT, pkt, hlen)
                 out.append(dict(seq=seq, frame_seq=h["frame_seq"], type=h["type"],

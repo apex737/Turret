@@ -3,7 +3,7 @@
  *
  *  큐가 두 개다.
  *    PCM 큐 (s_slot, STREAM_SLOTS칸)    : 프레임(20.48 ms)마다 2074 B 하나 (4채널). 1.5 Mbaud(150 kB/s)에서 약 13.8 ms 걸림
- *    DOA 큐 (s_doa, STREAM_DOA_SLOTS칸) : 관측 창이 끝날 때마다 78 B 하나 (초당 4개). 약 0.52 ms
+ *    DOA 큐 (s_doa, STREAM_DOA_SLOTS칸) : 관측 창이 끝날 때마다 110 B 하나 (초당 4개). 약 0.73 ms
  *  UART는 하나뿐이므로 한 번에 패킷 하나만 DMA로 나간다. 다음에 무엇을 보낼지는 kick_locked()가 정하고,
  *  DOA 큐가 비어 있지 않으면 DOA를 먼저 보낸다 (작고, 결과가 늦게 도착하면 쓸모가 줄어서).
  *
@@ -35,18 +35,19 @@ _Static_assert(sizeof(stream_hdr_t) == 24, "header must be 24 bytes");
 #define PAYLOAD  (PREPROC_CH * PREPROC_OUT * 2u)                 /* 2048 B */
 #define PKT      (sizeof(stream_hdr_t) + PAYLOAD + 2u)           /* 2074 B */
 
-/* DOA 결과 payload 52 B. doa_result_t(doa.h)를 전송용으로 줄인 것 (proc_us를 uint16으로, reserved 추가).
- * 배치는 PC의 Tools/board/dump_viewer.py DOA_FMT와 1바이트도 어긋나면 안 된다. */
+/* DOA 결과 payload 84 B (헤더 ver = STREAM_DOA_VER 4, 4채널). doa_result_t(doa.h)를 전송용으로 줄인 것 (proc_us를 uint16으로, reserved 추가).
+ * 배치는 PC의 Tools/board/dump_viewer.py DOA4_FMT와 1바이트도 어긋나면 안 된다. (ver 3 = 3채널 52 B는 예전 녹음용) */
 typedef struct __attribute__((packed)) {
 	uint32_t s0;                   /* 관측 창 첫 샘플 번호 (12.5 kHz PCM 시간축) */
-	float    tau[3], peak[3], angle, norm, snr_db;   /* 쌍별 지연 [샘플], 쌍별 상관 피크, 방위각 [deg], 방향 벡터 길이, SNR [dB] */
+	float    tau[DOA_PAIRS], peak[DOA_PAIRS];        /* 6쌍 지연 [샘플], 6쌍 상관 피크 */
+	float    angle, elev, norm, resid, snr_db;       /* 방위 [deg], 고도각 [deg], 방향 벡터 길이, 최소제곱 잔차 [샘플], SNR [dB] */
 	uint8_t  flags, reserved;      /* flags = DOA_FLAG_*, reserved = 항상 0 (정렬용 빈칸) */
 	uint16_t proc_us;              /* 창 마무리 계산 시간 [us], 65535에서 포화 */
 	uint32_t bg_s0, bg_n;          /* 사용한 배경 구간의 첫 샘플 번호와 길이 (bg_n = 0 → 배경 없음) */
 } doa_payload_t;
 
-_Static_assert(sizeof(doa_payload_t) == 52, "DOA payload must be 52 bytes");
-#define DOA_PKT  (sizeof(stream_hdr_t) + sizeof(doa_payload_t) + 2u)   /* 78 B */
+_Static_assert(sizeof(doa_payload_t) == 84, "DOA payload must be 84 bytes");
+#define DOA_PKT  (sizeof(stream_hdr_t) + sizeof(doa_payload_t) + 2u)   /* 110 B */
 
 /* 링버퍼: main이 head에 쓰고, UART 완료 ISR이 tail을 넘긴다 (생산자 1, 소비자 1)
  * s_slot[칸][바이트] : PCM 패킷 STREAM_SLOTS개를 완성된 모양(헤더 + payload + CRC) 그대로 담아 두는 송신 버퍼.
@@ -66,7 +67,7 @@ static UART_HandleTypeDef *s_huart;         /* 송신에 쓰는 UART (main.c의 
 static uint32_t s_seq;                      /* 다음 PCM 패킷에 붙일 송신 번호. 큐가 가득 차 버린 패킷도 번호를 하나 소비한다 */
 static uint32_t s_qdrop;                    /* PCM 큐가 가득 차 버린 패킷 누계. 헤더 qdrop(하위 8비트)과 app.c의 GAP 판정에 쓰임 */
 
-/* DOA 결과 큐. 구조와 규칙은 PCM 큐와 같고, 칸 크기만 DOA_PKT(78 B)다.
+/* DOA 결과 큐. 구조와 규칙은 PCM 큐와 같고, 칸 크기만 DOA_PKT(110 B)다.
  * s_dhead / s_dtail : DOA 패킷의 채운 수 / 보낸 수 (s_head / s_tail과 같은 방식)
  * s_dseq           : 다음 DOA 패킷의 송신 번호. PCM의 s_seq와 별개로 센다 */
 static uint8_t s_doa[STREAM_DOA_SLOTS][DOA_PKT] __attribute__((aligned(4)));
@@ -105,7 +106,7 @@ static void kick_locked(void)
 {
 	if (s_tx || dump_busy())
 		return;
-	if (s_dhead != s_dtail) {                 /* 작은 결과 패킷을 먼저 (78 B ≈ 0.85 ms) */
+	if (s_dhead != s_dtail) {                 /* 작은 결과 패킷을 먼저 (110 B ≈ 0.73 ms) */
 		s_tx = s_tx_doa = true;
 		if (HAL_UART_Transmit_DMA(s_huart, s_doa[s_dtail % STREAM_DOA_SLOTS], (uint16_t)DOA_PKT) != HAL_OK)
 			s_tx = s_tx_doa = false;
@@ -173,7 +174,7 @@ bool stream_push_doa(
 	uint8_t *p = s_doa[s_dhead % STREAM_DOA_SLOTS];
 	stream_hdr_t *h = (stream_hdr_t *)p;
 	h->sync = 0xFFFFFFFFu;
-	h->ver = STREAM_VER; h->type = STREAM_TYPE_DOA; h->ch = DOA_CH; h->flags = 0u;
+	h->ver = STREAM_DOA_VER; h->type = STREAM_TYPE_DOA; h->ch = DOA_CH; h->flags = 0u;
 	h->seq = s_dseq++;
 	h->frame_seq = frame_seq;
 	h->n = 1u; h->len = (uint16_t)sizeof(doa_payload_t);
@@ -181,13 +182,13 @@ bool stream_push_doa(
 	/* d : 전송 형식으로 옮겨 담은 결과. 지역 변수로 다 채운 뒤 송신 칸에 한 번에 복사한다 */
 	doa_payload_t d = {
 		.s0 = r->s0,
-		.tau = { r->tau[0], r->tau[1], r->tau[2] },
-		.peak = { r->peak[0], r->peak[1], r->peak[2] },
-		.angle = r->angle_deg, .norm = r->norm, .snr_db = r->snr_db,
+		.angle = r->angle_deg, .elev = r->elev_deg, .norm = r->norm, .resid = r->resid, .snr_db = r->snr_db,
 		.flags = r->flags, .reserved = 0u,
 		.proc_us = (uint16_t)(r->proc_us > 0xFFFFu ? 0xFFFFu : r->proc_us),   /* uint32 → uint16, 넘치면 65535로 포화 */
 		.bg_s0 = r->bg_s0, .bg_n = r->bg_n,
 	};
+	memcpy(d.tau, r->tau, sizeof(d.tau));
+	memcpy(d.peak, r->peak, sizeof(d.peak));
 	memcpy(p + sizeof(stream_hdr_t), &d, sizeof(d));
 	const uint16_t crc = dump_crc16(p + 4, sizeof(stream_hdr_t) - 4u + sizeof(d));
 	p[sizeof(stream_hdr_t) + sizeof(d)]      = (uint8_t)(crc & 0xFFu);
