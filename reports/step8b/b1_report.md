@@ -1,6 +1,6 @@
 # Step8b B1 — B0 + 거름 3개 (정수배 정확도 · 지속 · 기본음 출렁임)
 
-> `Tools/harmonic/eval_b1.py`가 만든 파일. 수치만 적는다 (판정은 Steps/Step8b.md). 그림: [b1_curve.png](b1_curve.png)
+> `Tools/harmonic/eval_b1.py`가 만든 파일. 수치만 적는다 (판정은 GUIDE/project/Steps/Step8b.md). 그림: [b1_curve.png](b1_curve.png)
 > 거름 경계 = fold마다 나머지 fold 공개 원음 드론 창 95%가 통과하는 값. 곡선은 점수 기준값을 다섯 fold에 똑같이 쓰고 바꿔 가며 그린 진단.
 
 ## 거름 경계값 (fold 1 ~ 5)

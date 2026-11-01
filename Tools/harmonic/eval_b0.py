@@ -1,6 +1,6 @@
 """Step8b 고조파 센서 B0 평가: Step8과 같은 시험셋에서 재현율·오탐을 재고 동결한 학습 모델(v3m)과 비교한다.
 
-    python harmonic/eval_b0.py      → reports/step8b/b0_report.md (수치만, 판정은 Steps/Step8b.md), 창별 점수 DataSet/_cache/b0_scores.npz
+    python harmonic/eval_b0.py      → reports/step8b/b0_report.md (수치만, 판정은 GUIDE/project/Steps/Step8b.md), 창별 점수 DataSet/_cache/b0_scores.npz
 
 시험셋 (Step8과 같은 창: 1 s 창, 0.5 s 이동, 같은 시각)
   공개 원음  emb_v0 캐시의 창 목록 (Salford·WS 드론 + ESC-50, 기체 하나씩 빼는 5-fold). 원음 → 장치 FIR·↓4 → 12.5 kHz
@@ -159,7 +159,7 @@ def main():
     R = {name: evaluate(P, D, off, V, I, j) for j, name in enumerate(CONFIGS)}
     pc = lambda v: f"{v:.1%}"
     md = ["# Step8b 고조파 센서 B0 — Step8과 같은 시험셋", "",
-          "> `Tools/harmonic/eval_b0.py`가 만든 파일. 수치만 적는다 (판정은 Steps/Step8b.md).",
+          "> `Tools/harmonic/eval_b0.py`가 만든 파일. 수치만 적는다 (판정은 GUIDE/project/Steps/Step8b.md).",
           f"> 문턱 = 나머지 fold의 드론 창 재현율 0.9. 장치 창은 보드 잡음 바닥({fl:.1f} dBFS) + {GATE_DB:.0f} dB 미만이면 '없음'. "
           "v3m = 동결한 학습 모델 (Step8 채택 운용점).", "",
           "| 항목 | " + " | ".join(f"B0 {n}" for n in CONFIGS) + " | v3m (학습) |", "|---|" + "---|" * (len(CONFIGS) + 1)]

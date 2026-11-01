@@ -3,7 +3,7 @@
     python fusion/eval_9a.py --check              입력만 확인 (재생 정렬, 창 수). 결합 결과는 내지 않는다
     python fusion/eval_9a.py --combiner naive     기준선: "최근 판정 + 최근 방위" (Step9A가 막으려는 방식)
     python fusion/eval_9a.py --combiner rule      fusion/combine.py (결합 규칙)
-    → reports/step9a/eval_<combiner>.md (수치만, 판정은 Steps/Step9A.md에)
+    → reports/step9a/eval_<combiner>.md (수치만, 판정은 GUIDE/project/Steps/Step9A.md에)
 
 입력 (Step7 12방향 녹음, 보드 불필요)
   방향: dumps/stream/doa_az000 ~ az330 → doa_stream.run (D1, 배경 doa_bg, 채널 지연 보정) → 0.25 s마다 0.5 s 창
@@ -226,7 +226,7 @@ def main():
 
     os.makedirs(OUT, exist_ok=True)
     md = [f"# Step9A 결합 평가 — `{g.combiner}`", "",
-          f"> `Tools/fusion/eval_9a.py`가 만든 파일. 수치만 적는다 (판정은 Steps/Step9A.md).",
+          f"> `Tools/fusion/eval_9a.py`가 만든 파일. 수치만 적는다 (판정은 GUIDE/project/Steps/Step9A.md).",
           f"> 분류 = 정답 타임라인, 방향 = Step7 12방향 녹음 (D1, 공통 회전 {off:+.1f}°). 분류 도착 지연 {g.cls_lat} s, 방향 {g.doa_lat} s. "
           f"고장 채점의 허용 결과 경과 시간 {g.max_age} s, 해제 허용 {g.release} s.", "",
           "| 녹음 | 공동 성공률 F0 (드론 시점 수) | 드론 없음 시점의 drone 출력 (시점 수) | F2 비드론 구간 넣은 뒤 공동 성공률 | F4 분류 1.5 s 늦음 공동 성공률 |",

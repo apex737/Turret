@@ -1,6 +1,6 @@
 # Step8b 고조파 센서 B0 — Step8과 같은 시험셋
 
-> `Tools/harmonic/eval_b0.py`가 만든 파일. 수치만 적는다 (판정은 Steps/Step8b.md).
+> `Tools/harmonic/eval_b0.py`가 만든 파일. 수치만 적는다 (판정은 GUIDE/project/Steps/Step8b.md).
 > 문턱 = 나머지 fold의 드론 창 재현율 0.9. 장치 창은 보드 잡음 바닥(-51.1 dBFS) + 6 dB 미만이면 '없음'. v3m = 동결한 학습 모델 (Step8 채택 운용점).
 
 | 항목 | B0 40 ~ 700 Hz | B0 300 ~ 700 Hz (FPV) | v3m (학습) |

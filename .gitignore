@@ -51,3 +51,7 @@ Tools/dumps/
 
 # ---- 공개 데이터셋 원본·변환본 (용량이 커서 git에 올리지 않음) ----
 /DataSet/
+
+# ---- 학습 자료 (GUIDE/references/README.md) — 강의자료는 비공개 ----
+GUIDE/references/*
+!GUIDE/references/README.md
