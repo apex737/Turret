@@ -421,6 +421,7 @@ bool doa_push(
 	// 1) 링버퍼에 쓰기. 위치 = 샘플 번호 & 1023 → 1024샘플 전의 데이터를 덮어쓴다
 	for (uint32_t c = 0; c < DOA_CH; c++)
 		for (uint32_t i = 0; i < DOA_FRAME; i++)
+			// s_ring[c][i % RING)] = pcm[c][i];
 			s_ring[c][(a0 + i) & (RING - 1u)] = pcm[c][i];
 	s_xb_ok = false;                                      // 블록 스펙트럼 캐시는 한 프레임 안에서만 쓴다
 

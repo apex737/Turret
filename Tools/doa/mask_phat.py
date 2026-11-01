@@ -1,5 +1,5 @@
 """DOA 합성 실험: 대역 상한(3000 vs 2400)과 PHAT에 쓰는 칸(전체 / 선 마스크 / 정답 f0)이 유효율·오차에 주는 영향.
-흐름과 그림은 Tools/notebooks/doa_mask_phat.ipynb. 이 파일은 계산만 한다.
+실녹음 비교는 GUIDE/project/notebooks/doa_mask_real.ipynb (합성 노트북 doa_mask_phat은 커밋 e589fb3에만 있다). 이 파일은 계산만 한다.
 
     python doa/mask_phat.py                 # 전체 표 (12방향 × 8 s, 몇 분)
     python doa/mask_phat.py --quick         # 4방향 × 4 s
