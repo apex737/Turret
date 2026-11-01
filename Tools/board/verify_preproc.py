@@ -20,7 +20,7 @@ FRAMES, N_OUT = 8, 256
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", required=True); ap.add_argument("--baud", type=int, default=921600)
+    ap.add_argument("--port", required=True); ap.add_argument("--baud", type=int, default=1500000)
     ap.add_argument("--pairs", type=int, default=20)
     a = ap.parse_args()
     import serial

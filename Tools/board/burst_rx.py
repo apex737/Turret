@@ -27,7 +27,7 @@ def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", required=True)
-    ap.add_argument("--baud", type=int, default=921600)
+    ap.add_argument("--baud", type=int, default=1500000)
     ap.add_argument("--label", required=True, help="녹음 이름 (폴더 이름이 됨)")
     ap.add_argument("--count", type=int, default=0, help="받을 burst 수 (0이면 --seconds 또는 Ctrl+C까지)")
     ap.add_argument("--seconds", type=float, default=0.0)

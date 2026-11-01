@@ -337,7 +337,7 @@ def run_replay(args, kw):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", help="시리얼 포트 (예: COM8)")
-    ap.add_argument("--baud", type=int, default=921600)
+    ap.add_argument("--baud", type=int, default=1500000)
     ap.add_argument("--fs", type=float, default=g.FS)
     ap.add_argument("--out", default="dumps", help="세션 폴더를 만들 위치")
     ap.add_argument("--truth", type=float, help="실제 음원 각도 [deg]. 주면 오차를 같이 표시")

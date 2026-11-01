@@ -9,7 +9,7 @@ typedef struct {
 	ADC_HandleTypeDef* hadcSlv2;    /* ADC3: 슬레이브 2. 세 번째 마이크 (&hadc3) */
 	TIM_HandleTypeDef* htimSmp;     /* TIM2: 샘플링 타이머. 갱신 이벤트(90 MHz / 1800 = 50 kHz)가 TRGO로 ADC 변환을 트리거한다 (&htim2) */
 	TIM_HandleTypeDef* htimAwd;     /* 현재 쓰지 않음. main.c가 채우지 않으므로 NULL이다 */
-	UART_HandleTypeDef* huart;      /* USART2 (921600 baud, TX DMA): PC로 가는 유일한 출력. dump와 stream이 같이 쓴다 (&huart2) */
+	UART_HandleTypeDef* huart;      /* USART2 (1.5 Mbps, TX DMA): PC로 가는 유일한 출력. dump와 stream이 같이 쓴다 (&huart2) */
 } AppHandle_t;
 
 /* 부팅 시 한 번: DWT 사이클 카운터를 켜고, APP_MODE(app.c)에 맞는 모듈을 초기화한 뒤 ADC 수집을 시작한다 */

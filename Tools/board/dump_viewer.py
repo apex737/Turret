@@ -288,7 +288,7 @@ def run_replay(args):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port")
-    ap.add_argument("--baud", type=int, default=921600)
+    ap.add_argument("--baud", type=int, default=1500000)
     ap.add_argument("--fs", type=float, default=50_000)
     ap.add_argument("--bpf", type=float, nargs=2, default=(150, 2000))
     ap.add_argument("--out", default="dumps")

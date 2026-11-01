@@ -658,7 +658,7 @@ class SerialSource:
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--port"); ap.add_argument("--baud", type=int, default=921600)
+    ap.add_argument("--port"); ap.add_argument("--baud", type=int, default=1500000)
     ap.add_argument("--save", metavar="LABEL", help="받은 바이트를 dumps/stream/LABEL/raw.bin에 저장")
     ap.add_argument("--replay", help="raw.bin 또는 그것이 든 폴더")
     ap.add_argument("--demo", action="store_true", help="합성 신호로 화면 확인 (보드 불필요)")
