@@ -35,6 +35,8 @@ PAIRS4 = ((0, 1), (0, 2), (1, 2), (0, 3), (1, 3), (2, 3))  # 앞 3쌍은 평면 
 GEOM = os.path.join(HERE, "..", "..", "config", "geometry.json")
 BG_SECONDS = 10                                           # doa.h DOA_BG_SECONDS
 OBS, HOP = 6250, 3072                                     # doa.h DOA_OBS, DOA_HOP [샘플]
+BG_TAU_S, BG_FREEZE_DB = 10.0, 3.0                        # doa.h DOA_BG_TAU_S, DOA_BG_FREEZE_DB (배경 갱신, D8d-5)
+BG_ALPHA = HOP / (12500.0 * BG_TAU_S)                     # 창 하나가 배경에 섞이는 비율 = 3072 ÷ 125000 = 0.0246
 
 
 def config_positions():
@@ -94,8 +96,14 @@ def background(x, block=512):
     return cross_spectra(x, block, 2 * block)
 
 
+def update_background(bg, S, alpha=BG_ALPHA):
+    """배경 갱신 (doa.c finalize, D8d-5): 배경 ← 배경 + α × (창 스펙트럼 − 배경). 창이 배경보다 BG_FREEZE_DB 미만일 때만 부른다
+    bg, S : cross_spectra 결과 (교차 6 + 자기 4). 반환: 새 배경 (bg는 바꾸지 않는다)"""
+    return [b + alpha * (s - b) for b, s in zip(bg, S)]
+
+
 def estimate(x, pos, fs=FS, band=(300, 3000), block=512, up=16, eps=0.01, bg=None, delay_us=None,
-             min_peak=0.15, max_resid=0.3, norm_range=(0.5, 1.3), min_snr=6.0):
+             min_peak=0.15, max_resid=0.3, norm_range=(0.5, 1.3), min_snr=6.0, return_spectra=False):
     """관측 창 x[4, n] 하나 → dict(az, el, norm, resid, tau, peak, snr, valid, present). doa.c finalize와 같은 계산
     bg = background()의 결과 (교차는 빼고 PHAT, 대역 전력은 SNR). delay_us = 채널 고유 지연 [us] (빼서 보정)"""
     nfft = 2 * block
@@ -114,7 +122,10 @@ def estimate(x, pos, fs=FS, band=(300, 3000), block=512, up=16, eps=0.01, bg=Non
     az, el, norm, resid = solve(tau, pos, fs)
     valid = min(peak) >= min_peak and resid <= max_resid and norm_range[0] <= norm <= norm_range[1]
     present = True if bg is None else snr >= min_snr
-    return dict(az=az, el=el, norm=norm, resid=resid, tau=tau, peak=peak, snr=snr, valid=bool(valid), present=bool(present))
+    out = dict(az=az, el=el, norm=norm, resid=resid, tau=tau, peak=peak, snr=snr, valid=bool(valid), present=bool(present))
+    if return_spectra:
+        out["S"] = S                                      # 배경 갱신에 쓸 창 스펙트럼 (update_background)
+    return out
 
 
 def run(x, pos, fs=FS, obs=0.5, hop=0.25, **kw):

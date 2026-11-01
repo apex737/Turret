@@ -30,6 +30,23 @@ static float32_t s_state[PREPROC_CH][FIR_NUM_TAPS + PREPROC_SUB - 1u];   /* CMSI
 static float32_t s_in[PREPROC_SUB];
 static float32_t s_out[PREPROC_SUB / FIR_DECIM_M];
 
+/* float → 가장 가까운 정수 (반은 짝수 쪽: 2.5 → 2, 3.5 → 4). lrintf와 같은 값.
+ *  x : 반올림할 값 (int32 범위 안. 여기서는 ±65536 이하)
+ *  반환: 반올림한 정수. 부작용 없음
+ * ARM(FPU)에서는 명령 하나(vcvtr: FPSCR의 반올림 방식 = 기본 '가장 가까운 짝수')로 끝낸다.
+ * lrintf는 라이브러리 함수 호출이라 프레임마다 1024번(4채널 × 256) 부르면 CPU 약 0.7 %p (추정, 2026-11-02) */
+static inline int32_t round_to_int(float32_t x)
+{
+#if defined(__ARM_FP)
+	int32_t r;
+	__asm__ ("vcvtr.s32.f32 %0, %0" : "+t"(x));   // x 자리에 정수 비트가 들어간다
+	__asm__ ("vmov %0, %1" : "=r"(r) : "t"(x));     // 그 비트를 정수 레지스터로
+	return r;
+#else
+	return (int32_t)lrintf(x);                      // PC 빌드(호스트 시험)
+#endif
+}
+
 /* arm_fir_decimate_init_f32는 blockSize가 M의 배수가 아니면 실패한다. 컴파일 시점에 미리 막는다 */
 _Static_assert(PREPROC_SUB % FIR_DECIM_M == 0u, "block size must be a multiple of M");
 _Static_assert(PREPROC_IN % PREPROC_SUB == 0u, "frame must split into whole blocks");
@@ -70,7 +87,7 @@ bool preproc_run(
 
 			// 3) float → int16. ×16 하면 12비트 진폭(±2048)이 int16 진폭(±32768)에 맞는다
 			for (uint32_t k = 0; k < sub_out; k++) {
-				const int32_t r = (int32_t)lrintf(s_out[k] * PREPROC_PCM_SCALE);   // 반올림 + 정수화
+				const int32_t r = round_to_int(s_out[k] * PREPROC_PCM_SCALE);    // 반올림 + 정수화
 				out[c][b / FIR_DECIM_M + k] = (int16_t)__SSAT(r, 16);   // 경계에 붙은거 ±32768 클램핑
 			}
 		}

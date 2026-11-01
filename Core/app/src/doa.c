@@ -60,8 +60,10 @@ static const uint8_t pair_j[DOA_PAIRS] = {1, 2, 2, 3, 3, 3};
 //  cr : 교차 스펙트럼. 위상 = 두 채널의 위상차 = 2π·f·(시간차) → 시간차 정보가 여기 들어 있다
 //  pw : Σ채널 Σ빈 |X|². 방향 계산에는 안 쓰고, 배경 대비 소리가 커졌는지(SNR) 볼 때만 쓴다
 //  크기: 6쌍 × 221빈 × 2 × 4 B + 4 B ≈ 10.4 KB. 창 2개 + 배경 1벌 = 31 KB가 doa.c 메모리의 대부분이다
+//  배치: 빈마다 6쌍을 붙여 둔다 (cr[빈][쌍][re·im]). 마무리 상관(phat_peaks)이 빈 하나에서 6쌍 12개 값을
+//        연속으로 읽게 하려고 — 쌍마다 떨어져 있으면 12번 따로 주소를 계산해 읽는다 (2026-11-02, 결과는 같음)
 typedef struct {
-	float32_t cr[DOA_PAIRS][NB][2];
+	float32_t cr[NB][DOA_PAIRS][2];
 	float32_t pw;
 } spec_t;
 
@@ -230,8 +232,8 @@ static void accumulate(
 	for (uint32_t p = 0; p < DOA_PAIRS; p++) {
 		const float32_t (*xi)[2] = s_xb[pair_i[p]], (*xj)[2] = s_xb[pair_j[p]];
 		for (uint32_t k = 0; k < NB; k++) {
-			s->cr[p][k][0] += xj[k][0] * xi[k][0] + xj[k][1] * xi[k][1];
-			s->cr[p][k][1] += xj[k][1] * xi[k][0] - xj[k][0] * xi[k][1];
+			s->cr[k][p][0] += xj[k][0] * xi[k][0] + xj[k][1] * xi[k][1];
+			s->cr[k][p][1] += xj[k][1] * xi[k][0] - xj[k][0] * xi[k][1];
 		}
 	}
 	float32_t pw = 0.0f;
@@ -244,21 +246,22 @@ static void accumulate(
 // 교차 스펙트럼 R(배경 뺀 평균) → 제자리에서 PHAT 가중: 빈마다 R / (|R| + eps)
 //  eps = 대역 최대 크기의 1% : |R|이 거의 0인 빈을 1로 키워 잡음을 부풀리지 않게 하는 바닥값
 static void phat_weight(
-	float32_t ph[NB][2]	// 입력 R, 출력 PHAT 가중 결과 (같은 자리)
+	float32_t ph[NB][DOA_PAIRS][2],	// 입력 R, 출력 PHAT 가중 결과 (같은 자리). 6쌍이 빈마다 붙어 있다
+	uint32_t p						// 이번에 가중할 쌍 (0 ~ 5)
 )
 {
 	static float32_t mag[NB];
 	float32_t mmax = 0.0f;
 	for (uint32_t k = 0; k < NB; k++) {
-		mag[k] = sqrtf(ph[k][0] * ph[k][0] + ph[k][1] * ph[k][1]);
+		mag[k] = sqrtf(ph[k][p][0] * ph[k][p][0] + ph[k][p][1] * ph[k][p][1]);
 		if (mag[k] > mmax)
 			mmax = mag[k];
 	}
 	const float32_t eps = DOA_PHAT_EPS * mmax + 1e-30f;
 	for (uint32_t k = 0; k < NB; k++) {
 		const float32_t s = 1.0f / (mag[k] + eps);
-		ph[k][0] *= s;
-		ph[k][1] *= s;
+		ph[k][p][0] *= s;
+		ph[k][p][1] *= s;
 	}
 }
 
@@ -268,7 +271,7 @@ static void phat_weight(
  * 회전 e^{jθk}를 만드는 복소수 곱(빈마다 곱셈 4번)을 6쌍이 함께 쓴다 — 쌍을 따로 돌리면 이 곱을 6번 하게 되어
  * 마무리 계산이 약 2배 걸린다 (보드 실측 10.2 ms, 2026-10-29) */
 static void phat_peaks(
-	const float32_t ph[DOA_PAIRS][NB][2],	// 6쌍의 PHAT 가중 교차 스펙트럼
+	const float32_t ph[NB][DOA_PAIRS][2],	// 6쌍의 PHAT 가중 교차 스펙트럼 (빈마다 6쌍이 붙어 있다)
 	float32_t tau[DOA_PAIRS],				// 결과: 시간차 [샘플], 보간 후. 채널 지연 보정 전
 	float32_t peak[DOA_PAIRS]				// 결과: 상관 봉우리 높이 (0 ~ 1)
 )
@@ -280,13 +283,14 @@ static void phat_peaks(
 		float32_t zr = s_rot0[l][0], zi = s_rot0[l][1];
 		float32_t c0 = 0, c1 = 0, c2 = 0, c3 = 0, c4 = 0, c5 = 0;
 		float32_t q0 = 0, q1 = 0, q2 = 0, q3 = 0, q4 = 0, q5 = 0;
-		for (uint32_t k = 0; k < NB; k++) {
-			c0 += ph[0][k][0] * zr; q0 += ph[0][k][1] * zi;
-			c1 += ph[1][k][0] * zr; q1 += ph[1][k][1] * zi;
-			c2 += ph[2][k][0] * zr; q2 += ph[2][k][1] * zi;
-			c3 += ph[3][k][0] * zr; q3 += ph[3][k][1] * zi;
-			c4 += ph[4][k][0] * zr; q4 += ph[4][k][1] * zi;
-			c5 += ph[5][k][0] * zr; q5 += ph[5][k][1] * zi;
+		const float32_t *v = &ph[0][0][0];     // 빈 k의 6쌍 re·im 12개가 연속: v[0..11]
+		for (uint32_t k = 0; k < NB; k++, v += 2u * DOA_PAIRS) {
+			c0 += v[0] * zr;  q0 += v[1] * zi;
+			c1 += v[2] * zr;  q1 += v[3] * zi;
+			c2 += v[4] * zr;  q2 += v[5] * zi;
+			c3 += v[6] * zr;  q3 += v[7] * zi;
+			c4 += v[8] * zr;  q4 += v[9] * zi;
+			c5 += v[10] * zr; q5 += v[11] * zi;
 			const float32_t t = zr * wr - zi * wi;
 			zi = zr * wi + zi * wr;
 			zr = t;
@@ -350,20 +354,33 @@ static void finalize(
 		flags |= DOA_FLAG_LEARNING;
 
 	// ② 쌍마다 평균 − 배경 → PHAT (창의 교차 합 자리에서). 배경 교차 스펙트럼 = 마이크에 공통으로 들어오는 평소 소리
+	//    배경 갱신 (D8d-5): 이 창이 배경보다 DOA_BG_FREEZE_DB 미만으로 컸으면, 방향은 지금 배경으로 계산하고
+	//    배경은 그 자리에서 배경 + α × (창 평균 − 배경)으로 옮긴다. 창 평균 − 배경(d)을 한 번만 계산해 두 곳에 쓴다
+	const bool upd = s_bg_ready && snr_db < DOA_BG_FREEZE_DB;
+	const float32_t alpha = (float32_t)DOA_HOP / (DOA_FS * DOA_BG_TAU_S);
 	for (uint32_t p = 0; p < DOA_PAIRS; p++) {
-		float32_t (*r)[2] = w->sum.cr[p];
 		for (uint32_t k = 0; k < NB; k++) {
-			r[k][0] *= inv;
-			r[k][1] *= inv;
+			float32_t *r = w->sum.cr[k][p];
+			r[0] *= inv;
+			r[1] *= inv;
 			if (s_bg_ready) {
-				r[k][0] -= s_bg.cr[p][k][0];
-				r[k][1] -= s_bg.cr[p][k][1];
+				float32_t *b = s_bg.cr[k][p];
+				r[0] -= b[0];                       // r = 창 평균 − 배경 (방향 계산에 쓴다)
+				r[1] -= b[1];
+				if (upd) {
+					b[0] += alpha * r[0];           // 배경 += α × (창 평균 − 배경)
+					b[1] += alpha * r[1];
+				}
 			}
 		}
-		phat_weight(r);
+		phat_weight(w->sum.cr, p);
+	}
+	if (upd) {
+		s_bg.pw += alpha * (w->sum.pw * inv - s_bg.pw);
+		flags |= DOA_FLAG_BGUPD;
 	}
 	//    6쌍 상관을 한꺼번에 → 봉우리
-	phat_peaks((const float32_t (*)[NB][2])w->sum.cr, out->tau, out->peak);
+	phat_peaks((const float32_t (*)[DOA_PAIRS][2])w->sum.cr, out->tau, out->peak);
 	// ③ 채널 고유 지연 보정 (앰프·배선·ADC 순서 차이) → 뺀다
 	for (uint32_t p = 0; p < DOA_PAIRS; p++)
 		out->tau[p] -= s_delay[p];

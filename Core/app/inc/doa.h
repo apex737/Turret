@@ -10,6 +10,10 @@
  *    6쌍 교차 스펙트럼과 4채널 대역 전력을 평균한다 (23블록, nfft 1024). 창을 통째로 저장하지 않고 블록마다 더한다.
  *  - 배경: 재시작 직후 DOA_BG_SECONDS 동안 같은 방식으로 평균한 교차 스펙트럼. 창의 교차 스펙트럼에서 빼고 PHAT한다.
  *    배경은 한 벌만 둔다 (RAM). 다시 배우는 동안(doa_request_bg, B1 버튼)은 배경 없이(D0) 계산한다.
+ *  - 배경 갱신 (D8d-5, 2026-11-02): 배운 뒤에는 창이 끝날 때마다, 그 창의 방향을 지금 배경으로 먼저 계산하고,
+ *    그 창이 배경보다 DOA_BG_FREEZE_DB 미만으로 컸으면 배경에 그 창을 α = DOA_HOP ÷ (12500 × DOA_BG_TAU_S)만큼 섞는다
+ *    (배경 ← 배경 + α × (창 − 배경)). 처음 배울 때 섞인 손 소리 같은 오염이 시간 상수 DOA_BG_TAU_S로 빠진다.
+ *    PC 쪽(compare_mcu.py)도 같은 순서로 배경을 갱신해 비교한다.
  *  - PHAT 상관은 쌍마다 지연 ±max_lag 범위만 1/16 샘플 간격으로 직접 계산한다 (= PC의 16배 제로패딩 IFFT와 같은 값).
  *    → 피크 + 2차 보간 → 채널 고유 지연 보정 → 3D 방향 벡터 최소제곱 → 방위·고도각.
  *  - FFT는 CMSIS-DSP arm_rfft_fast_f32. HAL에 의존하지 않는다 (PC용 gcc로 빌드해 시험: Tools/doa/test_doa_host.py).
@@ -58,11 +62,14 @@
 #define DOA_MIN_SNR_DB    6.0f      // 배경 대비 대역 전력. 이보다 작으면 새 음원이 없는 창 (present = false)
 
 #define DOA_BG_SECONDS    10u       // 배경을 배우는 시간
+#define DOA_BG_TAU_S      10.0f     // 배경 갱신의 시간 상수 [s]. 창마다 α = 3072 ÷ (12500 × 10) = 0.0246씩 섞는다 (D8d-5)
+#define DOA_BG_FREEZE_DB  3.0f      // 창이 배경보다 이만큼 [dB] 이상 크면 그 창은 배경에 섞지 않는다 (소리가 나는 중)
 
 #define DOA_FLAG_VALID    0x01u     // 피크·잔차·norm 기준을 모두 만족
 #define DOA_FLAG_PRESENT  0x02u     // 배경보다 DOA_MIN_SNR_DB 이상 큼 (배경이 없으면 항상 1)
 #define DOA_FLAG_BG       0x04u     // 배경 빼기를 적용함 (D1). 0이면 D0
 #define DOA_FLAG_LEARNING 0x08u     // 이 창이 끝날 때 배경을 배우는 중이었음
+#define DOA_FLAG_BGUPD    0x10u     // 이 창으로 배경을 갱신함 (배경이 있고, 창이 배경보다 DOA_BG_FREEZE_DB 미만)
 
 typedef struct {
 	uint32_t s0;                    // 관측 창 첫 샘플 번호

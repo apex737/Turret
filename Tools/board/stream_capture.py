@@ -61,6 +61,8 @@ class Recorder:
         if d is None:
             return ""
         state = "배경학습" if d["flags"] & 0x08 and not d["flags"] & 0x04 else ("D1" if d["flags"] & 0x04 else "D0")
+        if d["flags"] & 0x10:
+            state += "·배경갱신"                       # 보드가 이 창으로 배경을 갱신함 (D8d-5, 창이 배경보다 3 dB 미만)
         ok = d["flags"] & 0x01 and d["flags"] & 0x02
         el = f" 고도 {d['elev']:+5.1f}°" if "elev" in d else ""
         return f"  방위 {d['angle']:+6.1f}°{el} {'유효' if ok else '----'} {state} snr {d['snr_db']:4.1f}"

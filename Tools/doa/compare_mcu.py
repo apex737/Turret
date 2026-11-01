@@ -17,7 +17,7 @@ import doa4
 
 FS_MCU = 12500.0                                     # doa.h DOA_FS
 OBS = 6250                                           # doa.h DOA_OBS
-F_VALID, F_PRESENT, F_BG, F_LEARNING = 0x01, 0x02, 0x04, 0x08
+F_VALID, F_PRESENT, F_BG, F_LEARNING, F_BGUPD = 0x01, 0x02, 0x04, 0x08, 0x10
 TOL_TAU, TOL_ANG, TOL_FLAG = 0.02, 0.2, 0.99
 FIELDS = ["s0", "tau12", "tau13", "tau23", "peak12", "peak13", "peak23", "angle", "norm", "snr_db", "flags", "bg_s0", "bg_n"]
 
@@ -97,29 +97,56 @@ def compare(rows, get, quiet=False):
 
 
 def compare4(rows, get, quiet=False):
-    """4채널 결과 rows (doa.c) ↔ doa4.estimate (같은 창·같은 배경·같은 채널 지연)"""
+    """4채널 결과 rows (doa.c) ↔ doa4.estimate (같은 창·같은 배경·같은 채널 지연)
+    배경 갱신 (D8d-5): 보드는 창이 끝날 때마다 그 창으로 배경을 갱신한다. PC도 창을 시간 순서대로 다시 계산하며
+    같은 규칙으로 배경을 갱신한다. 보드 결과가 있는 창은 보드가 실제로 갱신했는지(F_BGUPD)를 따라가고(작은 수치 차이로
+    3 dB 문턱 근처에서 갈리는 것을 막는다), 보드 결과 패킷이 빠진 창은 PC 판단(SNR < BG_FREEZE_DB)으로 갱신한다.
+    빠진 창의 PCM도 없으면 그 배경은 더 따라갈 수 없으므로 다음 배경(B1 다시 배우기)까지 비교하지 않는다."""
     pos, dly = doa4.config_positions(), doa4.channel_delays_us()
-    bg_cache, out = {}, []
-    for r in rows:
-        x = get(r["s0"], r["s0"] + OBS)
-        if x is None:
-            continue
-        bg = None
+    state, out, upd_pc_mismatch = {}, [], 0
+    for r in sorted(rows, key=lambda r: r["s0"]):
+        bg, key = None, None
         if r["flags"] & F_BG:
             key = (r["bg_s0"], r["bg_n"])
-            if key not in bg_cache:
+            if key not in state:
                 xb = get(key[0], key[0] + key[1])
-                bg_cache[key] = None if xb is None else doa4.background(xb)
-            bg = bg_cache[key]
-            if bg is None:
+                state[key] = None if xb is None else dict(bg=doa4.background(xb), last=None)
+            st = state[key]
+            if st is None:
                 continue
-        e = doa4.estimate(x, pos, FS_MCU, bg=bg, delay_us=dly)
+            if st["last"] is not None and r["s0"] - st["last"] > doa4.HOP and (r["s0"] - st["last"]) % doa4.HOP == 0:
+                for s in range(st["last"] + doa4.HOP, r["s0"], doa4.HOP):     # 보드 결과가 빠진 창: PC가 갱신을 이어 간다
+                    xm = get(s, s + OBS)
+                    if xm is None:
+                        state[key] = None
+                        break
+                    em = doa4.estimate(xm, pos, FS_MCU, bg=st["bg"], delay_us=dly, return_spectra=True)
+                    if em["snr"] < doa4.BG_FREEZE_DB:
+                        st["bg"] = doa4.update_background(st["bg"], em["S"])
+                if state[key] is None:
+                    continue
+            bg = st["bg"]
+        x = get(r["s0"], r["s0"] + OBS)
+        if x is None:
+            if key is not None:
+                state[key] = None                      # 이 창으로 보드가 갱신했을 수 있는데 PC는 따라갈 수 없다
+            continue
+        e = doa4.estimate(x, pos, FS_MCU, bg=bg, delay_us=dly, return_spectra=True)
+        if key is not None:
+            mcu_upd = bool(r["flags"] & F_BGUPD)
+            upd_pc_mismatch += mcu_upd != (e["snr"] < doa4.BG_FREEZE_DB)
+            if mcu_upd:
+                state[key]["bg"] = doa4.update_background(bg, e["S"])
+            state[key]["last"] = r["s0"]
         out.append(dict(s0=r["s0"], dtau=np.max(np.abs(np.array(e["tau"]) - r["tau"])), dpeak=np.max(np.abs(np.array(e["peak"]) - r["peak"])),
                         dang=float(ds.ang_err(e["az"], r["angle"])), del_=abs(e["el"] - r["elev"]),
                         dsnr=abs(e["snr"] - r["snr"]) if bg is not None else 0.0,
                         both_valid=e["valid"] and bool(r["flags"] & F_VALID),
                         flag_ok=(e["valid"] == bool(r["flags"] & F_VALID)) and (e["present"] == bool(r["flags"] & F_PRESENT)),
                         bg=bg is not None))
+    n_upd = sum(bool(r["flags"] & F_BGUPD) for r in rows)
+    if not quiet:
+        print(f"  배경 갱신 (D8d-5): 보드가 갱신한 창 {n_upd}개, PC 판단(SNR < {doa4.BG_FREEZE_DB} dB)과 갈린 창 {upd_pc_mismatch}개")
     if not out:
         print("비교할 창이 없다 (PC가 받은 PCM과 겹치는 창이 없음)")
         return False

@@ -53,6 +53,9 @@ def check_constants():
         bad.append(f"간격: doa.h {val('DOA_SPACING_M')} vs geometry.json {sp}")
     if abs(val("DOA_MIC4_Z_M") - gm.get("mic4_z_mm", 0) / 1000) > 1e-6:
         bad.append(f"MIC4 높이: doa.h {val('DOA_MIC4_Z_M')} vs geometry.json {gm.get('mic4_z_mm')} mm")
+    for name, py in (("DOA_BG_TAU_S", doa4.BG_TAU_S), ("DOA_BG_FREEZE_DB", doa4.BG_FREEZE_DB)):   # 배경 갱신 (D8d-5)
+        if abs(val(name) - py) > 1e-6:
+            bad.append(f"{name}: doa.h {val(name)} vs doa4.py {py}")
     if bool(int(val("DOA_MIC_CW"))) != bool(gm.get("cw", False)):
         bad.append("마이크 번호 방향(cw)이 다름")
     return bad
