@@ -26,8 +26,7 @@ Turret/
 ├─ Tools/             PC 도구 (<영역>/*.py) · 근거 노트북 (notebooks/) · .venv
 ├─ config/            마이크 좌표·채널 지연, 전처리 설정
 ├─ hardware/          기구 설계·사진
-├─ data/              데이터셋 목록·split (원본 DataSet/은 git에 올리지 않음)
-└─ GUIDE_v3/          학습형 개발 템플릿 원본 (다른 프로젝트에 복사해 쓰는 빈 틀 — Turret 내용을 넣지 않는다)
+└─ data/              데이터셋 목록·split (원본 DataSet/은 git에 올리지 않음)
 ```
 
 검사: `python GUIDE/tools/concepts.py check` (개념·결정·값·Step 기록의 형식과 서로 맞는지).
