@@ -41,6 +41,16 @@ DOA_LEN = struct.calcsize(DOA_FMT)  # 52
 VER_DOA4 = 4
 DOA4_FMT = "<I6f6ffffffBBHII"      # s0 tau[6] peak[6] angle elev norm resid snr_db flags reserved proc_us bg_s0 bg_n
 DOA4_LEN = struct.calcsize(DOA4_FMT)  # 84
+# 고조파 점수 B0 결과 패킷 (ver 5, type 0x05, Step8b MCU 이식): stream.c b0_payload_t, harm.h harm_result_t
+VER_B0 = 5
+TYPE_B0 = 0x05
+B0_FMT = "<IIfffHHB3x"              # s0 n score f0 rms_db frames proc_us flags reserved[3]
+B0_LEN = struct.calcsize(B0_FMT)    # 28
+# 상태 패킷 (ver 6, type 0x06, Step10 운용 기록): stream.h stream_stat_t, 약 1 s마다
+VER_STAT = 6
+TYPE_STAT = 0x06
+STAT_FMT = "<IIIIIHBBBBH"           # period_min period_max drop ovr qdrop frames cpu_max cpu_avg pcm_q_max res_q_max stack_free
+STAT_LEN = struct.calcsize(STAT_FMT)  # 28
 
 FLAG_CLIP = 0x01
 FLAG_MANUAL = 0x02
@@ -70,11 +80,15 @@ class PacketParser:
             else:
                 ok = typ == TYPE_RESULT and length == RESULT_LEN
             return (HDR_LEN, length, dict(ver=ver, type=typ, ch=ch, flags=flags, seq=seq, frame_seq=fseq, n=n)) if ok else None
-        if ver in (VER_PCM, VER_DOA4):
+        if ver in (VER_PCM, VER_DOA4, VER_B0, VER_STAT):
             if len(self.buf) < PCM_HDR_LEN:
                 return "wait"
             _, ver, typ, ch, flags, seq, fseq, n, length, drop, ovr, qdrop, cpu = struct.unpack_from(PCM_HDR_FMT, self.buf, 0)
-            if typ == TYPE_DOA:
+            if ver == VER_B0:
+                ok = typ == TYPE_B0 and length == B0_LEN
+            elif ver == VER_STAT:
+                ok = typ == TYPE_STAT and length == STAT_LEN
+            elif typ == TYPE_DOA:
                 ok = length == (DOA4_LEN if ver == VER_DOA4 else DOA_LEN)
             elif ver == VER_DOA4:
                 ok = False
@@ -126,6 +140,17 @@ class PacketParser:
             self.last_seq[key] = seq
             self.stats["ok"] += 1
 
+            if h["type"] == TYPE_STAT:
+                v = struct.unpack_from(STAT_FMT, pkt, hlen)
+                out.append(dict(seq=seq, frame_seq=h["frame_seq"], type=h["type"],
+                                stat=dict(period_min=v[0], period_max=v[1], drop=v[2], ovr=v[3], qdrop=v[4], frames=v[5],
+                                          cpu_max=v[6], cpu_avg=v[7], pcm_q_max=v[8], res_q_max=v[9], stack_free=v[10])))
+                continue
+            if h["type"] == TYPE_B0:
+                v = struct.unpack_from(B0_FMT, pkt, hlen)
+                out.append(dict(seq=seq, frame_seq=h["frame_seq"], type=h["type"],
+                                b0=dict(s0=v[0], n=v[1], score=v[2], f0=v[3], rms_db=v[4], frames=v[5], proc_us=v[6], flags=v[7])))
+                continue
             if h["type"] == TYPE_DOA and h["ver"] == VER_DOA4:
                 v = struct.unpack_from(DOA4_FMT, pkt, hlen)
                 out.append(dict(seq=seq, frame_seq=h["frame_seq"], type=h["type"],

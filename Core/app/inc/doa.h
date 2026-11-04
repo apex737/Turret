@@ -99,6 +99,10 @@ bool doa_push(const int16_t pcm[DOA_CH][DOA_FRAME], uint32_t frame_seq, bool res
 // 다음 프레임부터 배경을 다시 배운다 (주변 소음이 바뀌었을 때). 배우는 동안은 배경 없이(D0) 계산한다.
 void doa_request_bg(void);
 
+/* 블록 FFT 작업 공간 (float 2 × DOA_NFFT = 2048개, 8 KB, 연속). doa_push 안에서만 값이 의미 있고 호출 사이에는 비어 있다.
+ * doa_push가 끝난 뒤 다음 doa_push 전까지 다른 모듈(harm.c)이 빌려 써도 된다. main 문맥에서만 */
+float *doa_scratch(void);
+
 // 마무리 계산 시간 측정용 사이클 카운터 (MCU는 DWT->CYCCNT, 호스트는 0을 돌려줘도 된다). DOA_CPU_MHZ로 나눠 us로 바꾼다
 #define DOA_CPU_MHZ       180u
 uint32_t doa_now_cycles(void);

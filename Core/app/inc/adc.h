@@ -38,6 +38,8 @@ bool     adc_get_frame(uint16_t out[ADC_CH_CNT][ADC_SAMPLES_PER_HALF], uint32_t 
 void     adc_service(void);
 
 uint32_t adc_get_drop_cnt(void);
+/* 반버퍼 간격 최소·최대 [DWT 사이클]을 읽고 지운다 (main에서만) */
+void     adc_take_period(uint32_t *min, uint32_t *max);
 uint32_t adc_get_ovr_cnt(void);
 
 #endif /* INC_ADC_H_ */

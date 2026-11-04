@@ -49,6 +49,19 @@ typedef struct __attribute__((packed)) {
 _Static_assert(sizeof(doa_payload_t) == 84, "DOA payload must be 84 bytes");
 #define DOA_PKT  (sizeof(stream_hdr_t) + sizeof(doa_payload_t) + 2u)   /* 110 B */
 
+/* B0 결과 payload 28 B (헤더 ver = STREAM_B0_VER 5, type = STREAM_TYPE_B0). harm_result_t(harm.h) 그대로.
+ * 배치는 PC의 Tools/board/dump_viewer.py B0_FMT와 같아야 한다 */
+typedef struct __attribute__((packed)) {
+	uint32_t s0, n;                /* 창 첫 샘플 번호, 창 길이 [샘플] */
+	float    score, f0, rms_db;    /* 고조파 점수, 기본음 [Hz], 창 MIC1 RMS [dBFS] */
+	uint16_t frames, proc_us;      /* 창의 프레임 수, 프레임 계산 한 번의 최대 시간 [us] */
+	uint8_t  flags, reserved[3];   /* flags = HARM_FLAG_*, reserved = 0 */
+} b0_payload_t;
+
+_Static_assert(sizeof(b0_payload_t) == 28, "B0 payload must be 28 bytes");
+#define B0_PKT   (sizeof(stream_hdr_t) + sizeof(b0_payload_t) + 2u)    /* 54 B */
+_Static_assert(B0_PKT <= DOA_PKT, "B0 packet must fit a result slot");
+
 /* 링버퍼: main이 head에 쓰고, UART 완료 ISR이 tail을 넘긴다 (생산자 1, 소비자 1)
  * s_slot[칸][바이트] : PCM 패킷 STREAM_SLOTS개를 완성된 모양(헤더 + payload + CRC) 그대로 담아 두는 송신 버퍼.
  *                     DMA가 이 메모리를 직접 읽어 UART로 내보내므로, 송신이 끝날 때까지 그 칸은 고치면 안 된다.
@@ -71,9 +84,16 @@ static uint32_t s_qdrop;                    /* PCM 큐가 가득 차 버린 패�
  * s_dhead / s_dtail : DOA 패킷의 채운 수 / 보낸 수 (s_head / s_tail과 같은 방식)
  * s_dseq           : 다음 DOA 패킷의 송신 번호. PCM의 s_seq와 별개로 센다 */
 static uint8_t s_doa[STREAM_DOA_SLOTS][DOA_PKT] __attribute__((aligned(4)));
+static uint16_t s_dlen[STREAM_DOA_SLOTS];   /* 칸마다 실제 패킷 길이 (DOA 110 B, B0 54 B) */
 static volatile uint32_t s_dhead, s_dtail;
 static volatile bool     s_tx_doa;          /* 지금 나가는 것이 DOA 패킷. 완료 콜백이 어느 큐의 tail을 올릴지 이것으로 정한다 */
 static uint32_t s_dseq;
+static uint32_t s_bseq;                     /* 다음 B0 패킷의 송신 번호 (DOA와 따로 센다) */
+static uint32_t s_sseq;                     /* 다음 상태 패킷의 송신 번호 */
+static uint8_t  s_qmax, s_rqmax;            /* 상태 구간 동안 PCM·결과 큐 최대 깊이 (넣은 직후 깊이) */
+_Static_assert(sizeof(stream_stat_t) == 28, "STAT payload must be 28 bytes");
+#define STAT_PKT (sizeof(stream_hdr_t) + sizeof(stream_stat_t) + 2u)   /* 54 B */
+_Static_assert(STAT_PKT <= DOA_PKT, "STAT packet must fit a result slot");
 
 /* 부팅 시 한 번. 송신할 UART를 기억하고 두 큐와 번호를 모두 비운다 */
 void stream_init(
@@ -88,6 +108,9 @@ void stream_init(
 	s_dhead = s_dtail = 0u;
 	s_tx_doa = false;
 	s_dseq = 0u;
+	s_bseq = 0u;
+	s_sseq = 0u;
+	s_qmax = s_rqmax = 0u;
 }
 
 uint32_t stream_get_qdrop_cnt(void) { return s_qdrop; }
@@ -108,7 +131,7 @@ static void kick_locked(void)
 		return;
 	if (s_dhead != s_dtail) {                 /* 작은 결과 패킷을 먼저 (110 B ≈ 0.73 ms) */
 		s_tx = s_tx_doa = true;
-		if (HAL_UART_Transmit_DMA(s_huart, s_doa[s_dtail % STREAM_DOA_SLOTS], (uint16_t)DOA_PKT) != HAL_OK)
+		if (HAL_UART_Transmit_DMA(s_huart, s_doa[s_dtail % STREAM_DOA_SLOTS], s_dlen[s_dtail % STREAM_DOA_SLOTS]) != HAL_OK)
 			s_tx = s_tx_doa = false;
 		return;
 	}
@@ -120,6 +143,8 @@ static void kick_locked(void)
 		s_tx = false;
 }
 
+
+static void publish_result(uint16_t len);
 
 // [STREAM HEADER] + [PAYLOAD] + [CRC] 로 패킷을 구성해서 UART_TxDMA 전송
 bool stream_push(
@@ -157,6 +182,7 @@ bool stream_push(
 	/* head를 올리는 것과 송신 시작 판단을 ISR과 겹치지 않게 묶는다 */
 	__disable_irq();
 	s_head++;
+	if ((uint8_t)(s_head - s_tail) > s_qmax) s_qmax = (uint8_t)(s_head - s_tail);
 	kick_locked();
 	__enable_irq();
 	return true;
@@ -193,12 +219,82 @@ bool stream_push_doa(
 	const uint16_t crc = dump_crc16(p + 4, sizeof(stream_hdr_t) - 4u + sizeof(d));
 	p[sizeof(stream_hdr_t) + sizeof(d)]      = (uint8_t)(crc & 0xFFu);
 	p[sizeof(stream_hdr_t) + sizeof(d) + 1u] = (uint8_t)(crc >> 8);
+	publish_result((uint16_t)DOA_PKT);        /* 칸을 다 채운 뒤에 공개 */
+	return true;
+}
 
+/* B0 결과 하나를 패킷으로 만들어 결과 큐(DOA와 같은 큐)에 넣는다 (main에서만 호출)
+ *  반환: 큐가 가득 차면 false */
+bool stream_push_b0(
+	const harm_result_t *r,	// harm_push()가 돌려준 창 결과
+	uint32_t frame_seq		// 창이 끝난(계산한) ADC 프레임 번호 → 헤더 frame_seq
+)
+{
+	if (s_dhead - s_dtail >= STREAM_DOA_SLOTS)
+		return false;
+	uint8_t *p = s_doa[s_dhead % STREAM_DOA_SLOTS];
+	stream_hdr_t *h = (stream_hdr_t *)p;
+	h->sync = 0xFFFFFFFFu;
+	h->ver = STREAM_B0_VER; h->type = STREAM_TYPE_B0; h->ch = 1u; h->flags = 0u;
+	h->seq = s_bseq++;
+	h->frame_seq = frame_seq;
+	h->n = 1u; h->len = (uint16_t)sizeof(b0_payload_t);
+	h->drop = 0u; h->ovr = 0u; h->qdrop = (uint8_t)s_qdrop; h->cpu = 0u;
+	b0_payload_t d = {
+		.s0 = r->s0, .n = r->n, .score = r->score, .f0 = r->f0, .rms_db = r->rms_db,
+		.frames = r->frames, .proc_us = r->proc_us, .flags = r->flags, .reserved = {0u, 0u, 0u},
+	};
+	memcpy(p + sizeof(stream_hdr_t), &d, sizeof(d));
+	const uint16_t crc = dump_crc16(p + 4, sizeof(stream_hdr_t) - 4u + sizeof(d));
+	p[sizeof(stream_hdr_t) + sizeof(d)]      = (uint8_t)(crc & 0xFFu);
+	p[sizeof(stream_hdr_t) + sizeof(d) + 1u] = (uint8_t)(crc >> 8);
+	publish_result((uint16_t)B0_PKT);
+	return true;
+}
+
+/* 결과 큐에 패킷 하나를 올리고 송신을 시작한다 (DOA·B0·상태 공통 마무리, main에서만)
+ *  len : 이 칸의 패킷 길이 [B] (DOA 110, B0 54, 상태 54) */
+static void publish_result(uint16_t len)
+{
+	s_dlen[s_dhead % STREAM_DOA_SLOTS] = len;
 	__disable_irq();
-	s_dhead++;                                /* 칸을 다 채운 뒤에 공개 */
+	s_dhead++;
+	if ((uint8_t)(s_dhead - s_dtail) > s_rqmax) s_rqmax = (uint8_t)(s_dhead - s_dtail);
 	kick_locked();
 	__enable_irq();
+}
+
+/* 상태 패킷 하나를 결과 큐에 넣는다 (main에서만). 큐가 가득 차면 false */
+bool stream_push_stat(
+	const stream_stat_t *st,	// 상태 한 구간 요약 (app.c가 채움)
+	uint32_t frame_seq		// 구간 마지막 프레임 번호 → 헤더 frame_seq
+)
+{
+	if (s_dhead - s_dtail >= STREAM_DOA_SLOTS)
+		return false;
+	uint8_t *p = s_doa[s_dhead % STREAM_DOA_SLOTS];
+	stream_hdr_t *h = (stream_hdr_t *)p;
+	h->sync = 0xFFFFFFFFu;
+	h->ver = STREAM_STAT_VER; h->type = STREAM_TYPE_STAT; h->ch = 0u; h->flags = 0u;
+	h->seq = s_sseq++;
+	h->frame_seq = frame_seq;
+	h->n = 1u; h->len = (uint16_t)sizeof(stream_stat_t);
+	h->drop = (uint8_t)st->drop; h->ovr = (uint8_t)st->ovr; h->qdrop = (uint8_t)s_qdrop; h->cpu = st->cpu_max;
+	memcpy(p + sizeof(stream_hdr_t), st, sizeof(*st));
+	const uint16_t crc = dump_crc16(p + 4, sizeof(stream_hdr_t) - 4u + sizeof(*st));
+	p[sizeof(stream_hdr_t) + sizeof(*st)]      = (uint8_t)(crc & 0xFFu);
+	p[sizeof(stream_hdr_t) + sizeof(*st) + 1u] = (uint8_t)(crc >> 8);
+	publish_result((uint16_t)STAT_PKT);
 	return true;
+}
+
+/* PCM·결과 큐의 최대 깊이를 읽고 지운다 (main에서, 상태 패킷마다) */
+void stream_take_qmax(uint8_t *pcm, uint8_t *res)
+{
+	__disable_irq();
+	*pcm = s_qmax; *res = s_rqmax;
+	s_qmax = s_rqmax = 0u;
+	__enable_irq();
 }
 
 /* main 루프에서 계속 호출. 송신이 멈춰 있는데 큐에 남은 것이 있을 때(dump 송신이 막 끝났거나 DMA 시작이 실패했을 때) 다시 시작한다 */

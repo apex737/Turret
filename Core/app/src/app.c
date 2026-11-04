@@ -103,6 +103,31 @@ static void on_capture(
 #endif
 
 #if APP_MODE == APP_MODE_STREAM
+/* 스택 여유 측정: 부팅 때 힙 뒤 ~ 지금 스택 포인터 아래를 무늬로 칠해 두고, 아래쪽부터 무늬가 남은 길이를 잰다.
+ * 한 번이라도 스택이 내려가 덮은 곳은 무늬가 지워진다 → 남은 길이 = 지금까지의 최저 여유 */
+#define STACK_PAINT 0xA5A5A5A5u
+extern uint8_t _end[];                      /* 링커: bss 끝 = 힙 시작 (크기 없는 배열로 선언해야 경계 경고가 없다) */
+static uint32_t *s_paint_lo, *s_paint_hi;   /* 칠한 구간 [lo, hi) */
+
+/* 칠하기 (app_init에서 한 번, 인터럽트가 아직 스택을 깊게 쓰기 전) */
+static void stack_paint(void)
+{
+	s_paint_lo = (uint32_t *)(_end + 0x200u);            /* 힙(_Min_Heap_Size 0x200)은 건너뜀 */
+	s_paint_hi = (uint32_t *)(__get_MSP() - 64u);                    /* 지금 쓰는 스택은 남김 */
+	for (uint32_t *p = s_paint_lo; p < s_paint_hi; p++)
+		*p = STACK_PAINT;
+}
+
+/* 반환: 칠한 구간 아래쪽부터 무늬가 그대로인 바이트 수 = 지금까지 스택이 한 번도 닿지 않은 크기 */
+static uint16_t stack_free_bytes(void)
+{
+	uint32_t *p = s_paint_lo;
+	while (p < s_paint_hi && *p == STACK_PAINT)
+		p++;
+	const uint32_t b = (uint32_t)((uint8_t *)p - (uint8_t *)s_paint_lo);
+	return (uint16_t)(b > 0xFFFFu ? 0xFFFFu : b);
+}
+
 /* 연속 수음: 프레임 하나 → PCM 한 블록. 끊김이 있으면 FIR 상태를 지우고 표시한다.
  *  - ADC 번호가 건너뜀 / overrun → 샘플이 빠졌고 FIR 상태도 끊긴 입력을 이어 붙이면 안 됨 → RESYNC | GAP
  *  - 송신 큐 유실 → MCU의 FIR은 연속이지만 PC가 받은 샘플이 빠짐 → GAP만 */
@@ -145,8 +170,16 @@ static void on_stream_frame(
 	/* 4) 방향 추정: 같은 PCM 4채널을 doa.c에 넣는다 (방위 + 고도각, Step8e). 0.5 s 창이 끝나는 프레임(약 12프레임마다)에만 결과가 나온다.
 	 *    송신 큐 유실(GAP만)은 MCU 입력과 무관하므로 전처리를 다시 시작했을 때(RESYNC)만 끊김으로 본다 */
 	doa_result_t r;
-	if (doa_push((const int16_t (*)[DOA_FRAME])pcm, seq, (flags & STREAM_FLAG_RESYNC) != 0u, &r))
+	const bool restart = (flags & STREAM_FLAG_RESYNC) != 0u;
+	const bool doa_done = doa_push((const int16_t (*)[DOA_FRAME])pcm, seq, restart, &r);
+	if (doa_done)
 		(void)stream_push_doa(&r, seq);
+
+	/* 5) 고조파 점수 B0 (Step8b 이식): MIC1만. 2048점 FFT는 4프레임마다 한 번이고, DOA 창이 끝난 프레임이면
+	 *    (가장 무거운 프레임) 다음 프레임으로 미룬다. 1 s 창 결과가 약 0.49 s마다 나온다 */
+	harm_result_t hr;
+	if (harm_push(pcm[0], seq, restart, doa_done, &hr))
+		(void)stream_push_b0(&hr, seq);
 
 
 
@@ -157,6 +190,23 @@ static void on_stream_frame(
 	/* 5) CPU 사용률 = 이번 프레임 처리 사이클 / 프레임 마감 사이클, 올림. 100%를 넘으면 다음 반버퍼를 놓치기 시작한다.
 		 *    판정은 평균이 아니라 가장 무거운 프레임(창이 끝나는 프레임)으로 한다 */
 	cpu_pct = (uint8_t)((cyc * 100u + FRAME_CYCLES - 1u) / FRAME_CYCLES);
+
+	/* 6) 상태 패킷 (Step10 운용 기록): 48프레임(약 0.98 s)마다 반버퍼 주기 흔들림·CPU·큐 깊이·스택 여유를 한 번 보낸다 */
+	static uint32_t st_n, st_sum;
+	static uint8_t  st_max;
+	st_n++; st_sum += cpu_pct;
+	if (cpu_pct > st_max) st_max = cpu_pct;
+	if (st_n >= 48u) {
+		stream_stat_t st;
+		adc_take_period(&st.period_min, &st.period_max);
+		st.drop = adc_get_drop_cnt(); st.ovr = adc_get_ovr_cnt(); st.qdrop = stream_get_qdrop_cnt();
+		st.frames = (uint16_t)st_n;
+		st.cpu_max = st_max; st.cpu_avg = (uint8_t)((st_sum + st_n / 2u) / st_n);
+		stream_take_qmax(&st.pcm_q_max, &st.res_q_max);
+		st.stack_free = stack_free_bytes();
+		(void)stream_push_stat(&st, seq);
+		st_n = st_sum = 0u; st_max = 0u;
+	}
 }
 #endif
 
@@ -187,6 +237,8 @@ void app_init(
 	burst_init();
 #elif APP_MODE == APP_MODE_STREAM
 	doa_init();
+	harm_init();
+	stack_paint();
 #elif APP_MODE == APP_MODE_VERIFY
 	verify_init();
 #endif

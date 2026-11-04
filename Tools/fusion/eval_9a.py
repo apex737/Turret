@@ -3,6 +3,7 @@
     python fusion/eval_9a.py --check              입력만 확인 (재생 정렬, 창 수). 결합 결과는 내지 않는다
     python fusion/eval_9a.py --combiner naive     기준선: "최근 판정 + 최근 방위" (Step9A가 막으려는 방식)
     python fusion/eval_9a.py --combiner rule      fusion/combine.py (결합 규칙)
+    python fusion/eval_9a.py --combiner rule --cls b0   분류 자리에 실제 분류기 B0(MCU와 같은 계산, 1 s 창 0.49 s 이동)를 넣는다 → eval_rule_b0.md
     → reports/step9a/eval_<combiner>.md (수치만, 판정은 GUIDE/project/Steps/Step9A.md에)
 
 입력 (Step7 12방향 녹음, 보드 불필요)
@@ -79,7 +80,7 @@ def load_recording(folder, a, bg, ref):
     start, corr = align(full, fs, ref)
     clips = [(s00 + start + int(k * CLIP_S * fs), s00 + start + int((k + 1) * CLIP_S * fs)) for k in range(len(CLIPS))]
     m = re.search(r"az(\d{1,3})", os.path.basename(folder))
-    return dict(name=os.path.basename(folder), fs=fs, doa=doa, clips=clips, corr=corr, label=float(m.group(1)),
+    return dict(name=os.path.basename(folder), folder=folder, fs=fs, doa=doa, clips=clips, corr=corr, label=float(m.group(1)),
                 first=min(s for _, s in segs), last=max(s + x.shape[1] for x, s in segs))
 
 
@@ -101,6 +102,20 @@ def oracle_cls(rec, nonpos_clip=None):
         aud = m.any() and pres[m, 2].mean() >= 0.5
         pos = k >= 0 and aud and k != nonpos_clip
         out.append(dict(s0=s0, s1=s0 + w, score=float(pos), positive=bool(pos)))
+    return out
+
+
+def b0_cls(rec):
+    """실제 분류기 B0 (스피드런 2026-11-04): MCU harm.c와 같은 계산(harmonic/b0_stream.py)을 MIC1에. 움직임 감점은 끈다
+    (고정 스피커라 감점 대상과 같은 조건). 조용한 창 = 겹치는 방향 창 present가 절반 미만 (fusion/live.py와 같음)"""
+    import harmonic.b0_stream as bs
+    pres = np.array([(r["s0"], r["s1"], r["present"]) for r in rec["doa"]])
+    out = []
+    for x, s0 in ds.load_segments(rec["folder"]):
+        for w in bs.stream_scores(x[0], base=s0):
+            m = (pres[:, 0] >= w["s0"]) & (pres[:, 1] <= w["s0"] + w["n"])
+            aud = m.any() and pres[m, 2].mean() >= 0.5
+            out.append(dict(s0=w["s0"], s1=w["s0"] + w["n"], score=w["score"], positive=bool(w["pos"] and aud)))
     return out
 
 
@@ -170,6 +185,7 @@ def main():
     ap.add_argument("--doa-lat", type=float, default=0.02, help="방향 결과 도착 지연 [s] (MCU 계산 + UART)")
     ap.add_argument("--max-age", type=float, default=1.0, help="고장 주입 채점에서 허용하는 결과 경과 시간 [s]")
     ap.add_argument("--release", type=float, default=2.0, help="F2 비드론 구간에서 드론 해제까지 허용 [s]")
+    ap.add_argument("--cls", choices=["oracle", "b0"], default="oracle", help="분류 자리: 정답 타임라인 또는 실제 B0")
     g = ap.parse_args()
     a = doa_args()
     xb, _ = ds.load_folder(os.path.join(DUMPS, "doa_bg"))
@@ -183,8 +199,10 @@ def main():
         bias.append((c - r["label"] + 180) % 360 - 180)
     off = float(np.degrees(np.angle(np.mean(np.exp(1j * np.radians(bias))))))
     print(f"녹음 {len(recs)}개, 공통 회전 {off:+.1f}° (Step7: +11.4°)")
+    clsf = b0_cls if g.cls == "b0" else oracle_cls
     for r in recs:
-        cls = oracle_cls(r)
+        cls = clsf(r)
+        r["cls"] = cls
         print(f"  {r['name']:10s} 재생 정렬 상관 {r['corr']:.2f}  방향 창 {len(r['doa'])}  분류 창 {len(cls)} (positive {sum(c['positive'] for c in cls)})")
     if g.check:
         return
@@ -194,14 +212,14 @@ def main():
     rows, viol = [], {k: [0, 0] for k in ("F1", "F2", "F3", "F5")}
     for r in recs:
         fs = fs_(r); c0, c1, c2, c3, c4 = r["clips"]
-        base = oracle_cls(r)
+        base = r["cls"]
         res = {"F0": score(simulate(g.combiner, fs, base, r["doa"], g.cls_lat, g.doa_lat), truth(r), r["doa"], r["clips"], fs)}
         # F1 PC 멈춤
         st = (c2[0] + c2[1]) // 2; en = st + int(3 * fs)
         o = simulate(g.combiner, fs, [c for c in base if not (st <= c["s1"] + g.cls_lat * fs <= en)], r["doa"], g.cls_lat, g.doa_lat)
         viol["F1"][0] += violations(o, st + g.max_age * fs, en, lambda ang: True); viol["F1"][1] += sum(st + g.max_age * fs <= t <= en for t, *_ in o)
         # F2 비드론 구간
-        o = simulate(g.combiner, fs, oracle_cls(r, nonpos_clip=4), r["doa"], g.cls_lat, g.doa_lat)
+        o = simulate(g.combiner, fs, oracle_cls(r, nonpos_clip=4) if g.cls == "oracle" else base, r["doa"], g.cls_lat, g.doa_lat)
         viol["F2"][0] += violations(o, c4[0] + g.release * fs, c4[1], lambda ang: True); viol["F2"][1] += sum(c4[0] + g.release * fs <= t <= c4[1] for t, *_ in o)
         res["F2"] = score(o, truth(r), r["doa"], r["clips"], fs, nonpos_clip=4)
         # F3 방향 무효
@@ -217,7 +235,7 @@ def main():
     tA, tB = A["clips"][2][0], B["clips"][2][0]; sh = tA - tB
     mv = lambda e: dict(e, s0=e["s0"] + sh, s1=e["s1"] + sh)
     doa5 = [d for d in A["doa"] if d["s1"] <= tA] + [mv(d) for d in B["doa"] if d["s0"] >= tB]
-    cls5 = [c for c in oracle_cls(A) if c["s1"] <= tA] + [mv(c) for c in oracle_cls(B) if c["s0"] >= tB]
+    cls5 = [c for c in A["cls"] if c["s1"] <= tA] + [mv(c) for c in B["cls"] if c["s0"] >= tB]
     o = simulate(g.combiner, A["fs"], cls5, doa5, g.cls_lat, g.doa_lat)
     newt = (120 + off) % 360
     end = B["clips"][4][1] + sh
@@ -227,7 +245,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     md = [f"# Step9A 결합 평가 — `{g.combiner}`", "",
           f"> `Tools/fusion/eval_9a.py`가 만든 파일. 수치만 적는다 (판정은 GUIDE/project/Steps/Step9A.md).",
-          f"> 분류 = 정답 타임라인, 방향 = Step7 12방향 녹음 (D1, 공통 회전 {off:+.1f}°). 분류 도착 지연 {g.cls_lat} s, 방향 {g.doa_lat} s. "
+          f"> 분류 = {'정답 타임라인' if g.cls == 'oracle' else '실제 B0 (MCU와 같은 계산, 문턱 13.1, 조용한 창 거름, 움직임 감점 끔)'}, 방향 = Step7 12방향 녹음 (D1, 공통 회전 {off:+.1f}°). 분류 도착 지연 {g.cls_lat} s, 방향 {g.doa_lat} s. "
           f"고장 채점의 허용 결과 경과 시간 {g.max_age} s, 해제 허용 {g.release} s.", "",
           "| 녹음 | 공동 성공률 F0 (드론 시점 수) | 드론 없음 시점의 drone 출력 (시점 수) | F2 비드론 구간 넣은 뒤 공동 성공률 | F4 분류 1.5 s 늦음 공동 성공률 |",
           "|---|---|---|---|---|"]
@@ -238,10 +256,11 @@ def main():
     md += [f"| **최소 / 중앙** | {min(j):.2f} / {np.median(j):.2f} | {sum(res['F0']['fa'] for _, res in rows)} | | |", "",
            "## 고장 주입 — 잘못된 결합 (위반 시점 / 채점 시점)", "", "| 고장 | 위반 | 내용 |", "|---|---|---|",
            f"| F1 PC 멈춤 3 s | {viol['F1'][0]} / {viol['F1'][1]} | 멈춘 뒤 {g.max_age} s 지나서도 drone |",
-           f"| F2 비드론 구간 | {viol['F2'][0]} / {viol['F2'][1]} | 비드론 시작 {g.release} s 뒤에도 drone |",
+           (f"| F2 비드론 구간 | {viol['F2'][0]} / {viol['F2'][1]} | 비드론 시작 {g.release} s 뒤에도 drone |" if g.cls == "oracle" else
+            "| F2 비드론 구간 | 해당 없음 | 실제 분류기는 다섯 번째 원음도 드론 소리라 드론으로 낸다 |"),
            f"| F3 방향 무효 2 s | {viol['F3'][0]} / {viol['F3'][1]} | 무효 시작 {g.max_age} s 뒤에도 drone |",
            f"| F5 방향 바뀜 (az000 → az120) | {viol['F5'][0]} / {viol['F5'][1]} | 바뀐 뒤 {g.max_age} s 지나서 옛 방위 (새 정답과 10° 초과) |", ""]
-    p = os.path.join(OUT, f"eval_{g.combiner}.md")
+    p = os.path.join(OUT, f"eval_{g.combiner}{'' if g.cls == 'oracle' else '_' + g.cls}.md")
     open(p, "w", encoding="utf-8").write("\n".join(md))
     print("\n".join(md[5:]))
     print(f"→ {p}")

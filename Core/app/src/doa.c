@@ -89,8 +89,13 @@ static float32_t s_cc[DOA_PAIRS][2 * MAXM + 1];   // 6쌍의 상관 곡선 (지�
 
 /* ── 블록 처리용 ── */
 static int16_t   s_ring[DOA_CH][RING];         // 최근 PCM 1024샘플 × 4채널 (8 KB). 인덱스 = 샘플 번호 & 1023
-static float32_t s_fin[DOA_NFFT];              // FFT 입력 (계산 중 덮어써짐)
-static float32_t s_fout[DOA_NFFT];             // FFT 출력 (re, im 교대. [0]=DC, [1]=Nyquist)
+// 블록 FFT 작업 공간 8 KB: [0] = FFT 입력(계산 중 덮어써짐), [1] = FFT 출력(re, im 교대. [0]=DC, [1]=Nyquist).
+// block_spectrum() 안에서만 쓰고 다음 호출까지 남길 것이 없어서, doa_push가 끝난 뒤에는 harm.c(B0)가 2048점 FFT에 빌려 쓴다 (doa_scratch)
+static float32_t s_fbuf[2][DOA_NFFT];
+#define s_fin  (s_fbuf[0])
+#define s_fout (s_fbuf[1])
+
+float32_t *doa_scratch(void) { return &s_fbuf[0][0]; }
 static float32_t s_xb[DOA_CH][NB][2];          // 블록 하나의 대역 스펙트럼
 static uint32_t  s_xb_start;                   // s_xb가 어느 블록(첫 샘플 번호)의 것인지
 static bool      s_xb_ok;                      // s_xb가 유효한가. 새 프레임이 들어오면 false로 지운다

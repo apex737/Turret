@@ -8,6 +8,8 @@
                     RESYNC 블록의 첫 19샘플(FIR 과도 구간)은 버린다
   packets.csv       패킷마다 수신 시각·번호·플래그·유실 카운터·CPU
   doa_mcu.csv       MCU 방위 추정 결과 (0.25 s마다, doa.c). PC 기준과 비교: python doa/compare_mcu.py dumps/stream/<label>
+  stat_mcu.csv      MCU 상태 (약 1 s마다): ADC 반버퍼 주기 최소·최대 [사이클], CPU 최대·평균, 큐 최대 깊이, 스택 여유 (Step10)
+  b0_mcu.csv        MCU 고조파 점수 B0 (1 s 창, 약 0.49 s마다, harm.c). PC 기준과 비교: python harmonic/compare_b0.py dumps/stream/<label>
   raw.bin           받은 바이트 그대로 (나중에 --replay로 재현)
   summary.json      Step5 통과 기준 판정 (유실·OVR·CRC·클리핑 0, 시간 복원)
 
@@ -15,7 +17,7 @@
 """
 import argparse, csv, json, os, sys, time, wave
 import numpy as np
-from dump_viewer import PacketParser, TYPE_PCM, TYPE_DOA
+from dump_viewer import PacketParser, TYPE_PCM, TYPE_DOA, TYPE_B0, TYPE_STAT
 
 FS = 12500
 N = 256
@@ -38,6 +40,8 @@ class Recorder:
         self.csv.writerow(["t_rx", "seq", "frame_seq", "flags", "drop", "ovr", "qdrop", "cpu"])
         self.doa_csv = None
         self.doa_n = dict(results=0, valid=0, bg=0); self.doa_last = None; self.proc_max = 0
+        self.b0_csv = None; self.b0_n = dict(results=0, pos=0); self.b0_last = None; self.b0_proc_max = 0
+        self.st_csv = None; self.st = dict(packets=0, period_min=None, period_max=None, cpu_max=0, pcm_q_max=0, res_q_max=0, stack_free_min=None)
 
     def add_doa(self, p, t_rx):
         d = p["doa"]
@@ -55,6 +59,39 @@ class Recorder:
         self.doa_n["bg"] += bool(d["flags"] & 0x04)
         self.proc_max = max(self.proc_max, d["proc_us"])
         self.doa_last = d
+
+    def add_b0(self, p, t_rx):
+        b = p["b0"]
+        if self.b0_csv is None:
+            self.b0_csv = csv.writer(open(os.path.join(self.out, "b0_mcu.csv"), "w", newline=""))
+            self.b0_csv.writerow(["t_rx", "frame_seq", "s0", "n", "score", "f0", "rms_db", "frames", "proc_us", "flags"])
+        self.b0_csv.writerow([f"{t_rx:.4f}", p["frame_seq"], b["s0"], b["n"], f"{b['score']:.5f}", f"{b['f0']:.1f}",
+                              f"{b['rms_db']:.3f}", b["frames"], b["proc_us"], b["flags"]])
+        self.b0_n["results"] += 1
+        self.b0_n["pos"] += bool(b["flags"] & 0x01)
+        self.b0_proc_max = max(self.b0_proc_max, b["proc_us"])
+        self.b0_last = b
+
+    def add_stat(self, p, t_rx):
+        s = p["stat"]
+        if self.st_csv is None:
+            self.st_csv = csv.writer(open(os.path.join(self.out, "stat_mcu.csv"), "w", newline=""))
+            self.st_csv.writerow(["t_rx", "frame_seq", *s.keys()])
+        self.st_csv.writerow([f"{t_rx:.4f}", p["frame_seq"], *s.values()])
+        a = self.st
+        a["packets"] += 1
+        if s["period_max"]:                            # 간격이 하나도 없던 구간(재시작 직후)은 건너뜀
+            a["period_min"] = s["period_min"] if a["period_min"] is None else min(a["period_min"], s["period_min"])
+            a["period_max"] = s["period_max"] if a["period_max"] is None else max(a["period_max"], s["period_max"])
+        a["cpu_max"] = max(a["cpu_max"], s["cpu_max"])
+        a["pcm_q_max"] = max(a["pcm_q_max"], s["pcm_q_max"]); a["res_q_max"] = max(a["res_q_max"], s["res_q_max"])
+        a["stack_free_min"] = s["stack_free"] if a["stack_free_min"] is None else min(a["stack_free_min"], s["stack_free"])
+
+    def b0_status(self):
+        b = self.b0_last
+        if b is None:
+            return ""
+        return f"  B0 {b['score']:5.1f}{'*' if b['flags'] & 1 else ' '} f0 {b['f0']:4.0f}Hz"
 
     def doa_status(self):
         d = self.doa_last
@@ -121,6 +158,8 @@ class Recorder:
                     time_restore=all(s["samples"] > 0 for s in self.segs))
         summ = dict(seconds=round(seconds, 1), packets=self.n, parser=st, delta_drop_ovr_qdrop=dc, cpu_max_pct=self.cpu_max,
                     doa=dict(self.doa_n, proc_us_max=self.proc_max),
+                    b0=dict(self.b0_n, proc_us_max=self.b0_proc_max),
+                    stat=self.st,
                     segments=self.segs, criteria=crit, passed=all(crit.values()),
                     note="crc_fail에는 PCM 안의 FF FF FF FF를 sync로 잘못 잡았다가 버린 것도 포함될 수 있다. seq_gap이 0이면 실제 손실은 없음")
         json.dump(summ, open(os.path.join(self.out, "summary.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
@@ -150,6 +189,10 @@ def main():
                 rec.add(p, t_rx)
             elif p["type"] == TYPE_DOA:
                 rec.add_doa(p, t_rx)
+            elif p["type"] == TYPE_B0:
+                rec.add_b0(p, t_rx)
+            elif p["type"] == TYPE_STAT:
+                rec.add_stat(p, t_rx)
 
     if a.replay:
         data = open(a.replay, "rb").read()
@@ -187,7 +230,7 @@ def main():
                         lv = rec.levels(); dt = time.time() - t_show; t_show = time.time()
                         print(f"{time.time() - t0:7.1f}s  {nbytes / dt / 1000:5.1f} KB/s  "
                               + " ".join(f"ch{c + 1} {v:6.1f}" for c, v in enumerate(lv))
-                              + f"  cpu≤{rec.cpu_max}%  gaps {rec.n['frame_gaps']}  clip {rec.n['clip_packets']}  {parser.stats}" + rec.doa_status())
+                              + f"  cpu≤{rec.cpu_max}%  gaps {rec.n['frame_gaps']}  clip {rec.n['clip_packets']}  {parser.stats}" + rec.doa_status() + rec.b0_status())
                         nbytes = 0
             except KeyboardInterrupt:
                 pass
@@ -197,7 +240,7 @@ def main():
         raw.close()
         seconds = time.time() - t0
     s = rec.close(parser, seconds)
-    print(json.dumps({k: s[k] for k in ("seconds", "packets", "parser", "delta_drop_ovr_qdrop", "cpu_max_pct", "doa", "criteria", "passed")},
+    print(json.dumps({k: s[k] for k in ("seconds", "packets", "parser", "delta_drop_ovr_qdrop", "cpu_max_pct", "doa", "b0", "stat", "criteria", "passed")},
                      ensure_ascii=False, indent=1))
     print(f"WAV {len(s['segments'])}개 → {out}")
 

@@ -32,6 +32,8 @@ static volatile uint32_t frameSeq;                    // 만들어진 반버퍼 
 static volatile uint32_t dropCnt;                     // 가져가지 못하고 덮어쓰인 프레임
 static volatile uint32_t ovrCnt;                      // ADC overrun 횟수
 static volatile bool     ovrPending;                  // 재시작 필요 (ISR → main)
+static volatile uint32_t lastStamp;                   // 직전 반버퍼 완료 시각 [DWT 사이클]. 0 = 아직 없음 (재시작 직후)
+static volatile uint32_t periodMin = 0xFFFFFFFFu, periodMax;   // 반버퍼 간격 최소·최대 [사이클] (Step10 프레임 주기 흔들림, 기대 3,686,400)
 /* volatile: 위 변수들은 ISR과 main이 함께 읽고 쓴다. 컴파일러가 값을 레지스터에 담아 두고 재사용하지 못하게 해서
  * main이 매번 메모리에서 최신 값을 읽게 한다. (여러 변수를 "한 번에" 읽는 것은 volatile로 안 되므로 임계 구역을 쓴다) */
 
@@ -40,6 +42,7 @@ static volatile bool     ovrPending;                  // 재시작 필요 (ISR �
  * 그러면 인터리브 순서가 한 칸 밀려 채널이 뒤바뀐다. */
 static void start_all(void)
 {
+	lastStamp = 0u;                 // 멈췄다 다시 시작한 간격은 주기로 세지 않는다
 	if (HAL_ADC_Start(s_slv1) != HAL_OK) error_handle();
 	if (HAL_ADC_Start(s_slv2) != HAL_OK) error_handle();
 	if (HAL_ADCEx_MultiModeStart_DMA(s_mstr, (uint32_t *)adc_buffer, ADC_DMA_LENGTH) != HAL_OK)
@@ -105,6 +108,13 @@ static inline void adc_on_half_ready(
 	const uint16_t* half	// 방금 다 찬 절반의 시작 주소 (&adc_buffer[0] 또는 &adc_buffer[ADC_HALF_LENGTH])
 )
 {
+	const uint32_t now = DWT->CYCCNT;
+	if (lastStamp != 0u) {
+		const uint32_t d = now - lastStamp;          // 부호 없는 뺄셈이라 2^32 넘침도 맞다 (23.9 s마다)
+		if (d < periodMin) periodMin = d;
+		if (d > periodMax) periodMax = d;
+	}
+	lastStamp = now;
 	if(readyHalf != NULL) {
 		dropCnt++;             // 이전 반버퍼를 아무도 가져가지 않았는데 새 것이 옴 → 이전 것은 사라짐
 	}
@@ -169,6 +179,16 @@ bool adc_get_frame(
 
 	*seq = my_seq;
 	return true;
+}
+
+/* 반버퍼 간격 최소·최대 [DWT 사이클]을 읽고 다음 구간을 위해 지운다 (main에서, 상태 패킷마다).
+ * 간격이 하나도 없었으면 min = 0xFFFFFFFF, max = 0 */
+void adc_take_period(uint32_t *min, uint32_t *max)
+{
+	__disable_irq();
+	*min = periodMin; *max = periodMax;
+	periodMin = 0xFFFFFFFFu; periodMax = 0u;
+	__enable_irq();
 }
 
 uint32_t adc_get_drop_cnt(void) { return dropCnt; }
