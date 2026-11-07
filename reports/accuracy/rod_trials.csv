@@ -1,0 +1,2 @@
+label,planned_el,truth_az,truth_el,rep,h_cm,l_cm,n_win,n_present,n_valid,valid_rate,az_bias,az_abs_med,az_abs_p95,el_bias,el_abs_med,el_abs_p95,snr_med,clip_packets,frames_missing
+rod_e00_a000_r1,0,0.0,0.0,1,0.0,110.0,122,122,8,0.066,-22.14,21.78,24.21,15.99,15.99,19.15,22.1,0,0
