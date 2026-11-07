@@ -26,8 +26,7 @@ Backup/
 *.log
 st-link_gdbserver_log.txt
 .vscode/
-.claude/*
-!.claude/memory/
+.claude/
 *.swp
 *~
 Thumbs.db
@@ -52,6 +51,8 @@ Tools/dumps/
 # ---- 공개 데이터셋 원본·변환본 (용량이 커서 git에 올리지 않음) ----
 /DataSet/
 
-# ---- 학습 자료 (GUIDE/references/README.md) — 강의자료는 비공개 ----
-GUIDE/references/*
-!GUIDE/references/README.md
+# ---- 학습 기록·AI 지침 (로컬에만 둔다, 2026-11-07 git에서 내림) ----
+/GUIDE/
+/GUIDE_v3/
+/learning/
+/CLAUDE.md
